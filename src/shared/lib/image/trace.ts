@@ -174,6 +174,16 @@ export function traceSkeleton(
       sum += Math.hypot(points[i]!.x - points[i - 1]!.x, points[i]!.y - points[i - 1]!.y)
     return sum
   }
+  /** 마디에 붙은 가지 수 (자기 자신으로 돌아오는 고리는 양 끝이 모두 붙으므로 둘로 셈) */
+  const branchCount = (nodeId: number) => {
+    let count = 0
+    for (const id of nodes[nodeId]!.edges) {
+      const edge = edges[id]!
+      if (edge.a === nodeId) count += 1
+      if (edge.b === nodeId) count += 1
+    }
+    return count
+  }
   const kill = (id: number) => {
     const edge = edges[id]!
     edge.alive = false
@@ -189,7 +199,7 @@ export function traceSkeleton(
       const a = nodes[edge.a]!
       const b = nodes[edge.b]!
       const length = lengthOf(edge.points)
-      const spur = (a.end && b.edges.size >= 3) || (b.end && a.edges.size >= 3)
+      const spur = (a.end && branchCount(edge.b) >= 3) || (b.end && branchCount(edge.a) >= 3)
       const crumb = a.end && b.end && length < options.spurLength * 0.6
       if ((spur && length < options.spurLength) || crumb) {
         kill(id)

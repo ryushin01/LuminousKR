@@ -1,11 +1,13 @@
 import type { Point } from '../geometry/index.ts'
 
-function perpendicular(p: Point, a: Point, b: Point): number {
+/** 점에서 선분 a–b까지의 거리 (무한 직선이 아니라 선분이라, 되돌아가는 획의 끝을 잃지 않음) */
+function distanceToSegment(p: Point, a: Point, b: Point): number {
   const dx = b.x - a.x
   const dy = b.y - a.y
-  const len = Math.hypot(dx, dy)
-  if (len === 0) return Math.hypot(p.x - a.x, p.y - a.y)
-  return Math.abs(dy * p.x - dx * p.y + b.x * a.y - b.y * a.x) / len
+  const len2 = dx * dx + dy * dy
+  if (len2 === 0) return Math.hypot(p.x - a.x, p.y - a.y)
+  const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2))
+  return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy))
 }
 
 function rdp(points: readonly Point[], epsilon: number): Point[] {
@@ -15,7 +17,7 @@ function rdp(points: readonly Point[], epsilon: number): Point[] {
   const first = points[0]!
   const last = points[points.length - 1]!
   for (let i = 1; i < points.length - 1; i++) {
-    const d = perpendicular(points[i]!, first, last)
+    const d = distanceToSegment(points[i]!, first, last)
     if (d > max) {
       max = d
       index = i

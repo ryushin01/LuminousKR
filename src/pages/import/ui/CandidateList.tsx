@@ -28,6 +28,10 @@ function describe(candidate: Candidate): string {
 export function CandidateList(props: { importer: Importer }) {
   const [usePen, setUsePen] = createSignal(false)
   const [applied, setApplied] = createSignal(0)
+  const hasRepeats = () => {
+    const keys = props.importer.candidates.map((c) => c.key)
+    return new Set(keys).size < keys.length
+  }
 
   return (
     <Show
@@ -47,6 +51,12 @@ export function CandidateList(props: { importer: Importer }) {
             모두 풀기
           </Button>
         </div>
+        <Show when={hasRepeats()}>
+          <p class={styles.note}>
+            같은 자모를 여러 번 올렸습니다. 자모마다 하나만 적용하므로, 하나를 고르면 같은 자모의
+            다른 칸은 풀립니다.
+          </p>
+        </Show>
         <ul class={styles.candidates}>
           <For each={props.importer.candidates}>
             {(candidate) => {

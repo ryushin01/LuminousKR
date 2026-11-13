@@ -68,6 +68,37 @@ describe('세선화와 뼈대 추적', () => {
     expect(ellipse).not.toBeNull()
     expect(ellipse!.rx).toBeGreaterThan(ellipse!.ry)
   })
+
+  it('고리에 붙은 짧은 꼬리는 잔가지로 지워 고리가 닫힌 채로 남습니다', () => {
+    // 펜을 고리 밖에서 대고 시작해 생긴 짧은 꼬리 (교차점에는 고리 양 끝 + 꼬리 = 가지 셋)
+    const looped = paint(110, 100, (x, y) => {
+      const r = Math.hypot((x - 50) / 36, (y - 50) / 28)
+      const ring = r > 0.85 && r < 1.12
+      const tail = y >= 47 && y < 53 && x >= 85 && x < 95
+      return ring || tail
+    })
+    const strokes = traceSkeleton(thin(looped), { spurLength: 12 })
+    expect(strokes).toHaveLength(1)
+    expect(strokes[0]!.closed).toBe(true)
+    expect(asEllipse(strokes[0]!.points)).not.toBeNull()
+  })
+})
+
+describe('꺾은선 단순화', () => {
+  it('되돌아가는 획은 돌아선 끝점을 지우지 않고 남깁니다', () => {
+    // 오른쪽으로 갔다가 같은 줄을 따라 되돌아오는 획: 무한 직선 거리로는 모든 점이 0이라 끝이 사라짐
+    const back = [
+      { x: 0, y: 0 },
+      { x: 10, y: 0 },
+      { x: 20, y: 0 },
+      { x: 12, y: 0 },
+      { x: 5, y: 0 },
+    ]
+    const simplified = simplifyPolyline(back, 1, false)
+    expect(simplified).toContainEqual({ x: 20, y: 0 })
+    expect(simplified[0]).toEqual({ x: 0, y: 0 })
+    expect(simplified.at(-1)).toEqual({ x: 5, y: 0 })
+  })
 })
 
 describe('원근 변환과 이진화', () => {
