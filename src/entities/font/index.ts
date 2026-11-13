@@ -39,7 +39,14 @@ export {
 } from './model/layout.ts'
 export { derivationSources, isDerivable } from './model/derivation.ts'
 export { BASIC_JAMO_KEYS, createBlankProject, createPresetProject } from './model/preset.ts'
-export { ProjectFormatError, normalizeProject, parseProjectJson } from './model/validate.ts'
+export {
+  MAX_POINTS_PER_STROKE,
+  MAX_STROKES_PER_DRAWING,
+  ProjectFormatError,
+  drawingLimitError,
+  normalizeProject,
+  parseProjectJson,
+} from './model/validate.ts'
 export {
   canRedo,
   canUndo,

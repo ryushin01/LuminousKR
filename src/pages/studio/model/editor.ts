@@ -3,9 +3,12 @@ import { batch, createMemo, createSignal } from 'solid-js'
 import {
   type JamoKey,
   type LayoutId,
+  MAX_POINTS_PER_STROKE,
+  MAX_STROKES_PER_DRAWING,
   type PlacedStroke,
   type Point,
   bodyFrame,
+  drawingLimitError,
   editProject,
   fontProject,
   frameBox,
@@ -143,6 +146,13 @@ export function createEditor(initialKey: JamoKey = 'L0') {
       selectAt(p)
       return
     }
+    // 한도를 넘는 그림은 자동 저장한 작업을 다음에 열 수 없게 하므로 미리 막습니다.
+    if (pending().length === 0 && ownStrokes().length >= MAX_STROKES_PER_DRAWING) {
+      say(
+        `자모 하나에는 획을 ${MAX_STROKES_PER_DRAWING}개까지 넣을 수 있습니다. 쓰지 않는 획을 지운 뒤 그려 주세요.`,
+      )
+      return
+    }
     if (current === 'ellipse') {
       const [first] = pending()
       if (!first) {
@@ -170,6 +180,12 @@ export function createEditor(initialKey: JamoKey = 'L0') {
     }
     if (last && samePoint(last, p)) {
       if (points.length >= 1) commitPath(points, false)
+      return
+    }
+    if (points.length >= MAX_POINTS_PER_STROKE) {
+      say(
+        `획 하나에는 점을 ${MAX_POINTS_PER_STROKE}개까지 넣을 수 있습니다. '획 마치기'(Enter)로 이 획을 마친 뒤 이어서 그려 주세요.`,
+      )
       return
     }
     setPending([...points, p])
@@ -247,6 +263,11 @@ export function createEditor(initialKey: JamoKey = 'L0') {
   /** 자동·기본 획을 가져와 이 배치에서 직접 고칠 수 있게 합니다. */
   function adopt() {
     const strokes = placedStrokes()
+    const problem = drawingLimitError(strokes)
+    if (problem) {
+      say(`가져오지 못했습니다. ${problem} 바탕이 되는 자모의 획을 줄인 뒤 다시 가져와 주세요.`)
+      return
+    }
     editProject((draft) => adoptStrokes(draft, target(), box(), strokes))
     say(
       isHome()

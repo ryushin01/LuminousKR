@@ -30,6 +30,23 @@ const JAMO_KEY = /^(L(1[0-8]|[0-9])|V(20|1[0-9]|[0-9])|T(2[0-7]|1[0-9]|[1-9]))$/
 export const MAX_STROKES_PER_DRAWING = 300
 export const MAX_POINTS_PER_STROKE = 2000
 
+type CountedStroke = { kind: 'path'; points: readonly unknown[] } | { kind: 'ellipse' }
+
+/**
+ * 그림 하나가 위 한도 안에 드는지 봅니다. 넘으면 까닭을 돌려줍니다.
+ * 프로젝트에 넣기 전에 검사해야 자동 저장한 작업을 다음에 다시 열 수 있습니다.
+ */
+export function drawingLimitError(strokes: readonly CountedStroke[]): string | null {
+  if (strokes.length > MAX_STROKES_PER_DRAWING) {
+    return `획이 ${strokes.length}개로, 자모 하나에 넣을 수 있는 ${MAX_STROKES_PER_DRAWING}개를 넘습니다.`
+  }
+  const most = Math.max(0, ...strokes.map((s) => (s.kind === 'path' ? s.points.length : 0)))
+  if (most > MAX_POINTS_PER_STROKE) {
+    return `점이 ${most}개인 획이 있어, 획 하나에 넣을 수 있는 ${MAX_POINTS_PER_STROKE}개를 넘습니다.`
+  }
+  return null
+}
+
 function readStroke(raw: unknown, fallbackId: string): Stroke | null {
   if (!isObject(raw)) return null
   const id = typeof raw.id === 'string' && raw.id.length > 0 ? raw.id.slice(0, 40) : fallbackId

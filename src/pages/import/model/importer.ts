@@ -3,6 +3,7 @@ import { createStore, produce } from 'solid-js/store'
 import {
   type JamoKey,
   bodyFrame,
+  drawingLimitError,
   editProject,
   fontProject,
   frameBox,
@@ -109,6 +110,7 @@ export function createImporter(deps: Deps = DEFAULT_DEPS) {
   }
 
   async function readTemplateFile(file: File, order: number): Promise<void> {
+    if (disposed) return
     const id = startSource(file.name, '여는 중…')
     let read: ReadResult
     try {
@@ -142,24 +144,37 @@ export function createImporter(deps: Deps = DEFAULT_DEPS) {
         notes.push(`${page.label}: ${result.message}`)
         continue
       }
+      const skipped: string[] = []
+      let accepted = 0
       for (const cell of result.cells) {
+        const key = cell.key as JamoKey
+        // 한도를 넘는 그림을 넣으면 자동 저장한 작업을 다음에 열 수 없으므로 후보로 받지 않습니다.
+        const problem = drawingLimitError(cell.strokes)
+        if (problem) {
+          skipped.push(
+            `${jamoLabel(key)} 칸은 건너뛰었습니다. ${problem} 칸에 잡티나 그림자가 없는지 확인하고 다시 찍어 주세요.`,
+          )
+          continue
+        }
         addCandidate({
-          key: cell.key as JamoKey,
+          key,
           strokes: cell.strokes,
           penWidth: cell.penWidth,
           preview: objectUrl(cell.preview),
           source: page.label,
           order,
         })
+        accepted += 1
       }
-      found += result.cells.length
+      found += accepted
       const name = templateSet(result.setId)?.name ?? '알 수 없는'
       notes.push(
         result.cells.length === 0
           ? `${page.label}: '${name}' 양식을 찾았지만 그린 칸이 없습니다. 칸 안에 진한 펜으로 그렸는지 확인해 주세요.`
-          : `${page.label}: '${name}' 양식에서 ${result.cells.length}자를 찾았습니다${
+          : `${page.label}: '${name}' 양식에서 ${accepted}자를 찾았습니다${
               result.empty.length > 0 ? ` (빈 칸 ${result.empty.length}개)` : ''
             }.`,
+        ...skipped,
       )
     }
     if (disposed) return
@@ -175,7 +190,11 @@ export function createImporter(deps: Deps = DEFAULT_DEPS) {
   /** 양식 사진·PDF를 차례로 읽습니다. 올린 순서는 기다리기 전에 정해 둡니다. */
   async function addTemplateFiles(files: readonly File[]): Promise<void> {
     const orders = files.map(() => ++uploads)
-    for (const [i, file] of files.entries()) await readTemplateFile(file, orders[i]!)
+    for (const [i, file] of files.entries()) {
+      // 화면을 떠났으면 남은 파일은 열지 않습니다.
+      if (disposed) return
+      await readTemplateFile(file, orders[i]!)
+    }
   }
 
   /** 양식 없이 그림 한 장을 고른 자모로 읽습니다. PDF는 첫 쪽만 씁니다. */
@@ -203,6 +222,13 @@ export function createImporter(deps: Deps = DEFAULT_DEPS) {
       if (disposed) return
       if (!result.ok) {
         fail(`${file.name}: ${result.message}`)
+        return
+      }
+      const problem = drawingLimitError(result.strokes)
+      if (problem) {
+        fail(
+          `${file.name}: ${problem} 잡티나 그림자가 없는지 확인하고, 자모만 크게 다시 찍어 주세요.`,
+        )
         return
       }
       addCandidate({

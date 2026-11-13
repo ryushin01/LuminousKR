@@ -10,7 +10,14 @@ import {
   resetProjectStoreForTest,
   undo,
 } from './store.ts'
-import { ProjectFormatError, normalizeProject, parseProjectJson } from './validate.ts'
+import {
+  MAX_POINTS_PER_STROKE,
+  MAX_STROKES_PER_DRAWING,
+  ProjectFormatError,
+  drawingLimitError,
+  normalizeProject,
+  parseProjectJson,
+} from './validate.ts'
 
 describe('프로젝트 저장소와 되돌리기', () => {
   beforeEach(() => resetProjectStoreForTest())
@@ -92,6 +99,26 @@ describe('프로젝트 파일 검사', () => {
       project.jamo.L0!.base!.strokes[0]!.kind === 'path' &&
         project.jamo.L0!.base!.strokes[0]!.points,
     ).toHaveLength(500)
+  })
+
+  it('넣기 전 검사는 파일 검사와 같은 한도를 씁니다 (한도 안이면 저장한 뒤 다시 열림)', () => {
+    const point = { x: 0.5, y: 0.5 }
+    const dot = { kind: 'path' as const, points: [point] }
+    const atLimit = Array.from({ length: MAX_STROKES_PER_DRAWING }, () => dot)
+    expect(drawingLimitError(atLimit)).toBeNull()
+    expect(drawingLimitError([...atLimit, dot])).toContain(
+      `${MAX_STROKES_PER_DRAWING}개를 넘습니다`,
+    )
+    const longest = { kind: 'path' as const, points: Array(MAX_POINTS_PER_STROKE).fill(point) }
+    expect(drawingLimitError([longest, { kind: 'ellipse' }])).toBeNull()
+    expect(drawingLimitError([{ ...longest, points: [...longest.points, point] }])).toContain(
+      `${MAX_POINTS_PER_STROKE}개를 넘습니다`,
+    )
+
+    // 검사를 통과한 그림은 자동 저장한 뒤 다시 열 수 있습니다.
+    const raw = JSON.parse(JSON.stringify(createPresetProject()))
+    raw.jamo.L0.base.strokes = atLimit.map((s, i) => ({ ...s, id: `s${i}` }))
+    expect(normalizeProject(raw).jamo.L0!.base!.strokes).toHaveLength(MAX_STROKES_PER_DRAWING)
   })
 
   it('저장한 프로젝트는 그대로 읽고, 범위를 벗어난 값은 바로잡습니다', () => {

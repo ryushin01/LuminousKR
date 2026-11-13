@@ -1,6 +1,13 @@
 import { createRoot } from 'solid-js'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { bodyFrame, createPresetProject, fontProject, replaceProject, undo } from '@/entities/font'
+import {
+  MAX_STROKES_PER_DRAWING,
+  bodyFrame,
+  createPresetProject,
+  fontProject,
+  replaceProject,
+  undo,
+} from '@/entities/font'
 import type { PageRecognition, RecognizedCell } from '../worker/recognize-protocol.ts'
 import { createImporter } from './importer.ts'
 
@@ -206,27 +213,25 @@ describe('가져오기', () => {
     })
   })
 
-  it('화면을 떠난 뒤 끝난 인식은 버리고, 아직 넘기지 않은 그림은 닫습니다', async () => {
+  it('화면을 떠난 뒤 끝난 인식은 버리고, 넘기지 않은 그림은 닫고, 남은 파일은 열지 않습니다', async () => {
     const pending = deferred<PageRecognition>()
     const pages = [fakeBitmap(), fakeBitmap()]
+    const read = vi.fn(async (file: File) => ({
+      pages: pages.map((bitmap, i) => ({ label: `${file.name} ${i + 1}쪽`, bitmap })),
+      skippedPages: 0,
+    }))
     const recognize = vi.fn(() => pending.promise)
     const createUrl = vi.spyOn(URL, 'createObjectURL')
     let importer!: Importer
     let done!: Promise<void>
     const dispose = createRoot((dispose) => {
       importer = createImporter(
-        fakeDeps(
-          {},
-          {
-            readPageSources: async () => ({
-              pages: pages.map((bitmap, i) => ({ label: `scan.pdf ${i + 1}쪽`, bitmap })),
-              skippedPages: 0,
-            }),
-            recognizeTemplatePage: recognize,
-          },
-        ),
+        fakeDeps({}, { readPageSources: read, recognizeTemplatePage: recognize }),
       )
-      done = importer.addTemplateFiles([new File(['x'], 'scan.pdf', { type: 'application/pdf' })])
+      done = importer.addTemplateFiles([
+        new File(['x'], 'scan.pdf', { type: 'application/pdf' }),
+        jpeg('later.jpg'),
+      ])
       return dispose
     })
     await vi.waitFor(() => expect(recognize).toHaveBeenCalledTimes(1))
@@ -238,6 +243,47 @@ describe('가져오기', () => {
     expect(createUrl).not.toHaveBeenCalled()
     expect(recognize).toHaveBeenCalledTimes(1)
     expect(pages[1]!.close).toHaveBeenCalled()
+    expect(read).toHaveBeenCalledTimes(1)
+    expect(importer.sources.map((s) => s.label)).toEqual(['scan.pdf'])
+  })
+
+  it('획이 한도를 넘는 칸은 후보로 받지 않고 까닭과 고치는 방법을 알립니다', async () => {
+    const line = cell('L2').strokes[0]!
+    const noisy: RecognizedCell = {
+      ...cell('L2'),
+      strokes: Array.from({ length: MAX_STROKES_PER_DRAWING + 1 }, () => line),
+    }
+    const deps = fakeDeps({ 'noisy.jpg': async () => found(cell('L0'), noisy) })
+    await withImporter(deps, async (importer) => {
+      await importer.addTemplateFiles([jpeg('noisy.jpg')])
+      expect(importer.candidates.map((c) => c.key)).toEqual(['L0'])
+      const { message } = importer.sources[0]!
+      expect(message).toContain('양식에서 1자를 찾았습니다')
+      expect(message).toContain('ㄴ 초성 칸은 건너뛰었습니다')
+      expect(message).toContain(`${MAX_STROKES_PER_DRAWING}개를 넘습니다`)
+      expect(message).toContain('잡티나 그림자가 없는지 확인하고 다시 찍어 주세요')
+    })
+  })
+
+  it('양식 없이 한 장 읽기도 한도를 넘는 그림은 넣지 않습니다', async () => {
+    const dot = { kind: 'ellipse' as const, cx: 0.5, cy: 0.5, rx: 0.01, ry: 0.01 }
+    const deps = fakeDeps(
+      {},
+      {
+        recognizeSingleImage: async () => ({
+          ok: true,
+          strokes: Array.from({ length: MAX_STROKES_PER_DRAWING + 1 }, () => dot),
+          penWidth: 0.05,
+          preview: blob,
+        }),
+      },
+    )
+    await withImporter(deps, async (importer) => {
+      await importer.addSingleFile(jpeg('scribble.jpg'), 'L11')
+      expect(importer.candidates).toHaveLength(0)
+      expect(importer.sources[0]).toMatchObject({ state: 'error' })
+      expect(importer.sources[0]!.message).toContain(`${MAX_STROKES_PER_DRAWING}개를 넘습니다`)
+    })
   })
 
   it('양식 없이 한 장 읽기는 첫 쪽만 쓰고 나머지 그림은 닫습니다', async () => {
