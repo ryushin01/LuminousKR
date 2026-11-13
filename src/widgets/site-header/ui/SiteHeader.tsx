@@ -8,7 +8,7 @@ import styles from './SiteHeader.module.css'
 
 /** 화면 위쪽에 늘 보이는 짧은 단계 링크 (넓은 화면) */
 const QUICK_LINKS = NAV_ITEMS.filter((item) =>
-  ['/studio', '/preview', '/export'].includes(item.path),
+  ['/studio', '/import', '/preview', '/export'].includes(item.path),
 )
 
 function Brand() {

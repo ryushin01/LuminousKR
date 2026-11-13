@@ -1,7 +1,13 @@
 import { createRoot } from 'solid-js'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { createBlankProject, fontProject, replaceProject, undo } from '@/entities/font'
-import { strokeFromSyllable, strokeToSyllable } from '../lib/drawing-ops.ts'
+import {
+  createBlankProject,
+  fontProject,
+  replaceProject,
+  strokeFromSyllable,
+  strokeToSyllable,
+  undo,
+} from '@/entities/font'
 import { createEditor } from './editor.ts'
 
 function withEditor(run: (editor: ReturnType<typeof createEditor>) => void) {

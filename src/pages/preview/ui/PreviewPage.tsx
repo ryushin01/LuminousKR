@@ -12,7 +12,7 @@ export function PreviewPage() {
   return (
     <div class={styles.page}>
       <PageHeader
-        number="03"
+        number="04"
         label="미리보기"
         title="글과 11,172자를 둘러봅니다"
         lead="글을 입력하면 그 글에 쓰인 글자만 담은 진짜 글꼴 파일을 만들어 보여 줍니다. 아래 표에서는 초성별로 모든 음절을 확인할 수 있습니다."

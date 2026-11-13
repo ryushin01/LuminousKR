@@ -14,6 +14,7 @@ import {
   jamoLabel,
   layoutsOf,
   placedStrokesFor,
+  strokeToSyllable,
 } from '@/entities/font'
 import { LAYOUT_INFO } from '@/entities/font'
 import { clampPoint, hitNode, hitStroke, samePoint, snapPoint } from '../lib/canvas-geometry.ts'
@@ -28,7 +29,6 @@ import {
   removeDrawing,
   removeStroke,
   setStrokeSmooth,
-  strokeToSyllable,
 } from '../lib/drawing-ops.ts'
 
 export type Tool = 'line' | 'curve' | 'ellipse' | 'select'

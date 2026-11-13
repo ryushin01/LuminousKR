@@ -5,6 +5,7 @@ import { AppShell } from '../layout/AppShell.tsx'
 /** 화면마다 코드를 나눠, 처음에는 홈에 필요한 것만 받습니다. */
 const HomePage = lazy(() => import('@/pages/home').then((m) => ({ default: m.HomePage })))
 const StudioPage = lazy(() => import('@/pages/studio').then((m) => ({ default: m.StudioPage })))
+const ImportPage = lazy(() => import('@/pages/import').then((m) => ({ default: m.ImportPage })))
 const PreviewPage = lazy(() => import('@/pages/preview').then((m) => ({ default: m.PreviewPage })))
 const ExportPage = lazy(() => import('@/pages/export').then((m) => ({ default: m.ExportPage })))
 const GuidePage = lazy(() => import('@/pages/guide').then((m) => ({ default: m.GuidePage })))
@@ -20,6 +21,7 @@ export function AppRouter() {
     <Router base={base} root={AppShell}>
       <Route path="/" component={HomePage} />
       <Route path="/studio" component={StudioPage} />
+      <Route path="/import" component={ImportPage} />
       <Route path="/preview" component={PreviewPage} />
       <Route path="/export" component={ExportPage} />
       <Route path="/guide" component={GuidePage} />

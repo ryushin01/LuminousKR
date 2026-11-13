@@ -19,7 +19,7 @@ const STEPS = [
   {
     number: '01',
     title: '뼈대만 그립니다',
-    body: '자음 14자와 모음 10자의 가운데 선만 그립니다. 겹자음·겹받침·ㅐ·ㅘ 같은 나머지 43자는 규칙에 따라 자동으로 만들어집니다.',
+    body: '자음 14자와 모음 10자의 가운데 선만 그립니다. 손으로 쓴 양식을 찍어 올려도 됩니다. 겹자음·겹받침·ㅐ·ㅘ 같은 나머지 43자는 규칙에 따라 자동으로 만들어집니다.',
   },
   {
     number: '02',
@@ -72,8 +72,8 @@ export function HomePage() {
               작업실 열기
               <Icon name="arrowRight" size={18} />
             </ButtonLink>
-            <ButtonLink href="/preview" variant="secondary">
-              11,172자 둘러보기
+            <ButtonLink href="/import" variant="secondary">
+              손글씨 양식으로 시작
             </ButtonLink>
           </div>
         </div>
