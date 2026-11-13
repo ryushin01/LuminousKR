@@ -1,0 +1,61 @@
+/*
+ * 디자인 토큰 — 검은 우주 배경 위의 빛(Luminous)
+ * 글자색은 모든 면 색에서 4.5:1 이상(KWCAG 5.4.3), 경계선·조작 요소 테두리는 3:1 이상으로 맞춤
+ */
+:root {
+  color-scheme: dark;
+
+  --c-void: #050507;
+  --c-space: #0b0b10;
+  --c-panel: #12121a;
+  --c-panel-raised: #1a1a25;
+  --c-panel-glass: rgb(16 16 24 / 0.78);
+
+  --c-line: rgb(255 255 255 / 0.12);
+  --c-line-strong: rgb(255 255 255 / 0.22);
+  /* 입력칸·버튼 테두리 (배경 대비 3:1 이상) */
+  --c-control-line: #77729a;
+
+  --c-text: #f2f1f6;
+  --c-text-dim: #b9b6c8;
+  --c-text-faint: #9a96ad;
+
+  --c-accent: #ff6a1a;
+  --c-accent-hover: #ff8540;
+  --c-accent-ink: #14080a;
+  --c-accent-soft: rgb(255 106 26 / 0.14);
+  --c-orbit: #77729a;
+  --c-orbit-hover: #8b86ad;
+  --c-glow: #ffe9d4;
+  --c-focus: #ffb27a;
+  --c-danger: #ff8f8a;
+  --c-success: #8fe3b0;
+
+  --font-display:
+    'Outfit Variable', 'Luminous Display', system-ui, -apple-system, 'Apple SD Gothic Neo',
+    'Malgun Gothic', 'Noto Sans KR', sans-serif;
+  --font-body:
+    system-ui, -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  --radius-s: 6px;
+  --radius-m: 12px;
+  --radius-l: 20px;
+  --radius-full: 999px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 72px;
+
+  --gutter: clamp(16px, 4vw, 48px);
+  --header-height: 72px;
+  --content-max: 1360px;
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --shadow-glow: 0 0 48px rgb(255 120 50 / 0.22);
+}
