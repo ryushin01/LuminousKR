@@ -1,6 +1,6 @@
 {
   "name": "luminous-kr",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "초·중·종성 획만 그리면 한글 11,172자를 조합해 글꼴 파일로 내보내는 웹 도구",
   "type": "module",

@@ -45,6 +45,7 @@ const KEYS = [
 const CREDITS = [
   { name: 'opentype.js', use: 'OTF 파일 쓰기와 읽기', license: 'MIT' },
   { name: 'Clipper2 (clipper2-ts)', use: '뼈대에 두께 입히기, 겹친 획 합치기', license: 'BSL-1.0' },
+  { name: 'pdf.js (pdfjs-dist)', use: '올린 PDF를 그림으로 바꾸기', license: 'Apache-2.0' },
   { name: 'SolidJS', use: '화면 구성', license: 'MIT' },
   { name: 'Outfit', use: '영문 제목 글꼴', license: 'SIL OFL 1.1' },
 ]
@@ -59,7 +60,7 @@ export function GuidePage() {
   return (
     <div class={styles.page}>
       <PageHeader
-        number="05"
+        number="06"
         label="안내"
         title="조합의 원리"
         lead="LuminousKR이 어떻게 자모 24자의 뼈대로 11,172자를 만드는지, 그리고 키보드로 그리는 방법을 정리했습니다."
@@ -178,7 +179,24 @@ export function GuidePage() {
           </div>
         </Panel>
 
-        <Panel title="만들어지는 글꼴 파일" number="5">
+        <Panel title="손글씨로 가져오기" number="5">
+          <div class={styles.prose}>
+            <p>
+              가져오기에서 받은 양식에는 네 모서리의 검은 네모(표식)와 위쪽 가운데의 작은 네모
+              넷(양식 번호)이 있습니다. 사진을 올리면 작업 스레드가 표식을 찾아 원근을
+              바로잡고(호모그래피), 양식 번호로 어떤 자모가 어느 칸인지 알아냅니다. 뒤집혀 찍힌
+              사진도 번호로 방향을 맞춥니다.
+            </p>
+            <p>
+              칸마다 종이보다 어두운 잉크만 골라내고(연한 안내선은 빠짐), Zhang–Suen 세선화로 한
+              픽셀 두께의 뼈대를 만든 뒤, 끝점과 교차점을 따라 획으로 잇습니다. 교차점에서 곧게
+              이어지는 가지는 한 획으로, 고리는 타원(ㅇ)으로 알아봅니다. 격자에 맞추기를 켜면
+              손떨림이 사라지고, 펜 굵기를 글꼴 굵기로 가져올 수도 있습니다.
+            </p>
+          </div>
+        </Panel>
+
+        <Panel title="만들어지는 글꼴 파일" number="6">
           <ul class={styles.list}>
             <li>
               현대 한글 음절 11,172자(U+AC00–D7A3)와 낱자 51자(U+3131–3163), 빈칸이 들어갑니다.
@@ -201,15 +219,16 @@ export function GuidePage() {
           </ul>
         </Panel>
 
-        <Panel title="그림은 이 브라우저에만 있습니다" number="6">
+        <Panel title="그림은 이 브라우저에만 있습니다" number="7">
           <p class={styles.prose}>
-            그린 획과 설정은 이 브라우저의 저장 공간(localStorage)에 자동으로 저장되고 어떤 서버로도
-            보내지 않습니다. 브라우저 데이터를 지우면 함께 사라지므로, 작업실이나 내보내기에서
-            프로젝트 파일(.json)로 저장해 두세요.
+            그린 획과 설정, 올린 사진·PDF는 이 브라우저 안에서만 처리하고 어떤 서버로도 보내지
+            않습니다. 작업은 이 브라우저의 저장 공간(localStorage)에 자동으로 저장되는데, 브라우저
+            데이터를 지우면 함께 사라지므로 작업실이나 내보내기에서 프로젝트 파일(.json)로 저장해
+            두세요.
           </p>
         </Panel>
 
-        <Panel title="쓰인 기술" number="7">
+        <Panel title="쓰인 기술" number="8">
           <div
             class={styles.tableWrap}
             role="region"

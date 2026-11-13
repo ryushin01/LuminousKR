@@ -11,6 +11,8 @@ export default defineConfig({
   use: {
     baseURL: `http://localhost:${PORT}`,
     locale: 'ko-KR',
+    // 소프트웨어 WebGL로 배경을 계속 그리면 CPU를 많이 써서 검사가 느려지므로 '동작 줄이기'로 멈춥니다.
+    reducedMotion: 'reduce',
     trace: 'retain-on-failure',
     launchOptions: {
       // CI에는 GPU가 없으므로 배경 WebGL을 소프트웨어로 그립니다.

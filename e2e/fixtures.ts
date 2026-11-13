@@ -29,6 +29,7 @@ export async function openPage(page: Page, path: string): Promise<void> {
 export const ROUTES = [
   { path: '/', title: '한글 모듈 글꼴 조합기' },
   { path: '/studio', title: '작업실' },
+  { path: '/import', title: '가져오기' },
   { path: '/preview', title: '미리보기' },
   { path: '/export', title: '내보내기' },
   { path: '/guide', title: '안내' },

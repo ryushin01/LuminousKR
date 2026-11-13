@@ -7,3 +7,5 @@ lhci-report
 .lighthouseci
 coverage
 public/fixtures
+# 문서의 표는 손으로 맞춘 간결한 형식을 유지합니다
+*.md

@@ -12,6 +12,7 @@ const html = readFileSync(join(dist, 'index.html'), 'utf8')
 
 const ROUTES = [
   { path: 'studio', title: '작업실' },
+  { path: 'import', title: '가져오기' },
   { path: 'preview', title: '미리보기' },
   { path: 'export', title: '내보내기' },
   { path: 'guide', title: '안내' },

@@ -99,6 +99,22 @@ describe('뼈대에 굵기 입히기', () => {
     expect(plus).toHaveLength(1)
   })
 
+  it('굵기보다 조금만 떨어진 두 획 사이의 좁은 틈도 메우지 않습니다', () => {
+    const project = projectWith({ weight: 60, contrast: 1, cap: 'butt' })
+    const frame = bodyFrame(project.metrics, project.style)
+    // 두 가로획의 가운데 선 사이를 굵기 + 4단위로 (바깥 사이 틈 4단위)
+    const gap = (60 + 4) / (frame.yTop - frame.yBottom)
+    const paths = expandStrokes(
+      [line(0.1, 0.5, 0.9, 0.5), line(0.1, 0.5 + gap, 0.9, 0.5 + gap)],
+      project.style,
+      frame,
+    )
+    const contours = pathsToContours(paths, project.style)
+    expect(contours).toHaveLength(2)
+    const bounds = contours.map((c) => trueBounds([c])).sort((a, b) => a.y0 - b.y0)
+    expect(bounds[1]!.y0 - bounds[0]!.y1).toBeGreaterThanOrEqual(3)
+  })
+
   it('닫힌 획(ㅁ)은 바깥 윤곽과 구멍 둘이 됩니다', () => {
     const project = projectWith({ weight: 60 })
     const frame = bodyFrame(project.metrics, project.style)

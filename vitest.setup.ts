@@ -20,6 +20,13 @@ if (typeof window !== 'undefined') {
     Object.assign(globalThis, { Worker: SilentWorker })
   }
 
+  // jsdom에는 Blob 주소 만들기가 없습니다.
+  if (!URL.createObjectURL) {
+    let seq = 0
+    URL.createObjectURL = () => `blob:test/${++seq}`
+    URL.revokeObjectURL = () => {}
+  }
+
   if (!window.matchMedia) {
     window.matchMedia = (query: string) =>
       ({
