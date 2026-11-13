@@ -1,7 +1,7 @@
 # LuminousKR - 한글 모듈 글꼴 조합기
 
 [![CI](https://github.com/ryushin01/LuminousKR/actions/workflows/ci.yml/badge.svg)](https://github.com/ryushin01/LuminousKR/actions/workflows/ci.yml)
-![version](https://img.shields.io/badge/version-0.2.0-ff6a1a)
+![version](https://img.shields.io/badge/version-0.2.1-ff6a1a)
 ![Storybook](https://img.shields.io/badge/Storybook-10-FF4785?logo=storybook&logoColor=white)
 
 초·중·종성 획의 뼈대만 그리면 한글 11,172자를 조합해 OTF·WOFF 글꼴 파일로 내보내는 웹 도구입니다. 자모 24자만 그려도 겹자음·겹받침·섞임 모음과 모든 음절이 만들어지고, 손으로 쓴 양식의 사진·스캔 PDF를 올려 획을 인식해 가져올 수도 있습니다.
@@ -103,3 +103,15 @@ src/
 | [개발 가이드](docs/development.md) | 구조, 명령, 테스트, 제목 글꼴, 접근성 점검 |
 | [CI · 배포](docs/deployment.md) | GitHub Actions, GitHub Pages, 화면별 HTML |
 | [버전 기록](CHANGELOG.md) | 버전별 변경 내용 |
+
+## 출처
+
+| 자료 | 저작자 | 사용 허락 | 원본 |
+|---|---|---|---|
+| Outfit 글꼴 (영문 제목) | The Outfit Project Authors | SIL OFL 1.1 | [Outfit-Fonts](https://github.com/Outfitio/Outfit-Fonts) · [Fontsource](https://fontsource.org/fonts/outfit) |
+| opentype.js (OTF 쓰기) | Frederik De Bleser | MIT | [opentype.js](https://github.com/opentypejs/opentype.js) |
+| Clipper2 (두께 입히기·합치기) | Angus Johnson(원작), Jeremy Tribby(TypeScript 이식) | BSL-1.0 | [clipper2-ts](https://github.com/countertype/clipper2-ts) |
+| pdf.js (PDF 읽기) | Mozilla | Apache-2.0 | [pdf.js](https://github.com/mozilla/pdf.js) |
+| SolidJS (화면) | Ryan Carniato | MIT | [solid](https://github.com/solidjs/solid) |
+
+한글 제목 글꼴 Luminous Display, 아이콘, 우주 배경(WebGL)과 화면 사진은 이 프로젝트에서 직접 만들었습니다.
