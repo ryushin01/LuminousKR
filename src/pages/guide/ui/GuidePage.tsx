@@ -42,13 +42,15 @@ const KEYS = [
   { keys: 'Ctrl(⌘) + Shift + Z, Ctrl + Y', action: '다시하기' },
 ]
 
-const CREDITS = [
-  { name: 'opentype.js', use: 'OTF 파일 쓰기와 읽기', license: 'MIT' },
-  { name: 'Clipper2 (clipper2-ts)', use: '뼈대에 두께 입히기, 겹친 획 합치기', license: 'BSL-1.0' },
-  { name: 'pdf.js (pdfjs-dist)', use: '올린 PDF를 그림으로 바꾸기', license: 'Apache-2.0' },
-  { name: 'SolidJS', use: '화면 구성', license: 'MIT' },
-  { name: 'Outfit', use: '영문 제목 글꼴', license: 'SIL OFL 1.1' },
+/** 쓰인 기술 (저작자·사용 허락 같은 출처는 화면이 아니라 README에 적습니다) */
+const TECH = [
+  { name: 'opentype.js', use: 'OTF 파일 쓰기와 읽기' },
+  { name: 'Clipper2 (clipper2-ts)', use: '뼈대에 두께 입히기, 겹친 획 합치기' },
+  { name: 'pdf.js (pdfjs-dist)', use: '올린 PDF를 그림으로 바꾸기' },
+  { name: 'SolidJS', use: '화면 구성' },
 ]
+
+const SOURCES_URL = 'https://github.com/ryushin01/LuminousKR#출처'
 
 export function GuidePage() {
   usePageTitle('안내')
@@ -229,35 +231,34 @@ export function GuidePage() {
         </Panel>
 
         <Panel title="쓰인 기술" number="8">
-          <div
-            class={styles.tableWrap}
-            role="region"
-            aria-labelledby="credits-caption"
-            tabindex="0"
-          >
+          <div class={styles.tableWrap} role="region" aria-labelledby="tech-caption" tabindex="0">
             <table class={styles.table}>
-              <caption id="credits-caption" class="visually-hidden">
-                쓰인 기술과 사용 허락
+              <caption id="tech-caption" class="visually-hidden">
+                쓰인 기술
               </caption>
               <thead>
                 <tr>
                   <th scope="col">이름</th>
                   <th scope="col">쓰는 곳</th>
-                  <th scope="col">사용 허락</th>
                 </tr>
               </thead>
               <tbody>
-                <For each={CREDITS}>
+                <For each={TECH}>
                   {(row) => (
                     <tr>
                       <th scope="row">{row.name}</th>
                       <td>{row.use}</td>
-                      <td>{row.license}</td>
                     </tr>
                   )}
                 </For>
               </tbody>
             </table>
+          </div>
+          <div class={styles.prose}>
+            <p>
+              글꼴과 라이브러리의 저작자·사용 허락은 <a href={SOURCES_URL}>저장소 README의 출처</a>
+              에 적었습니다.
+            </p>
           </div>
           <ButtonLink href="/studio" variant="primary" class={styles.cta}>
             작업실에서 그려 보기
