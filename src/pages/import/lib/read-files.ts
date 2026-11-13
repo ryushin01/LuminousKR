@@ -17,7 +17,21 @@ const MAX_FILE_BYTES = 40 * 1024 * 1024
 /** PDF를 그림으로 바꿀 때의 배율 (1 = 72dpi, 2.5 ≈ 180dpi) */
 const PDF_SCALE = 2.5
 /** 쪽 하나를 그림으로 바꿀 때의 최대 픽셀 수 (RGBA 약 95MiB). 큰 판형도 메모리를 넘치지 않게 */
-const MAX_PAGE_PIXELS = 25_000_000
+export const MAX_PAGE_PIXELS = 25_000_000
+
+/**
+ * 쪽을 그릴 캔버스 크기: 2.5배로 그리되, 정수로 내린 가로×세로가 MAX_PAGE_PIXELS를 넘지 않게
+ * 배율을 줄입니다 (반올림하면 상한을 조금 넘을 수 있어 내림).
+ */
+export function pageCanvasSize(
+  width: number,
+  height: number,
+): { scale: number; width: number; height: number } {
+  const scale = Math.min(PDF_SCALE, Math.sqrt(MAX_PAGE_PIXELS / (width * height)))
+  const w = Math.max(1, Math.floor(width * scale))
+  const h = Math.max(1, Math.min(Math.floor(height * scale), Math.floor(MAX_PAGE_PIXELS / w)))
+  return { scale, width: w, height: h }
+}
 
 export function isPdf(file: File): boolean {
   return file.type === 'application/pdf' || /\.pdf$/i.test(file.name)
@@ -38,14 +52,11 @@ async function renderPdf(file: File): Promise<ReadResult> {
     for (let i = 1; i <= count; i++) {
       const page = await document_.getPage(i)
       const natural = page.getViewport({ scale: 1 })
-      const scale = Math.min(
-        PDF_SCALE,
-        Math.sqrt(MAX_PAGE_PIXELS / (natural.width * natural.height)),
-      )
-      const viewport = page.getViewport({ scale })
+      const size = pageCanvasSize(natural.width, natural.height)
+      const viewport = page.getViewport({ scale: size.scale })
       const canvas = document.createElement('canvas')
-      canvas.width = Math.round(viewport.width)
-      canvas.height = Math.round(viewport.height)
+      canvas.width = size.width
+      canvas.height = size.height
       await page.render({ canvas, viewport }).promise
       pages.push({ label: `${file.name} ${i}쪽`, bitmap: await createImageBitmap(canvas) })
       page.cleanup()

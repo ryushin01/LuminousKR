@@ -119,7 +119,20 @@ export function createEditor(initialKey: JamoKey = 'L0') {
     })
   }
 
+  /**
+   * 획이 한도만큼 있으면 알리고 true를 돌려줍니다. 한도를 넘는 그림은 자동 저장한 작업을
+   * 다음에 열 수 없게 하므로, 획을 시작할 때와 마칠 때(그 사이 되돌리기·다시하기가 있어도) 모두 봅니다.
+   */
+  function strokesFull(): boolean {
+    if (ownStrokes().length < MAX_STROKES_PER_DRAWING) return false
+    say(
+      `자모 하나에는 획을 ${MAX_STROKES_PER_DRAWING}개까지 넣을 수 있습니다. 쓰지 않는 획을 지운 뒤 그려 주세요.`,
+    )
+    return true
+  }
+
   function commitPath(points: Point[], closed: boolean) {
+    if (strokesFull()) return
     const smooth = tool() === 'curve'
     const stroke: PlacedStroke = { kind: 'path', points, closed, smooth }
     let id = ''
@@ -146,13 +159,7 @@ export function createEditor(initialKey: JamoKey = 'L0') {
       selectAt(p)
       return
     }
-    // 한도를 넘는 그림은 자동 저장한 작업을 다음에 열 수 없게 하므로 미리 막습니다.
-    if (pending().length === 0 && ownStrokes().length >= MAX_STROKES_PER_DRAWING) {
-      say(
-        `자모 하나에는 획을 ${MAX_STROKES_PER_DRAWING}개까지 넣을 수 있습니다. 쓰지 않는 획을 지운 뒤 그려 주세요.`,
-      )
-      return
-    }
+    if (pending().length === 0 && strokesFull()) return
     if (current === 'ellipse') {
       const [first] = pending()
       if (!first) {
@@ -160,7 +167,7 @@ export function createEditor(initialKey: JamoKey = 'L0') {
         say(`원의 첫 모서리: ${gridLabel(p)}. 반대쪽 모서리를 고르세요.`)
         return
       }
-      if (samePoint(first, p)) return
+      if (samePoint(first, p) || strokesFull()) return
       const stroke = ellipseFromCorners(first, p)
       let id = ''
       editProject((draft) => {
