@@ -31,6 +31,8 @@ export default tseslint.config(
       ...jsxA11y.flatConfigs.strict.rules,
       // APG 탭 패널(tabpanel)과 가로 스크롤 영역(region)은 키보드로 닿도록 tabindex="0"을 둡니다.
       'jsx-a11y/no-noninteractive-tabindex': ['error', { tags: [], roles: ['tabpanel', 'region'] }],
+      // 체크박스 레이블처럼 글자가 label > span > strong 안에 있는 경우까지 찾습니다.
+      'jsx-a11y/label-has-associated-control': ['error', { depth: 3 }],
     },
   },
   {

@@ -30,3 +30,12 @@ test('본문 바로가기는 첫 Tab에 나타나고 누르면 본문으로 초�
   await page.keyboard.press('Enter')
   await expect(page.locator('main#main')).toBeFocused()
 })
+
+test('배경 움직임 멈추기·재생 버튼 (동작 줄이기 설정이면 처음부터 멈춤)', async ({ page }) => {
+  await openPage(page, '/')
+  const play = page.getByRole('button', { name: '배경 움직임 재생' })
+  await expect(play).toBeVisible()
+  await play.click()
+  await expect(page.getByRole('button', { name: '배경 움직임 멈추기' })).toBeVisible()
+  expect(await page.evaluate(() => localStorage.getItem('luminous-kr:motion-paused'))).toBe('false')
+})

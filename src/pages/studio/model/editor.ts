@@ -3,9 +3,12 @@ import { batch, createMemo, createSignal } from 'solid-js'
 import {
   type JamoKey,
   type LayoutId,
+  MAX_POINTS_PER_STROKE,
+  MAX_STROKES_PER_DRAWING,
   type PlacedStroke,
   type Point,
   bodyFrame,
+  drawingLimitError,
   editProject,
   fontProject,
   frameBox,
@@ -14,6 +17,7 @@ import {
   jamoLabel,
   layoutsOf,
   placedStrokesFor,
+  strokeToSyllable,
 } from '@/entities/font'
 import { LAYOUT_INFO } from '@/entities/font'
 import { clampPoint, hitNode, hitStroke, samePoint, snapPoint } from '../lib/canvas-geometry.ts'
@@ -28,7 +32,6 @@ import {
   removeDrawing,
   removeStroke,
   setStrokeSmooth,
-  strokeToSyllable,
 } from '../lib/drawing-ops.ts'
 
 export type Tool = 'line' | 'curve' | 'ellipse' | 'select'
@@ -116,7 +119,20 @@ export function createEditor(initialKey: JamoKey = 'L0') {
     })
   }
 
+  /**
+   * 획이 한도만큼 있으면 알리고 true를 돌려줍니다. 한도를 넘는 그림은 자동 저장한 작업을
+   * 다음에 열 수 없게 하므로, 획을 시작할 때와 마칠 때(그 사이 되돌리기·다시하기가 있어도) 모두 봅니다.
+   */
+  function strokesFull(): boolean {
+    if (ownStrokes().length < MAX_STROKES_PER_DRAWING) return false
+    say(
+      `자모 하나에는 획을 ${MAX_STROKES_PER_DRAWING}개까지 넣을 수 있습니다. 쓰지 않는 획을 지운 뒤 그려 주세요.`,
+    )
+    return true
+  }
+
   function commitPath(points: Point[], closed: boolean) {
+    if (strokesFull()) return
     const smooth = tool() === 'curve'
     const stroke: PlacedStroke = { kind: 'path', points, closed, smooth }
     let id = ''
@@ -143,6 +159,7 @@ export function createEditor(initialKey: JamoKey = 'L0') {
       selectAt(p)
       return
     }
+    if (pending().length === 0 && strokesFull()) return
     if (current === 'ellipse') {
       const [first] = pending()
       if (!first) {
@@ -150,7 +167,7 @@ export function createEditor(initialKey: JamoKey = 'L0') {
         say(`원의 첫 모서리: ${gridLabel(p)}. 반대쪽 모서리를 고르세요.`)
         return
       }
-      if (samePoint(first, p)) return
+      if (samePoint(first, p) || strokesFull()) return
       const stroke = ellipseFromCorners(first, p)
       let id = ''
       editProject((draft) => {
@@ -170,6 +187,12 @@ export function createEditor(initialKey: JamoKey = 'L0') {
     }
     if (last && samePoint(last, p)) {
       if (points.length >= 1) commitPath(points, false)
+      return
+    }
+    if (points.length >= MAX_POINTS_PER_STROKE) {
+      say(
+        `획 하나에는 점을 ${MAX_POINTS_PER_STROKE}개까지 넣을 수 있습니다. '획 마치기'(Enter)로 이 획을 마친 뒤 이어서 그려 주세요.`,
+      )
       return
     }
     setPending([...points, p])
@@ -247,6 +270,11 @@ export function createEditor(initialKey: JamoKey = 'L0') {
   /** 자동·기본 획을 가져와 이 배치에서 직접 고칠 수 있게 합니다. */
   function adopt() {
     const strokes = placedStrokes()
+    const problem = drawingLimitError(strokes)
+    if (problem) {
+      say(`가져오지 못했습니다. ${problem} 바탕이 되는 자모의 획을 줄인 뒤 다시 가져와 주세요.`)
+      return
+    }
     editProject((draft) => adoptStrokes(draft, target(), box(), strokes))
     say(
       isHome()

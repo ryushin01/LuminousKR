@@ -26,6 +26,27 @@ const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(mi
 
 const JAMO_KEY = /^(L(1[0-8]|[0-9])|V(20|1[0-9]|[0-9])|T(2[0-7]|1[0-9]|[1-9]))$/
 
+/** 손상되거나 일부러 부풀린 파일을 막는 한도 (작업실에서 그린 그림은 이보다 훨씬 작음) */
+export const MAX_STROKES_PER_DRAWING = 300
+export const MAX_POINTS_PER_STROKE = 2000
+
+type CountedStroke = { kind: 'path'; points: readonly unknown[] } | { kind: 'ellipse' }
+
+/**
+ * 그림 하나가 위 한도 안에 드는지 봅니다. 넘으면 까닭을 돌려줍니다.
+ * 프로젝트에 넣기 전에 검사해야 자동 저장한 작업을 다음에 다시 열 수 있습니다.
+ */
+export function drawingLimitError(strokes: readonly CountedStroke[]): string | null {
+  if (strokes.length > MAX_STROKES_PER_DRAWING) {
+    return `획이 ${strokes.length}개로, 자모 하나에 넣을 수 있는 ${MAX_STROKES_PER_DRAWING}개를 넘습니다.`
+  }
+  const most = Math.max(0, ...strokes.map((s) => (s.kind === 'path' ? s.points.length : 0)))
+  if (most > MAX_POINTS_PER_STROKE) {
+    return `점이 ${most}개인 획이 있어, 획 하나에 넣을 수 있는 ${MAX_POINTS_PER_STROKE}개를 넘습니다.`
+  }
+  return null
+}
+
 function readStroke(raw: unknown, fallbackId: string): Stroke | null {
   if (!isObject(raw)) return null
   const id = typeof raw.id === 'string' && raw.id.length > 0 ? raw.id.slice(0, 40) : fallbackId
@@ -42,9 +63,14 @@ function readStroke(raw: unknown, fallbackId: string): Stroke | null {
     }
   }
   if (raw.kind === 'path' && Array.isArray(raw.points)) {
+    if (raw.points.length > MAX_POINTS_PER_STROKE) {
+      // 말없이 잘라 그림이 달라지지 않도록, 넘치면 열지 않고 알립니다.
+      throw new ProjectFormatError(
+        `점이 너무 많은 획이 있습니다(획 하나에 ${MAX_POINTS_PER_STROKE}개 넘음). 파일이 손상되지 않았는지 확인해 주세요.`,
+      )
+    }
     const points = raw.points
       .filter((p): p is { x: number; y: number } => isObject(p) && isNumber(p.x) && isNumber(p.y))
-      .slice(0, 200)
       .map((p) => ({ x: clamp(p.x, -0.5, 1.5), y: clamp(p.y, -0.5, 1.5) }))
     if (points.length === 0) return null
     return { id, kind: 'path', points, closed: raw.closed === true, smooth: raw.smooth === true }
@@ -54,8 +80,12 @@ function readStroke(raw: unknown, fallbackId: string): Stroke | null {
 
 function readDrawing(raw: unknown, key: string): Drawing | undefined {
   if (!isObject(raw) || !Array.isArray(raw.strokes)) return undefined
+  if (raw.strokes.length > MAX_STROKES_PER_DRAWING) {
+    throw new ProjectFormatError(
+      `획이 너무 많은 자모가 있습니다(${key}: ${MAX_STROKES_PER_DRAWING}획 넘음). 파일이 손상되지 않았는지 확인해 주세요.`,
+    )
+  }
   const strokes = raw.strokes
-    .slice(0, 60)
     .map((s, i) => readStroke(s, `${key}-${i + 1}`))
     .filter((s): s is Stroke => s !== null)
   return { strokes }

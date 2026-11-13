@@ -91,7 +91,7 @@ export function ExportPage() {
   return (
     <div class={styles.page}>
       <PageHeader
-        number="04"
+        number="05"
         label="내보내기"
         title="11,172자를 글꼴 파일로"
         lead="글꼴 이름을 정하고 만들기를 누르면 작업 스레드(Web Worker)가 모든 음절을 조합해 OTF와 WOFF 파일을 만듭니다. 파일은 이 브라우저 안에서만 만들어집니다."
