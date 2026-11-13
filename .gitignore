@@ -1,0 +1,14 @@
+node_modules
+.DS_Store
+dist
+storybook-static
+coverage
+playwright-report
+test-results
+lhci-report
+.lighthouseci
+*.tsbuildinfo
+*.local
+.env*
+.vercel
+.idea
