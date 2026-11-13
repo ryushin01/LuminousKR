@@ -1,0 +1,61 @@
+{
+  "name": "luminous-kr",
+  "version": "0.1.0",
+  "private": true,
+  "description": "초·중·종성 획만 그리면 한글 11,172자를 조합해 글꼴 파일로 내보내는 웹 도구",
+  "type": "module",
+  "packageManager": "pnpm@12.16.1",
+  "engines": {
+    "node": "26.x"
+  },
+  "scripts": {
+    "dev": "vite --port 5173",
+    "build": "vite build && node scripts/postbuild.mjs",
+    "preview": "vite preview --port 4173 --strictPort",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "lint:fsd": "steiger ./src",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build -o dist/storybook --quiet",
+    "build:all": "pnpm build && pnpm build-storybook",
+    "fonts:display": "node scripts/build-display-font.mjs"
+  },
+  "dependencies": {
+    "@fontsource-variable/outfit": "^5.3.0",
+    "@solidjs/router": "^1.0.3",
+    "clipper2-ts": "2.0.1-19",
+    "opentype.js": "^2.0.0",
+    "pdfjs-dist": "^6.5.438",
+    "solid-js": "^1.9.19"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
+    "@eslint/js": "^10.0.1",
+    "@feature-sliced/steiger-plugin": "^0.8.2",
+    "@playwright/test": "^1.65.0",
+    "@solidjs/testing-library": "^0.8.10",
+    "@storybook/addon-a11y": "^10.6.7",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/user-event": "^14.6.9",
+    "@types/node": "^26.6.6",
+    "eslint": "^10.14.0",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
+    "eslint-plugin-solid": "^0.19.0",
+    "globals": "^17.14.0",
+    "jsdom": "^31.0.0",
+    "prettier": "^3.10.0",
+    "steiger": "^0.10.0",
+    "storybook": "^10.6.7",
+    "storybook-solidjs-vite": "^10.7.4",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.72.2",
+    "vite": "^8.3.8",
+    "vite-plugin-solid": "^2.11.16",
+    "vitest": "^5.1.0"
+  }
+}

@@ -1,0 +1,137 @@
+.wrap {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.surface {
+  position: relative;
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+  border: 1px solid var(--c-line-strong);
+  border-radius: var(--radius-l);
+  background:
+    radial-gradient(circle at 50% 40%, rgb(255 150 90 / 0.06), transparent 60%), rgb(3 3 6 / 0.85);
+  touch-action: none;
+  cursor: crosshair;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.surface:focus-visible {
+  outline: 2px solid var(--c-focus);
+  outline-offset: 4px;
+}
+
+.selecting {
+  cursor: default;
+}
+
+.readonly {
+  cursor: not-allowed;
+}
+
+.svg {
+  width: 100%;
+  height: auto;
+  border-radius: inherit;
+  overflow: visible;
+}
+
+.em {
+  fill: none;
+  stroke: var(--c-line);
+  stroke-width: 2;
+}
+
+.gridMinor {
+  stroke: rgb(255 255 255 / 0.05);
+  stroke-width: 1.5;
+}
+
+.gridMajor {
+  stroke: rgb(255 255 255 / 0.12);
+  stroke-width: 2;
+}
+
+.box {
+  fill: none;
+  stroke: rgb(140 135 175 / 0.4);
+  stroke-width: 2.5;
+  stroke-dasharray: 10 10;
+}
+
+.frame {
+  fill: rgb(255 106 26 / 0.05);
+  stroke: var(--c-accent);
+  stroke-width: 3;
+  stroke-dasharray: 16 10;
+}
+
+.context {
+  fill: rgb(242 241 246 / 0.12);
+}
+
+.outline {
+  fill: var(--c-glow);
+  fill-opacity: 0.82;
+  filter: drop-shadow(0 0 18px rgb(255 160 100 / 0.45));
+}
+
+.ghost path {
+  fill: none;
+  stroke: var(--c-text-dim);
+  stroke-width: 5;
+  stroke-dasharray: 14 12;
+  stroke-linecap: round;
+}
+
+.skeleton path {
+  fill: none;
+  stroke: var(--c-accent);
+  stroke-width: 6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.node {
+  fill: var(--c-void);
+  stroke: var(--c-accent);
+  stroke-width: 4;
+}
+
+.selected path {
+  stroke: #ffd36b;
+  stroke-width: 9;
+}
+
+.selected .node {
+  stroke: #ffd36b;
+  fill: #ffd36b;
+}
+
+.pending {
+  fill: none;
+  stroke: #ffd36b;
+  stroke-width: 6;
+  stroke-dasharray: 12 8;
+  stroke-linecap: round;
+}
+
+.pendingNode {
+  fill: #ffd36b;
+}
+
+.cursor {
+  stroke: #fff;
+  stroke-width: 3;
+  fill: none;
+  pointer-events: none;
+}
+
+.help {
+  max-width: 640px;
+  margin: 0 auto;
+  font-size: 13px;
+  color: var(--c-text-faint);
+}

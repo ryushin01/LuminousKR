@@ -1,0 +1,84 @@
+.fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.count {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--c-text-faint);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(54px, 1fr));
+  gap: var(--space-2);
+}
+
+.tile {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: var(--space-2) var(--space-1);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-m);
+  background: rgb(255 255 255 / 0.02);
+  cursor: pointer;
+  transition:
+    border-color 0.2s var(--ease-out),
+    background-color 0.2s var(--ease-out);
+}
+
+.tile:hover {
+  border-color: var(--c-line-strong);
+  background: rgb(255 255 255 / 0.05);
+}
+
+.radio {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.tile:has(.radio:checked) {
+  border-color: var(--c-accent);
+  background: var(--c-accent-soft);
+}
+
+.tile:has(.radio:focus-visible) {
+  outline: 2px solid var(--c-focus);
+  outline-offset: 2px;
+}
+
+.thumb {
+  width: 34px;
+  height: 34px;
+}
+
+.thumb svg {
+  width: 100%;
+  height: 100%;
+  fill: var(--c-glow);
+}
+
+.char {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.status {
+  font-size: 11px;
+  color: var(--c-text-faint);
+  line-height: 1.2;
+  text-align: center;
+}
+
+.tile:has(.radio:checked) .status {
+  color: var(--c-text-dim);
+}

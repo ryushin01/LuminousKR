@@ -1,0 +1,21 @@
+.message {
+  min-height: 1.6em;
+  font-size: 14px;
+  color: var(--c-text-dim);
+}
+
+.message:empty {
+  min-height: 0;
+}
+
+.neutral {
+  color: var(--c-text-dim);
+}
+
+.success {
+  color: var(--c-success);
+}
+
+.danger {
+  color: var(--c-danger);
+}
