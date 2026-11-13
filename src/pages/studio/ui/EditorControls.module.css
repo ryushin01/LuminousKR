@@ -1,0 +1,146 @@
+.layoutSample {
+  font-size: 15px;
+}
+
+/* 선택된(밝은) 칸에서도 대비가 유지되도록 주황 바탕에 어두운 글자 */
+.tag {
+  padding: 0 6px;
+  border-radius: var(--radius-full);
+  background: var(--c-accent);
+  color: var(--c-accent-ink);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--c-accent);
+}
+
+.notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-m);
+  background: rgb(255 255 255 / 0.03);
+  font-size: 14px;
+  color: var(--c-text-dim);
+}
+
+.notice strong {
+  margin-right: 6px;
+  padding: 1px 8px;
+  border-radius: var(--radius-full);
+  background: rgb(255 255 255 / 0.08);
+  color: var(--c-text);
+  font-size: 12px;
+}
+
+.noticeActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.toolbar {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--space-2);
+}
+
+.grid {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--space-3);
+  margin-left: auto;
+}
+
+.grid > div {
+  min-width: 150px;
+}
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.check input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--c-accent);
+}
+
+.empty {
+  font-size: 14px;
+  color: var(--c-text-faint);
+}
+
+.strokes {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stroke {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2) var(--space-1) var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-m);
+}
+
+.strokeSelected {
+  border-color: #ffd36b;
+  background: rgb(255 211 107 / 0.08);
+}
+
+.strokeName {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.strokeKind {
+  margin-left: 6px;
+  font-weight: 400;
+  color: var(--c-text-faint);
+}
+
+.strokeActions {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.nudge {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.nudgeLabel {
+  font-size: 13px;
+  color: var(--c-text-faint);
+}

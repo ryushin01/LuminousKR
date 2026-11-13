@@ -1,0 +1,11 @@
+/*
+ * Luminous Display: 이 앱의 조합기가 기본 프리셋으로 만든 한글 모듈 글꼴입니다.
+ * 화면 문구에 쓰인 음절만 담아 작게 만들었습니다 (pnpm fonts:display로 다시 만듦).
+ */
+@font-face {
+  font-family: 'Luminous Display';
+  src: url('./fonts/luminous-display.woff') format('woff');
+  font-weight: 100 900;
+  font-display: block;
+  unicode-range: U+3131-3163, U+AC00-D7A3;
+}

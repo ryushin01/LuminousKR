@@ -1,0 +1,148 @@
+.page {
+  padding-bottom: var(--space-8);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 420px) minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-4);
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: 0 var(--gutter);
+}
+
+.form {
+  grid-row: span 2;
+}
+
+.fields {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.formats {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.formats legend {
+  margin-bottom: var(--space-2);
+  padding: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 36px;
+  font-size: 14px;
+}
+
+.check input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--c-accent);
+}
+
+.submit {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.progressRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.progressLabel {
+  font-size: 13px;
+  color: var(--c-text-faint);
+}
+
+.progress {
+  flex: 1;
+  height: 8px;
+  appearance: none;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--c-control-line);
+  overflow: hidden;
+}
+
+.progress::-webkit-progress-bar {
+  background: var(--c-control-line);
+}
+
+.progress::-webkit-progress-value {
+  background: var(--c-accent);
+}
+
+.progress::-moz-progress-bar {
+  background: var(--c-accent);
+}
+
+.result {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.downloads {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.size {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 400;
+  opacity: 0.8;
+}
+
+.trial {
+  margin: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-m);
+  background: rgb(0 0 0 / 0.35);
+}
+
+.trialText {
+  color: var(--c-glow);
+  font-size: clamp(22px, 3vw, 34px);
+  line-height: 1.5;
+}
+
+.trialCaption,
+.install {
+  font-size: 13px;
+  color: var(--c-text-faint);
+}
+
+.trialCaption {
+  margin-top: var(--space-2);
+}
+
+@media (max-width: 960px) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .form {
+    grid-row: auto;
+  }
+}

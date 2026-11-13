@@ -1,0 +1,28 @@
+.glyph {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  overflow: visible;
+}
+
+.path {
+  fill: currentColor;
+}
+
+.guide {
+  fill: none;
+  stroke: rgb(255 255 255 / 0.14);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.placeholder {
+  fill: var(--c-line);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.4;
+  }
+}

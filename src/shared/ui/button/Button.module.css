@@ -1,0 +1,99 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: 0 var(--space-5);
+  border: 1px solid transparent;
+  border-radius: var(--radius-full);
+  font-family: var(--font-body);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    background-color 0.2s var(--ease-out),
+    border-color 0.2s var(--ease-out),
+    color 0.2s var(--ease-out),
+    box-shadow 0.2s var(--ease-out);
+}
+
+.button:disabled,
+.button[aria-disabled='true'] {
+  opacity: 0.5;
+}
+
+.primary {
+  background: var(--c-accent);
+  color: var(--c-accent-ink);
+}
+
+.primary:not(:disabled):hover {
+  background: var(--c-accent-hover);
+  box-shadow: var(--shadow-glow);
+}
+
+.secondary {
+  background: transparent;
+  border-color: var(--c-control-line);
+  color: var(--c-text);
+}
+
+.secondary:not(:disabled):hover {
+  border-color: var(--c-text-dim);
+  background: rgb(255 255 255 / 0.06);
+}
+
+.ghost {
+  background: transparent;
+  color: var(--c-text-dim);
+  padding: 0 var(--space-3);
+}
+
+.ghost:not(:disabled):hover {
+  color: var(--c-text);
+  background: rgb(255 255 255 / 0.06);
+}
+
+.danger {
+  background: transparent;
+  border-color: var(--c-danger);
+  color: var(--c-danger);
+}
+
+.danger:not(:disabled):hover {
+  background: rgb(255 143 138 / 0.12);
+}
+
+.small {
+  min-height: 36px;
+  padding: 0 var(--space-4);
+  font-size: 14px;
+}
+
+.icon {
+  width: 44px;
+  min-width: 44px;
+  padding: 0;
+}
+
+.small.icon {
+  width: 36px;
+  min-width: 36px;
+}
+
+/* 참고 디자인의 둥근 회보라 버튼 (메뉴 열기·닫기 등) */
+.orbit {
+  width: 48px;
+  min-width: 48px;
+  height: 48px;
+  padding: 0;
+  background: var(--c-orbit);
+  color: #fff;
+}
+
+.orbit:not(:disabled):hover {
+  background: var(--c-orbit-hover);
+}

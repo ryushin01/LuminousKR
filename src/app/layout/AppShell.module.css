@@ -1,0 +1,71 @@
+.shell {
+  /* 고정 배경(z-index: -1)을 이 안에 가둬 body 배경 뒤로 숨지 않게 함 */
+  isolation: isolate;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  min-height: 100dvh;
+}
+
+.skip {
+  position: fixed;
+  top: var(--space-3);
+  left: var(--space-3);
+  z-index: 100;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-full);
+  background: var(--c-accent);
+  color: var(--c-accent-ink);
+  font-weight: 700;
+  text-decoration: none;
+  transform: translateY(-200%);
+}
+
+.skip:focus {
+  transform: none;
+}
+
+.main {
+  min-width: 0;
+  outline: none;
+}
+
+.main:focus-visible {
+  outline: none;
+}
+
+.loading {
+  padding: var(--space-8) var(--gutter);
+  color: var(--c-text-dim);
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-5);
+  padding: var(--space-5) var(--gutter) var(--space-6);
+  border-top: 1px solid var(--c-line);
+  background: rgb(5 5 7 / 0.7);
+}
+
+.footerText {
+  max-width: 72ch;
+  font-size: 13px;
+  color: var(--c-text-faint);
+}
+
+.footerActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.footerLink {
+  font-size: 14px;
+  color: var(--c-text-dim);
+}
+
+.footerLink:hover {
+  color: var(--c-text);
+}

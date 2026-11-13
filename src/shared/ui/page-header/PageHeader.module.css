@@ -1,0 +1,32 @@
+.header {
+  display: grid;
+  gap: var(--space-3);
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: var(--space-6) var(--gutter) var(--space-5);
+}
+
+.eyebrow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  color: var(--c-text-faint);
+}
+
+.number {
+  color: var(--c-accent);
+}
+
+.title {
+  font-size: clamp(32px, 5vw, 60px);
+  outline: none;
+}
+
+.lead {
+  max-width: 68ch;
+  font-size: clamp(15px, 1.4vw, 17px);
+  color: var(--c-text-dim);
+}

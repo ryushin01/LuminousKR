@@ -1,0 +1,9 @@
+pnpm-lock.yaml
+dist
+storybook-static
+playwright-report
+test-results
+lhci-report
+.lighthouseci
+coverage
+public/fixtures

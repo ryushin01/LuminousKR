@@ -1,0 +1,74 @@
+.wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+}
+
+.picker {
+  max-width: 320px;
+}
+
+.scroll {
+  /* 칸마다 있는 숨김 글자(position: absolute)가 이 영역 안에서 잘리도록 위치 기준을 만듦 */
+  position: relative;
+  overflow-x: auto;
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-m);
+  background: rgb(0 0 0 / 0.35);
+}
+
+.scroll:focus-visible {
+  outline-offset: 2px;
+}
+
+.table {
+  border-collapse: collapse;
+  min-width: 100%;
+  font-size: 13px;
+}
+
+.caption {
+  padding: var(--space-3) var(--space-4);
+  font-size: 14px;
+  color: var(--c-text-dim);
+  text-align: left;
+}
+
+.colHead,
+.rowHead,
+.corner {
+  position: sticky;
+  background: var(--c-panel);
+  color: var(--c-text-faint);
+  font-weight: 600;
+}
+
+.colHead {
+  top: 0;
+  padding: var(--space-1);
+  min-width: 38px;
+  border-bottom: 1px solid var(--c-line);
+}
+
+.rowHead {
+  left: 0;
+  z-index: 1;
+  padding: 0 var(--space-3);
+  border-right: 1px solid var(--c-line);
+}
+
+.corner {
+  left: 0;
+  top: 0;
+  z-index: 2;
+}
+
+.cell {
+  padding: 2px;
+  border: 1px solid rgb(255 255 255 / 0.04);
+  color: var(--c-glow);
+}
+
+.glyph {
+  width: 36px;
+}
