@@ -10,5 +10,5 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-/** 글자 틀 위의 뼈대 획(ㄴ)과 일식처럼 새어 나오는 빛 한 점 */
+/** 어둠 속에서 고리처럼 새어 나오는 일식의 빛 */
 export const Default: Story = {}
