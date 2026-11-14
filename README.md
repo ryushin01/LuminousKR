@@ -1,7 +1,7 @@
 # LuminousKR - 한글 모듈 글꼴 조합기
 
 [![CI](https://github.com/ryushin01/LuminousKR/actions/workflows/ci.yml/badge.svg)](https://github.com/ryushin01/LuminousKR/actions/workflows/ci.yml)
-![version](https://img.shields.io/badge/version-0.2.1-ff6a1a)
+![version](https://img.shields.io/badge/version-0.2.2-ff6a1a)
 ![Storybook](https://img.shields.io/badge/Storybook-10-FF4785?logo=storybook&logoColor=white)
 
 초·중·종성 획의 뼈대만 그리면 한글 11,172자를 조합해 OTF·WOFF 글꼴 파일로 내보내는 웹 도구입니다. 자모 24자만 그려도 겹자음·겹받침·섞임 모음과 모든 음절이 만들어지고, 손으로 쓴 양식의 사진·스캔 PDF를 올려 획을 인식해 가져올 수도 있습니다.
