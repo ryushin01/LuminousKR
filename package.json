@@ -1,6 +1,6 @@
 {
   "name": "luminous-kr",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "private": true,
   "description": "초·중·종성 획만 그리면 한글 11,172자를 조합해 글꼴 파일로 내보내는 웹 도구",
   "type": "module",
@@ -20,6 +20,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "screenshots": "SCREENSHOTS=1 playwright test e2e/screenshots.spec.ts --workers=1",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build -o dist/storybook --quiet",
     "build:all": "pnpm build && pnpm build-storybook",
