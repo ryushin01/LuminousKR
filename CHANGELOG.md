@@ -1,5 +1,9 @@
 # 변경 기록
 
+## 0.3.2 - 2026-11-16
+
+- 문서: README·개발 가이드가 Luminous Display를 제목용·미리보기 견본 글꼴로 설명하던 것을 실제에 맞게 고침. 제목·본문은 0.3.0부터 Syne과 IBM Plex Sans KR(LuminousSans)이고, Luminous Display는 `@font-face`만 남아 어느 글꼴 지정에도 쓰지 않음. 명령 표에 `pnpm fonts`를 더하고 개발 가이드의 '제목용 글꼴'을 '글꼴'로 바꿈
+
 ## 0.3.1 - 2026-11-15
 
 - README 화면 8장을 실제 화면으로 다시 찍음(0.2.2에서는 로고 자리만 바꿔 끼웠음, 0.3.0의 Syne·IBM Plex Sans KR 글꼴로 찍음). `pnpm screenshots`(`e2e/screenshots.spec.ts`)를 더해, 프로덕션 빌드를 띄우고 홈·작업실·가져오기(손으로 채운 양식 사진에서 자모 6자 인식)·미리보기·내보내기(11,172칸 완료)·안내와 좁은 화면 2장을 같은 구도로 찍음. 평소 E2E에서는 건너뜀
