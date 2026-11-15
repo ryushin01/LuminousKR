@@ -1,5 +1,9 @@
 # 변경 기록
 
+## 0.3.3 - 2026-11-16
+
+- 정리: 0.3.0에서 제목 글꼴을 바꾼 뒤로 어디에도 쓰지 않던 Luminous Display를 지움. `@font-face`(`src/app/styles/fonts.css`), 글꼴 파일(`luminous-display.woff`), 생성 스크립트(`scripts/build-display-font.mjs`, `pnpm fonts:display`), 검사(`display-font.test.ts`). 이제 화면 문구에 새 한글을 넣을 때는 `pnpm fonts`만 다시 돌리면 됨. 화면은 그대로
+
 ## 0.3.2 - 2026-11-16
 
 - 문서: README·개발 가이드가 Luminous Display를 제목용·미리보기 견본 글꼴로 설명하던 것을 실제에 맞게 고침. 제목·본문은 0.3.0부터 Syne과 IBM Plex Sans KR(LuminousSans)이고, Luminous Display는 `@font-face`만 남아 어느 글꼴 지정에도 쓰지 않음. 명령 표에 `pnpm fonts`를 더하고 개발 가이드의 '제목용 글꼴'을 '글꼴'로 바꿈

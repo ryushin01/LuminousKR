@@ -28,7 +28,6 @@
 | `pnpm test:e2e` | Playwright E2E (먼저 `build:all`) |
 | `pnpm storybook` | Storybook 개발 서버 |
 | `pnpm fonts` | 한글 웹 폰트(LuminousSans)의 화면 글자 파일과 조각 다시 만들기 (fontTools 필요) |
-| `pnpm fonts:display` | 조합기로 만든 Luminous Display 다시 만들기 (지금 화면에는 쓰지 않음) |
 | `node scripts/screenshots.mjs` | README 화면 사진 다시 찍기 (먼저 `build`) |
 
 ## 테스트
@@ -44,7 +43,6 @@ jsdom에는 Web Worker가 없어 `vitest.setup.ts`에서 답하지 않는 워커
 
 화면의 제목과 본문은 같은 짝을 씁니다. 영문·숫자는 **Syne**, 한글은 **IBM Plex Sans KR**입니다(`src/app/styles/tokens.css`의 `--font-display`·`--font-body`). IBM Plex Sans KR은 OFL 예약 이름(Plex) 때문에 이름을 바꾼 `LuminousSans`로, 화면 문구에 쓰인 글자만 담은 파일과 나머지 글자 조각을 `pnpm fonts`로 만듭니다(fontTools 필요). 빠진 글자가 있으면 `fonts.test.ts`가 실패합니다.
 
-이 앱의 조합기가 기본 프리셋을 조금 굵게(96단위) 만든 **Luminous Display**(`src/app/styles/fonts/luminous-display.woff`)는 0.3.0에서 제목 글꼴을 바꾼 뒤로 `src/app/styles/fonts.css`에 `@font-face`만 남아 있고, 어느 글꼴 지정에도 쓰지 않습니다. 그래도 `display-font.test.ts`가 화면 문구의 한글이 이 파일에 모두 들어 있는지 검사하므로, 화면 문구에 새 한글을 넣으면 `pnpm fonts`와 함께 `pnpm fonts:display`도 다시 돌립니다.
 
 ## 접근성 점검
 
