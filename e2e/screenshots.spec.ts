@@ -17,6 +17,8 @@ test.skip(!process.env.SCREENSHOTS, 'README 화면은 pnpm screenshots로만 찍
 // README 화면은 일식 배경이 보이도록 움직임을 켭니다.
 test.use({ reducedMotion: 'no-preference' })
 test.describe.configure({ mode: 'serial' })
+// 글꼴 파일 만들기(최대 2분)와 가져오기 인식까지 들어가도록 넉넉히 둡니다.
+test.setTimeout(240_000)
 
 const OUT = 'docs/images'
 const DESKTOP = { width: 1440, height: 900 }
@@ -211,7 +213,9 @@ test('내보내기: 11,172칸이 모두 켜진 진행 그림', async ({ page }) 
   await expect(page.getByRole('button', { name: /OTF 받기/ })).toBeVisible({ timeout: 120_000 })
   // 단추를 누르면 그쪽으로 내려가므로 맨 위로 올려 글꼴 정보와 진행 그림을 함께 보여 줍니다.
   await page.evaluate(() => window.scrollTo(0, 0))
-  await page.waitForTimeout(1500)
+  // 만든 글꼴로 그린 견본까지 준비될 때까지 기다립니다.
+  await page.evaluate(() => document.fonts.ready)
+  await page.waitForTimeout(500)
   await shot(page, 'export')
 })
 
