@@ -1,4 +1,6 @@
-@import '@fontsource-variable/outfit/wght.css';
+@import '@fontsource-variable/syne/wght.css';
+/* 한글: IBM Plex Sans KR 중 화면에 쓰는 글자만 담은 파일. OFL 예약 이름 때문에 줄인 파일 이름은 LuminousSans(pnpm fonts로 만듦) */
+@import './fonts/luminous-sans.css';
 @import './fonts.css';
 @import './tokens.css';
 @import './base.css';
