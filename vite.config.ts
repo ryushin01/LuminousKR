@@ -16,6 +16,8 @@ export default defineConfig({
   resolve: { tsconfigPaths: true },
   worker: { format: 'es' },
   build: {
+    // 한글 글꼴 조각(대부분 4KB 미만)을 CSS에 base64로 넣지 않고 파일로 둠
+    assetsInlineLimit: (file) => (/\.woff2?$/.test(file) ? false : undefined),
     target: 'es2023',
     // pdf.js처럼 큰 조각은 필요할 때만 받으므로 경고 기준을 넉넉히 둠
     chunkSizeWarningLimit: 1600,
