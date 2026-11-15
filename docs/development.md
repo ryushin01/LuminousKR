@@ -6,7 +6,7 @@
 
 | 계층 | 슬라이스 | 하는 일 |
 |---|---|---|
-| app | (세그먼트) `routes`, `layout`, `styles` | 라우터, 본문 바로가기·배경·머리글·바닥글, 전역 스타일과 제목 글꼴 |
+| app | (세그먼트) `routes`, `layout`, `styles` | 라우터, 본문 바로가기·배경·머리글·바닥글, 전역 스타일과 웹 폰트 |
 | pages | home, studio, import, preview, export, guide, not-found | 화면. 한 화면에서만 쓰는 코드는 그 화면 슬라이스 안에 둡니다 (예: 그리기 판 편집기, 손글씨 양식·인식 워커) |
 | widgets | site-header, cosmos-backdrop | 머리글과 전체 메뉴(`<dialog>`), WebGL 배경 |
 | features | adjust-style, manage-project | 획 스타일 조절, 프로젝트 저장·열기 (작업실·미리보기·내보내기에서 함께 씀) |
@@ -27,7 +27,8 @@
 | `pnpm test` | Vitest 단위·화면 테스트 |
 | `pnpm test:e2e` | Playwright E2E (먼저 `build:all`) |
 | `pnpm storybook` | Storybook 개발 서버 |
-| `pnpm fonts:display` | 제목용 글꼴 다시 만들기 |
+| `pnpm fonts` | 한글 웹 폰트(LuminousSans)의 화면 글자 파일과 조각 다시 만들기 (fontTools 필요) |
+| `pnpm fonts:display` | 조합기로 만든 Luminous Display 다시 만들기 (지금 화면에는 쓰지 않음) |
 | `node scripts/screenshots.mjs` | README 화면 사진 다시 찍기 (먼저 `build`) |
 
 ## 테스트
@@ -39,9 +40,11 @@
 
 jsdom에는 Web Worker가 없어 `vitest.setup.ts`에서 답하지 않는 워커로 둡니다. 실제 워커 동작은 E2E에서 확인합니다. E2E는 `reducedMotion: 'reduce'`로 돌려 소프트웨어 WebGL 배경이 CPU를 차지하지 않게 합니다(앱은 이 설정이면 배경을 멈춤).
 
-## 제목용 글꼴
+## 글꼴
 
-화면의 한글 제목은 이 앱의 조합기가 기본 프리셋을 조금 굵게(96단위) 만든 **Luminous Display**로 그립니다(`src/app/styles/fonts/luminous-display.woff`). 화면 문구(주석 제외)에 쓰인 음절만 담아 약 19KB입니다. 문구를 바꾸면 `pnpm fonts:display`로 다시 만드세요. 빠진 글자가 있으면 `display-font.test.ts`가 실패합니다.
+화면의 제목과 본문은 같은 짝을 씁니다. 영문·숫자는 **Syne**, 한글은 **IBM Plex Sans KR**입니다(`src/app/styles/tokens.css`의 `--font-display`·`--font-body`). IBM Plex Sans KR은 OFL 예약 이름(Plex) 때문에 이름을 바꾼 `LuminousSans`로, 화면 문구에 쓰인 글자만 담은 파일과 나머지 글자 조각을 `pnpm fonts`로 만듭니다(fontTools 필요). 빠진 글자가 있으면 `fonts.test.ts`가 실패합니다.
+
+이 앱의 조합기가 기본 프리셋을 조금 굵게(96단위) 만든 **Luminous Display**(`src/app/styles/fonts/luminous-display.woff`)는 0.3.0에서 제목 글꼴을 바꾼 뒤로 `src/app/styles/fonts.css`에 `@font-face`만 남아 있고, 어느 글꼴 지정에도 쓰지 않습니다. 그래도 `display-font.test.ts`가 화면 문구의 한글이 이 파일에 모두 들어 있는지 검사하므로, 화면 문구에 새 한글을 넣으면 `pnpm fonts`와 함께 `pnpm fonts:display`도 다시 돌립니다.
 
 ## 접근성 점검
 

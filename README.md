@@ -1,7 +1,7 @@
 # LuminousKR - 한글 모듈 글꼴 조합기
 
 [![CI](https://github.com/ryushin01/LuminousKR/actions/workflows/ci.yml/badge.svg)](https://github.com/ryushin01/LuminousKR/actions/workflows/ci.yml)
-![version](https://img.shields.io/badge/version-0.3.1-ff6a1a)
+![version](https://img.shields.io/badge/version-0.3.2-ff6a1a)
 ![Storybook](https://img.shields.io/badge/Storybook-10-FF4785?logo=storybook&logoColor=white)
 
 초·중·종성 획의 뼈대만 그리면 한글 11,172자를 조합해 OTF·WOFF 글꼴 파일로 내보내는 웹 도구입니다. 자모 24자만 그려도 겹자음·겹받침·섞임 모음과 모든 음절이 만들어지고, 손으로 쓴 양식의 사진·스캔 PDF를 올려 획을 인식해 가져올 수도 있습니다.
@@ -76,7 +76,8 @@ pnpm dev    # http://localhost:5173
 | `pnpm test` | 엔진·인식·화면 단위 테스트 |
 | `pnpm test:e2e` | 프로덕션 빌드의 실제 화면 검사 (먼저 `build:all` 필요) |
 | `pnpm screenshots` | README 화면(`docs/images`) 다시 찍기 (먼저 `pnpm build` 필요) |
-| `pnpm fonts:display` | 제목용 글꼴(Luminous Display)을 조합기로 다시 만들기 |
+| `pnpm fonts` | 제목·본문 한글 글꼴(LuminousSans)의 화면 글자 파일과 조각 다시 만들기 (fontTools 필요) |
+| `pnpm fonts:display` | 조합기로 만든 Luminous Display 다시 만들기 (지금 화면에는 쓰지 않음) |
 
 전체 명령과 규칙은 [개발 가이드](docs/development.md)를 참고하세요.
 
@@ -101,7 +102,7 @@ src/
 |---|---|
 | [조합 원리](docs/engine.md) | 뼈대 모델, 여섯 배치, 파생 규칙, 굵기 입히기·곡선 맞춤, 글꼴 파일 구성 |
 | [손글씨 가져오기](docs/import.md) | 양식 PDF, 표식·원근 바로잡기, 세선화·뼈대 추적, 적용 |
-| [개발 가이드](docs/development.md) | 구조, 명령, 테스트, 제목 글꼴, 접근성 점검 |
+| [개발 가이드](docs/development.md) | 구조, 명령, 테스트, 글꼴, 접근성 점검 |
 | [CI · 배포](docs/deployment.md) | GitHub Actions, GitHub Pages, 화면별 HTML |
 | [버전 기록](CHANGELOG.md) | 버전별 변경 내용 |
 
@@ -123,4 +124,4 @@ src/
 | pdf.js (PDF 읽기) | Mozilla | Apache-2.0 | [pdf.js](https://github.com/mozilla/pdf.js) |
 | SolidJS (화면) | Ryan Carniato | MIT | [solid](https://github.com/solidjs/solid) |
 
-미리보기 견본 글꼴 Luminous Display, 아이콘, 우주 배경(WebGL)과 화면 사진은 이 프로젝트에서 직접 만들었습니다.
+기본 프리셋(Luminous Modular)과 이 조합기로 만든 Luminous Display, 아이콘, 우주 배경(WebGL)과 화면 사진은 이 프로젝트에서 직접 만들었습니다.
