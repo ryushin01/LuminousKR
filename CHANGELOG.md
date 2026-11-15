@@ -1,5 +1,12 @@
 # 변경 기록
 
+## 0.3.0 - 2026-11-15
+
+- 글꼴 교체: 영문 제목 Outfit·한글 제목 Luminous Display·본문 운영체제 글꼴 → 제목·본문 모두 Syne(영문·숫자)과 IBM Plex Sans KR(한글, 100·400·600·700). 미리보기 견본 글꼴은 그대로
+- IBM Plex Sans KR은 화면 글자만 담은 파일과 나머지 글자 조각으로 나눔. OFL 예약 이름(Plex) 때문에 줄인 파일 이름은 LuminousSans
+- `pnpm fonts`로 다시 만들고, 화면 글자가 빠지면 단위 테스트가 실패
+- README에 웹 폰트 표
+
 ## 0.2.2 - 2026-11-14
 
 - 파비콘·로고를 일식 고리로: 어둠 속에서 고리처럼 새어 나오는 일식의 빛. `favicon.svg`(벡터), 애플 아이콘 `apple-touch-icon.png`(180)를 더하고, 머리글의 로고 마크(`LogoMark`)도 같은 그림(`src/shared/ui/logo/logo.svg`, 꾸밈)으로 바꿈. 'LuminousKR' 글자는 그대로

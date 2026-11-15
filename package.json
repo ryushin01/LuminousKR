@@ -1,6 +1,6 @@
 {
   "name": "luminous-kr",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "private": true,
   "description": "초·중·종성 획만 그리면 한글 11,172자를 조합해 글꼴 파일로 내보내는 웹 도구",
   "type": "module",
@@ -23,10 +23,11 @@
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build -o dist/storybook --quiet",
     "build:all": "pnpm build && pnpm build-storybook",
-    "fonts:display": "node scripts/build-display-font.mjs"
+    "fonts:display": "node scripts/build-display-font.mjs",
+    "fonts": "node scripts/build-fonts.mjs"
   },
   "dependencies": {
-    "@fontsource-variable/outfit": "^5.3.0",
+    "@fontsource-variable/syne": "^5.3.0",
     "@solidjs/router": "^1.0.3",
     "clipper2-ts": "2.0.1-19",
     "opentype.js": "^2.0.0",
@@ -46,12 +47,15 @@
     "eslint": "^10.14.0",
     "eslint-plugin-jsx-a11y": "^6.10.2",
     "eslint-plugin-solid": "^0.19.0",
+    "fontverter": "2.0.0",
     "globals": "^17.14.0",
+    "harfbuzzjs": "1.6.4",
     "jsdom": "^31.0.0",
     "prettier": "^3.10.0",
     "steiger": "^0.10.0",
     "storybook": "^10.6.7",
     "storybook-solidjs-vite": "^10.7.4",
+    "subset-font": "2.9.0",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.72.2",
     "vite": "^8.3.8",

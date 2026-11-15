@@ -31,11 +31,11 @@
   --c-danger: #ff8f8a;
   --c-success: #8fe3b0;
 
+  /* 영문·숫자는 Syne, 한글은 IBM Plex Sans KR(LuminousSans). 제목과 본문이 같은 짝을 씁니다. */
   --font-display:
-    'Outfit Variable', 'Luminous Display', system-ui, -apple-system, 'Apple SD Gothic Neo',
+    'Syne Variable', 'LuminousSans', system-ui, -apple-system, 'Apple SD Gothic Neo',
     'Malgun Gothic', 'Noto Sans KR', sans-serif;
-  --font-body:
-    system-ui, -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', sans-serif;
+  --font-body: var(--font-display);
   --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 
   --radius-s: 6px;
