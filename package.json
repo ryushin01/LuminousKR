@@ -1,6 +1,6 @@
 {
   "name": "luminous-kr",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "private": true,
   "description": "초·중·종성 획만 그리면 한글 11,172자를 조합해 글꼴 파일로 내보내는 웹 도구",
   "type": "module",
@@ -24,7 +24,6 @@
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build -o dist/storybook --quiet",
     "build:all": "pnpm build && pnpm build-storybook",
-    "fonts:display": "node scripts/build-display-font.mjs",
     "fonts": "node scripts/build-fonts.mjs"
   },
   "dependencies": {
