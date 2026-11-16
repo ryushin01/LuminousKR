@@ -32,17 +32,22 @@ const [syncedAt, setSyncedAt] = createSignal(0)
 const [unreadable, setUnreadable] = createSignal<string | null>(loaded.unreadable)
 const [unreadableKept, setUnreadableKept] = createSignal(loaded.kept)
 
+/**
+ * 자동 저장을 멈춘 까닭. 멈춘 동안 바뀐 것은 저장소에 쓰지 않습니다.
+ * - unreadable-here: 읽지 못한 원문을 보관하지 못해 원래 자리에만 있음. 받거나 버리기 전까지 덮어쓰지 않음
+ * - unreadable-other-tab: 다른 탭이 이 탭이 읽지 못하는 형식(더 새 버전 등)으로 저장함. 그 작업을 덮어쓰지 않음
+ */
+export type SavePause = 'unreadable-here' | 'unreadable-other-tab'
+const [pause, setPause] = createSignal<SavePause | null>(
+  loaded.unreadable !== null && !loaded.kept ? 'unreadable-here' : null,
+)
+
 const past: FontProject[] = []
 const future: FontProject[] = []
 let lastCoalesce: { key: string; at: number } | null = null
 let saveTimer: ReturnType<typeof setTimeout> | undefined
 /** 이 탭이 마지막으로 쓰거나 받아 맞춘 저장 원문 (다른 탭의 지난 이벤트를 거르는 기준) */
 let lastSeen: string | null = loaded.text
-/**
- * 읽지 못한 원문을 보관하지 못해 원래 자리에만 있을 때는, 사용자가 받거나 버리기 전까지 저장하지 않습니다
- * (작은 새 작업이 원래 작업을 덮어써 되찾을 수 없게 되는 것을 막음).
- */
-let saveBlocked = loaded.unreadable !== null && !loaded.kept
 
 // 되돌리기용 복사본은 추적하지 않고 그 순간의 값을 뜹니다.
 const snapshot = (): FontProject => structuredClone(unwrap(project))
@@ -50,7 +55,7 @@ const snapshot = (): FontProject => structuredClone(unwrap(project))
 function saveNow(): void {
   clearTimeout(saveTimer)
   saveTimer = undefined
-  if (saveBlocked) return
+  if (pause()) return
   const text = serializeProject(unwrap(project))
   const outcome = writeSaved(storage, text)
   if (outcome === 'ok') lastSeen = text
@@ -117,15 +122,24 @@ export const projectSyncedAt = syncedAt
 export const unreadableProjectText = unreadable
 
 /**
- * 읽지 못한 원문을 보관 열쇠에 두었는지. false면 원래 자리에만 있어 받거나 버리기 전까지 자동 저장을 멈춥니다.
+ * 읽지 못한 원문이 어디에 있는지.
+ * kept: 보관 열쇠에 둠, paused: 원래 자리에만 있어 받거나 버리기 전까지 자동 저장을 멈춤,
+ * memory: 보관하지 못했고 다른 탭이 원래 자리를 덮어써 이 탭에서만 받을 수 있음(닫으면 사라짐), null: 없음
  */
-export const unreadableProjectKept = unreadableKept
+export function unreadableProjectState(): 'kept' | 'paused' | 'memory' | null {
+  if (unreadable() === null) return null
+  if (unreadableKept()) return 'kept'
+  return pause() === 'unreadable-here' ? 'paused' : 'memory'
+}
+
+/** 다른 탭이 읽지 못하는 형식으로 저장해, 그것을 덮어쓰지 않으려고 이 탭의 자동 저장을 멈췄는지 */
+export const projectSavePausedByOtherTab = () => pause() === 'unreadable-other-tab'
 
 function releaseUnreadable(): void {
   setUnreadable(null)
   setUnreadableKept(true)
-  if (saveBlocked) {
-    saveBlocked = false
+  if (pause() === 'unreadable-here') {
+    setPause(null)
     // 멈춰 있던 동안의 변경을 바로 씁니다.
     saveNow()
   }
@@ -195,7 +209,8 @@ export function projectToJson(): string {
 /**
  * 다른 탭이 저장한 작업으로 이 탭을 맞춥니다.
  * 되돌리기 기록은 프로젝트 전체를 떠 둔 것이라, 그대로 두면 되돌리기가 다른 탭의 변경까지 지우므로 비웁니다.
- * 읽지 못하는 저장(나중 판 형식 등)이면 맞추지 않습니다. 이 탭은 다시 저장하지 않습니다(이미 같은 값).
+ * 이 탭은 다시 저장하지 않습니다(이미 같은 값).
+ * 읽지 못하는 저장(더 새 버전의 형식 등)이면 맞추지 않고, 그 작업을 덮어쓰지 않도록 이 탭의 자동 저장을 멈춥니다.
  */
 export function adoptSavedProject(text: string | null): boolean {
   if (text === null) return false
@@ -203,6 +218,10 @@ export function adoptSavedProject(text: string | null): boolean {
   try {
     next = parseSaved(text)
   } catch {
+    clearTimeout(saveTimer)
+    saveTimer = undefined
+    lastSeen = text
+    setPause('unreadable-other-tab')
     return false
   }
   batch(() => {
@@ -210,7 +229,7 @@ export function adoptSavedProject(text: string | null): boolean {
     saveTimer = undefined
     lastSeen = text
     // 다른 탭이 이미 원래 자리를 덮어썼으므로 이 탭이 저장을 멈춰 둘 까닭이 없습니다(원문은 화면에서 계속 받을 수 있음).
-    saveBlocked = false
+    setPause(null)
     setProject(reconcile(next))
     clearHistory()
     setRevision((r) => r + 1)
@@ -231,13 +250,36 @@ export function storageChangeToAdopt(): string | null {
 }
 
 /**
+ * 다른 탭이 저장한 것을 받습니다.
+ * 이 탭에 아직 저장하지 않은 편집(0.4초 기다리는 중)이 있으면 그것이 가장 나중의 편집이므로, 맞추지 않고 바로 써서
+ * 다른 탭이 이 저장을 받아 맞추게 합니다(지금 보고 있는 탭의 방금 고친 것이 사라지지 않게).
+ * 다만 다른 탭의 저장을 읽지 못하면(더 새 형식) 덮어쓰지 않도록 쓰지 않고 멈춥니다.
+ */
+export function receiveOtherTabSave(text: string | null): void {
+  if (text === null) return
+  if (saveTimer !== undefined && !pause()) {
+    let readable = true
+    try {
+      parseSaved(text)
+    } catch {
+      readable = false
+    }
+    if (readable) {
+      saveNow()
+      return
+    }
+  }
+  adoptSavedProject(text)
+}
+
+/**
  * 탭 사이 맞추기와 닫기 직전 저장을 켭니다. 앱을 시작할 때 한 번 부르고, 끌 함수를 돌려줍니다.
  * storage 이벤트는 저장한 탭이 아닌 다른 탭에만 옵니다.
  */
 export function startProjectSync(): () => void {
   const onStorage = (event: StorageEvent) => {
     if (event.key !== STORAGE_KEY || (event.storageArea && event.storageArea !== storage)) return
-    adoptSavedProject(storageChangeToAdopt())
+    receiveOtherTabSave(storageChangeToAdopt())
   }
   const onPageHide = () => flushProjectSave()
   const onVisibility = () => {
@@ -268,5 +310,7 @@ export function resetProjectStoreForTest(
   setSyncedAt(0)
   setUnreadable(options.unreadable ?? null)
   setUnreadableKept(options.kept ?? true)
-  saveBlocked = (options.unreadable ?? null) !== null && options.kept === false
+  setPause(
+    (options.unreadable ?? null) !== null && options.kept === false ? 'unreadable-here' : null,
+  )
 }

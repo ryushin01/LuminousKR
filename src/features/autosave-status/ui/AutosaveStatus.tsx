@@ -2,9 +2,10 @@ import { createEffect, createSignal, on, onCleanup } from 'solid-js'
 import {
   discardUnreadableProject,
   projectSaveFailure,
+  projectSavePausedByOtherTab,
   projectSyncedAt,
   unreadableProjectDownloaded,
-  unreadableProjectKept,
+  unreadableProjectState,
   unreadableProjectText,
 } from '@/entities/font'
 import { downloadFile } from '@/shared/lib/download'
@@ -38,18 +39,15 @@ export function AutosaveStatus() {
     downloadFile(text, 'luminous-kr-unreadable-project.json', 'application/json')
     unreadableProjectDownloaded()
   }
-  const unreadable = () => {
-    if (unreadableProjectText() === null) return null
-    return unreadableProjectKept() ? 'kept' : 'unsaved'
-  }
-
   return (
     <AutosaveNotice
       synced={synced()}
       failure={projectSaveFailure()}
-      unreadable={unreadable()}
+      unreadable={unreadableProjectState()}
+      pausedByOtherTab={projectSavePausedByOtherTab()}
       onDownloadUnreadable={download}
       onDiscardUnreadable={discardUnreadableProject}
+      onReload={() => location.reload()}
     />
   )
 }

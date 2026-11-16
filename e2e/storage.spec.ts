@@ -142,3 +142,27 @@ test('읽지 못한 저장을 보관할 공간이 없으면, 받기 전까지 �
   await expect.poll(() => saved(page)).toMatchObject({ weight: 120 })
   await expect(page.getByRole('button', { name: '원래 작업 받기' })).toHaveCount(0)
 })
+
+test('다른 탭이 읽지 못하는 형식(더 새 버전)으로 저장하면, 이 탭은 덮어쓰지 않도록 자동 저장을 멈춥니다', async ({
+  context,
+  page,
+}) => {
+  test.slow()
+  await openPage(page, '/studio')
+  const newer = '{"format":"luminous-kr","version":2,"note":"더 새 버전"}'
+  const other = await context.newPage()
+  await other.goto('about:blank')
+  await other.goto(page.url().replace(/\/studio.*$/, '/no-such-page'))
+  await other.evaluate(({ key, text }) => localStorage.setItem(key, text), {
+    key: PROJECT_KEY,
+    text: newer,
+  })
+  await expect(
+    page.getByRole('alert').filter({ hasText: '이 탭의 자동 저장을 멈췄습니다' }),
+  ).toBeVisible()
+  await page.getByRole('slider', { name: '굵기' }).fill('120')
+  await page.waitForTimeout(700)
+  expect(await page.evaluate((key) => localStorage.getItem(key), PROJECT_KEY)).toBe(newer)
+  await expect(page.getByRole('button', { name: '새로 고침' })).toBeVisible()
+  await other.close()
+})

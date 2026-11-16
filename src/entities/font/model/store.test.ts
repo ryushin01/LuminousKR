@@ -17,9 +17,11 @@ import {
   startProjectSync,
   undo,
   unreadableProjectDownloaded,
-  unreadableProjectKept,
+  unreadableProjectState,
   unreadableProjectText,
   discardUnreadableProject,
+  projectSavePausedByOtherTab,
+  receiveOtherTabSave,
 } from './store.ts'
 import {
   MAX_POINTS_PER_STROKE,
@@ -145,6 +147,7 @@ describe('자동 저장과 탭 사이 맞추기', () => {
     resetProjectStoreForTest(createPresetProject(), { storage })
     const stop = startProjectSync()
     editProject((d) => void (d.style.weight = 90))
+    flushProjectSave()
     expect(canUndo()).toBe(true)
     const revision = projectRevision()
 
@@ -214,7 +217,7 @@ describe('자동 저장과 탭 사이 맞추기', () => {
       unreadable: '{원래 작업',
       kept: false,
     })
-    expect(unreadableProjectKept()).toBe(false)
+    expect(unreadableProjectState()).toBe('paused')
     editProject((d) => void (d.style.weight = 90))
     flushProjectSave()
     expect(storage.getItem(STORAGE_KEY)).toBe('{원래 작업')
@@ -249,15 +252,80 @@ describe('자동 저장과 탭 사이 맞추기', () => {
     expect(fontProject.style.weight).toBe(140)
   })
 
-  it('읽지 못하는 저장(나중 판 형식, 지운 것)은 맞추지 않고 이 탭의 작업을 그대로 둡니다', () => {
-    resetProjectStoreForTest(createPresetProject(), { storage: memoryStorage() })
+  it('다른 탭이 읽지 못하는 형식(더 새 버전)으로 저장하면 맞추지 않고, 덮어쓰지 않도록 저장을 멈춥니다', () => {
+    const storage = memoryStorage()
+    resetProjectStoreForTest(createPresetProject(), { storage })
     editProject((d) => void (d.style.weight = 90))
-    expect(adoptSavedProject(JSON.stringify({ format: 'luminous-kr', version: 2 }))).toBe(false)
-    expect(adoptSavedProject('{깨짐')).toBe(false)
     expect(adoptSavedProject(null)).toBe(false)
+    expect(projectSavePausedByOtherTab()).toBe(false)
+
+    const newer = JSON.stringify({ format: 'luminous-kr', version: 2 })
+    storage.setItem(STORAGE_KEY, newer)
+    expect(adoptSavedProject(newer)).toBe(false)
     expect(fontProject.style.weight).toBe(90)
     expect(canUndo()).toBe(true)
     expect(projectSyncedAt()).toBe(0)
+    expect(projectSavePausedByOtherTab()).toBe(true)
+    // 이 탭에서 더 고쳐도 다른 탭의 새 형식 저장을 덮어쓰지 않습니다.
+    editProject((d) => void (d.style.weight = 95))
+    flushProjectSave()
+    expect(storage.getItem(STORAGE_KEY)).toBe(newer)
+
+    // 다른 탭이 다시 읽을 수 있는 작업을 저장하면 맞추고 저장을 다시 켭니다.
+    const readable = createPresetProject()
+    readable.style.weight = 130
+    adoptSavedProject(JSON.stringify(readable))
+    expect(projectSavePausedByOtherTab()).toBe(false)
+    expect(fontProject.style.weight).toBe(130)
+  })
+
+  it('이 탭에 저장을 기다리는 편집이 있으면, 다른 탭의 저장을 받아도 맞추지 않고 이 편집을 바로 씁니다', () => {
+    vi.useFakeTimers()
+    const storage = memoryStorage()
+    resetProjectStoreForTest(createPresetProject(), { storage })
+    editProject((d) => void (d.style.weight = 111))
+    const other = createPresetProject()
+    other.style.weight = 140
+    const text = JSON.stringify(other)
+    storage.setItem(STORAGE_KEY, text)
+    receiveOtherTabSave(text)
+    expect(fontProject.style.weight).toBe(111)
+    expect(savedWeight(storage)).toBe(111)
+    expect(projectSyncedAt()).toBe(0)
+    // 기다리던 편집이 없으면 그대로 맞춥니다.
+    storage.setItem(STORAGE_KEY, text)
+    receiveOtherTabSave(text)
+    expect(fontProject.style.weight).toBe(140)
+  })
+
+  it('기다리던 편집이 있어도 다른 탭의 저장을 읽지 못하면(새 형식) 쓰지 않고 멈춥니다', () => {
+    vi.useFakeTimers()
+    const storage = memoryStorage()
+    resetProjectStoreForTest(createPresetProject(), { storage })
+    editProject((d) => void (d.style.weight = 111))
+    const newer = JSON.stringify({ format: 'luminous-kr', version: 2 })
+    storage.setItem(STORAGE_KEY, newer)
+    receiveOtherTabSave(newer)
+    vi.advanceTimersByTime(1000)
+    expect(storage.getItem(STORAGE_KEY)).toBe(newer)
+    expect(projectSavePausedByOtherTab()).toBe(true)
+  })
+
+  it('보관하지 못한 원문을 다른 탭이 덮어쓰면, 저장은 다시 켜고 원문은 이 탭에서만 받을 수 있다고 알립니다', () => {
+    const storage = memoryStorage()
+    resetProjectStoreForTest(createPresetProject(), {
+      storage,
+      unreadable: '{원래 작업',
+      kept: false,
+    })
+    expect(unreadableProjectState()).toBe('paused')
+    const other = createPresetProject()
+    other.style.weight = 120
+    adoptSavedProject(JSON.stringify(other))
+    expect(unreadableProjectState()).toBe('memory')
+    editProject((d) => void (d.style.weight = 125))
+    flushProjectSave()
+    expect(savedWeight(storage)).toBe(125)
   })
 
   it('다른 열쇠의 저장 이벤트는 무시합니다', () => {

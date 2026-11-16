@@ -8,8 +8,10 @@ const meta = {
     synced: false,
     failure: null,
     unreadable: null,
+    pausedByOtherTab: false,
     onDownloadUnreadable: () => {},
     onDiscardUnreadable: () => {},
+    onReload: () => {},
   },
   parameters: { layout: 'fullscreen' },
 } satisfies Meta<typeof AutosaveNotice>
@@ -30,4 +32,7 @@ export const Unavailable: Story = { args: { failure: 'unavailable' } }
 export const Unreadable: Story = { args: { unreadable: 'kept' } }
 
 /** 읽지 못한 작업을 보관할 공간이 없어 자동 저장을 멈췄을 때 */
-export const UnreadableUnsaved: Story = { args: { unreadable: 'unsaved' } }
+export const UnreadablePaused: Story = { args: { unreadable: 'paused' } }
+
+/** 다른 탭이 읽지 못하는 형식(더 새 버전)으로 저장해 이 탭의 자동 저장을 멈췄을 때 */
+export const PausedByOtherTab: Story = { args: { pausedByOtherTab: true } }

@@ -56,6 +56,7 @@ export {
   fontProject,
   projectRevision,
   projectSaveFailure,
+  projectSavePausedByOtherTab,
   projectSyncedAt,
   projectToJson,
   redo,
@@ -63,7 +64,7 @@ export {
   startProjectSync,
   undo,
   unreadableProjectDownloaded,
-  unreadableProjectKept,
+  unreadableProjectState,
   unreadableProjectText,
 } from './model/store.ts'
 export { createRenderedGlyphs, currentSource, sourceWithStyle } from './model/rendered.ts'
