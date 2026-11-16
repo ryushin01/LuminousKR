@@ -16,6 +16,8 @@ export default defineConfig({
   resolve: { tsconfigPaths: true },
   worker: { format: 'es' },
   build: {
+    // 화면별 HTML 사본에 그 화면 조각의 미리 받기(modulepreload)를 넣는 데 씀(scripts/postbuild.mjs, 쓴 뒤 지움)
+    manifest: true,
     // 한글 글꼴 조각(대부분 4KB 미만)을 CSS에 base64로 넣지 않고 파일로 둠
     assetsInlineLimit: (file) => (/\.woff2?$/.test(file) ? false : undefined),
     target: 'es2023',

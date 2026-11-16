@@ -15,3 +15,44 @@ for (const width of WIDTHS) {
     expect(consoleErrors).toEqual([])
   })
 }
+
+for (const viewport of [
+  { width: 1440, height: 900 },
+  { width: 390, height: 844 },
+]) {
+  test(`가로 ${viewport.width}px: 첫 로딩의 레이아웃 이동(CLS)이 0.02 미만입니다`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(viewport)
+    await page.addInitScript(() => {
+      const w = window as unknown as { __cls: number }
+      w.__cls = 0
+      new PerformanceObserver((list) => {
+        for (const entry of list.getEntries() as (PerformanceEntry & {
+          value: number
+          hadRecentInput: boolean
+        })[]) {
+          if (!entry.hadRecentInput) w.__cls += entry.value
+        }
+      }).observe({ type: 'layout-shift', buffered: true })
+    })
+    for (const path of ['/', '/studio', '/preview', '/guide']) {
+      await openPage(page, path)
+      await page.waitForTimeout(800)
+      const cls = await page.evaluate(() => (window as unknown as { __cls: number }).__cls)
+      expect(cls, `${path} CLS`).toBeLessThan(0.02)
+    }
+  })
+}
+
+test('화면 주소로 바로 들어오면 그 화면 조각을 HTML에서 미리 받습니다', async ({ request }) => {
+  // GitHub Pages는 /studio를 /studio/로 옮겨 studio/index.html을 줍니다.
+  for (const [path, chunk] of [
+    ['/studio/', 'studio-'],
+    ['/export/', 'export-'],
+    ['/', 'home-'],
+  ] as const) {
+    const html = await (await request.get(path)).text()
+    expect(html, path).toMatch(new RegExp(`<link rel="modulepreload"[^>]*assets/${chunk}`))
+  }
+})
