@@ -11,13 +11,10 @@ export default defineConfig({
   use: {
     baseURL: `http://localhost:${PORT}`,
     locale: 'ko-KR',
-    // 소프트웨어 WebGL로 배경을 계속 그리면 CPU를 많이 써서 검사가 느려지므로 '동작 줄이기'로 멈춥니다.
+    // 배경 움직임 멈춤(동작 줄이기) 상태를 기본으로 검사합니다.
+    // CI처럼 GPU가 없으면(소프트웨어 렌더러) 앱은 WebGL 배경 대신 CSS 배경을 씁니다.
     reducedMotion: 'reduce',
     trace: 'retain-on-failure',
-    launchOptions: {
-      // CI에는 GPU가 없으므로 배경 WebGL을 소프트웨어로 그립니다.
-      args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
-    },
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   // 프로덕션 빌드를 띄워 검사합니다 (먼저 pnpm build:all 필요).

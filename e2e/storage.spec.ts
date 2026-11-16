@@ -39,8 +39,6 @@ test('여러 탭: 한 탭에서 그린 획을 다른 탭이 받아 맞추고, �
   page,
   consoleErrors,
 }) => {
-  // CI의 소프트웨어 WebGL은 탭이 둘이면 배경 셰이더 컴파일이 오래 걸려 넉넉히 기다립니다.
-  test.slow()
   await openPage(page, '/studio')
   const other = await context.newPage()
   await openPage(other, '/preview')
@@ -159,7 +157,6 @@ test('다른 탭이 읽지 못하는 형식(더 새 버전)으로 저장하면, 
   context,
   page,
 }) => {
-  test.slow()
   // 전에 읽지 못해 보관해 둔 원문이 이미 있는 상황
   const kept = '{"format":"luminous-kr","version":5,"note":"전에 보관한 작업"}'
   await page.addInitScript(

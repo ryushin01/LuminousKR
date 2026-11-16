@@ -38,6 +38,14 @@
   color: var(--c-text-dim);
 }
 
+/*
+ * 첫 로딩에서 화면 조각을 받는 동안에는 바닥글을 보이지 않게 합니다(자리는 그대로).
+ * 보이던 바닥글이 화면이 그려지며 밀려나는 레이아웃 이동(CLS)을 막습니다.
+ */
+.shell:has(.loading) .footer {
+  visibility: hidden;
+}
+
 .footer {
   display: flex;
   flex-wrap: wrap;
