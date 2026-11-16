@@ -7,7 +7,7 @@ import {
   SYLLABLE_LAST,
 } from '@/shared/lib/hangul'
 import type { FontProject } from '../model/types.ts'
-import { Composer, isComposable } from './composer.ts'
+import { type ComponentCache, Composer, isComposable } from './composer.ts'
 import { ASCENDER, DESCENDER, UNITS_PER_EM } from './outline.ts'
 
 export type BuildPhase = 'compose' | 'encode' | 'compress'
@@ -124,14 +124,18 @@ export function fontNamesOf(project: FontProject): FontNames {
   }
 }
 
-/** 프로젝트로 글꼴 파일을 만듭니다. (Web Worker 안에서 부르는 것을 전제로 합니다) */
+/**
+ * 프로젝트로 글꼴 파일을 만듭니다. (Web Worker 안에서 부르는 것을 전제로 합니다)
+ * @param cache 미리보기용 작은 글꼴을 편집하면서 거듭 만들 때 이어 쓸 윤곽 캐시
+ */
 export async function buildFont(
   project: FontProject,
   request: BuildRequest,
   onProgress?: (progress: BuildProgress) => void,
+  cache?: ComponentCache,
 ): Promise<BuildResult> {
   const started = performance.now()
-  const composer = new Composer(project)
+  const composer = new Composer(project, cache)
   const { advance } = project.metrics
   const codes = glyphCodes(request.chars)
   const total = codes.length

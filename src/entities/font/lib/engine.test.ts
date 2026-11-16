@@ -2,7 +2,8 @@
 import { parse } from 'opentype.js/dist/opentype.mjs'
 import { describe, expect, it } from 'vitest'
 import { type Contour, cubicPoint } from '@/shared/lib/geometry'
-import { SYLLABLE_BASE } from '@/shared/lib/hangul'
+import { SYLLABLE_BASE, composeCode } from '@/shared/lib/hangul'
+import { ALL_JAMO_KEYS, homeLayout } from '../model/layout.ts'
 import { createPresetProject } from '../model/preset.ts'
 import type { FontProject } from '../model/types.ts'
 import {
@@ -12,7 +13,7 @@ import {
   sanitizeLatinName,
   weightClassOf,
 } from './build-font.ts'
-import { Composer, placedStrokesFor } from './composer.ts'
+import { ComponentCache, Composer, placedStrokesFor } from './composer.ts'
 import { bodyFrame, expandStrokes, pathsBounds, pathsToContours } from './outline.ts'
 import type { PlacedStroke } from './resolve.ts'
 
@@ -227,5 +228,98 @@ describe('글꼴 파일 만들기', () => {
       en: 'Luminous Modular',
       ko: '루미너스 모듈',
     })
+  })
+})
+
+/** 같은 씨앗이면 같은 수열을 주는 작은 난수 (mulberry32) */
+function random(seed: number) {
+  let a = seed >>> 0
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0
+    let t = a
+    t = Math.imul(t ^ (t >>> 15), t | 1)
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+describe('판을 넘어 이어 쓰는 윤곽 캐시', () => {
+  const codes = [
+    ...Array.from({ length: 19 }, (_, lead) => composeCode(lead, lead % 21, lead % 28)),
+    ...Array.from({ length: 21 }, (_, vowel) => composeCode(vowel % 19, vowel, (vowel * 5) % 28)),
+    // 각: ㄱ의 D 배치(세로 모음 + 받침). 아래에서 바꾸는 L0 변형(벌)을 실제로 쓰는 음절
+    composeCode(0, 0, 1),
+    0x3131,
+    0x3134,
+    0x314f,
+    0x3158,
+  ]
+
+  it('편집을 거듭해도 캐시로 만든 윤곽이 처음부터 만든 것과 같습니다', () => {
+    const next = random(20261116)
+    const cache = new ComponentCache({ syllables: true })
+    let project = createPresetProject()
+    for (let step = 0; step < 14; step++) {
+      project = structuredClone(project)
+      const kind = step % 4
+      if (kind === 0) project.style.weight = 40 + Math.round(next() * 120)
+      else if (kind === 1) {
+        // 기본 자모의 점 하나를 옮김
+        const keys = Object.keys(project.jamo) as (keyof typeof project.jamo)[]
+        const entry = project.jamo[keys[Math.floor(next() * keys.length)]!]!
+        const stroke = entry.base!.strokes[0]!
+        if (stroke.kind === 'path') stroke.points[0] = { x: next(), y: next() }
+        else stroke.cx = 0.3 + next() * 0.4
+      } else if (kind === 2) {
+        // 배치 변형(벌) 하나를 그림
+        project.jamo.L0!.variants = {
+          D: {
+            strokes: [
+              {
+                id: `v${step}`,
+                kind: 'path',
+                points: [
+                  { x: 0.1, y: 0.1 },
+                  { x: next(), y: 0.9 },
+                ],
+                closed: false,
+                smooth: next() > 0.5,
+              },
+            ],
+          },
+        }
+      } else {
+        project.metrics.sideBearing = Math.round(next() * 100)
+      }
+      const cached = new Composer(project, cache)
+      const fresh = new Composer(project)
+      for (const code of codes)
+        expect(cached.glyphContours(code)).toEqual(fresh.glyphContours(code))
+      for (const key of ALL_JAMO_KEYS) {
+        expect(cached.jamoContours(key, homeLayout(key))).toEqual(
+          fresh.jamoContours(key, homeLayout(key)),
+        )
+      }
+    }
+  })
+
+  it('점 하나를 옮기면 그 자모가 들어간 조각만 다시 만들고 나머지는 그대로 씁니다', () => {
+    const cache = new ComponentCache({ syllables: true })
+    const before = createPresetProject()
+    const first = new Composer(before, cache)
+    for (const key of ALL_JAMO_KEYS) first.jamoContours(key, homeLayout(key))
+    const kept = new Map([...cache.components].map(([id, entry]) => [id, entry.component]))
+
+    const after = structuredClone(before)
+    const stroke = after.jamo.L2!.base!.strokes[0]! // ㄴ
+    if (stroke.kind === 'path') stroke.points[0] = { x: 0.2, y: 0.1 }
+    const second = new Composer(after, cache)
+    for (const key of ALL_JAMO_KEYS) second.jamoContours(key, homeLayout(key))
+
+    const rebuilt = [...cache.components]
+      .filter(([id, entry]) => kept.get(id) !== entry.component)
+      .map(([id]) => id)
+    // ㄴ 초성과, ㄴ으로 만드는 받침 ㄴ·ㄵ·ㄶ만 다시 만듭니다.
+    expect(rebuilt.sort()).toEqual(['L2@A', 'T4@D', 'T5@D', 'T6@D'].sort())
   })
 })
