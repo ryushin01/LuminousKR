@@ -50,12 +50,22 @@ export {
 export {
   canRedo,
   canUndo,
+  discardInPlaceUnreadable,
+  discardKeptUnreadable,
   editProject,
+  flushProjectSave,
   fontProject,
+  inPlaceUnreadableState,
+  inPlaceUnreadableText,
+  keptUnreadableTexts,
   projectRevision,
+  projectSaveFailure,
+  projectSavePausedByOtherTab,
+  projectSyncedAt,
   projectToJson,
   redo,
   replaceProject,
+  startProjectSync,
   undo,
 } from './model/store.ts'
 export { createRenderedGlyphs, currentSource, sourceWithStyle } from './model/rendered.ts'
