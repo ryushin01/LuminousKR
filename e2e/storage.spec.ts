@@ -16,6 +16,16 @@ const saved = (page: Page) =>
       : null
   }, PROJECT_KEY)
 
+/** 보관 열쇠들(원문마다 하나)에 있는 원문 (보관한 차례대로) */
+const keptTexts = (page: Page) =>
+  page.evaluate((key) => {
+    const prefix = `${key}:unreadable:`
+    return Object.keys(localStorage)
+      .filter((name) => name.startsWith(prefix))
+      .sort()
+      .map((name) => localStorage.getItem(name))
+  }, PROJECT_KEY)
+
 /** 그리기 판에서 키보드로 ㄱ에 짧은 획 하나를 더합니다. */
 async function drawStroke(page: Page) {
   await page.getByRole('application').focus()
@@ -93,9 +103,7 @@ test('읽지 못한 저장은 지우지 않고 보관해, 받거나 지울 수 �
   await expect(page.getByRole('button', { name: '보관한 작업 받기' })).toBeVisible()
   await page.getByRole('button', { name: '보관한 작업 지우기' }).click()
   await expect(page.getByRole('button', { name: '보관한 작업 받기' })).toHaveCount(0)
-  expect(await page.evaluate((key) => localStorage.getItem(`${key}:unreadable`), PROJECT_KEY)).toBe(
-    null,
-  )
+  expect(await keptTexts(page)).toEqual([])
 })
 
 test('바꾸고 바로 탭을 닫아도 마지막 변경이 저장됩니다', async ({ context, page }) => {
@@ -120,7 +128,9 @@ test('읽지 못한 저장을 보관할 공간이 없으면, 받아 두고 버�
       // 보관 열쇠에 쓸 공간이 없는 상황
       const setItem = Storage.prototype.setItem
       Storage.prototype.setItem = function (name: string, value: string) {
-        if (name === `${key}:unreadable`) throw new DOMException('가득 참', 'QuotaExceededError')
+        if (name.startsWith(`${key}:unreadable:`)) {
+          throw new DOMException('가득 참', 'QuotaExceededError')
+        }
         return setItem.call(this, name, value)
       }
     },
@@ -155,7 +165,7 @@ test('다른 탭이 읽지 못하는 형식(더 새 버전)으로 저장하면, 
   await page.addInitScript(
     ({ key, text }) => {
       if (sessionStorage.getItem('seeded')) return
-      localStorage.setItem(`${key}:unreadable`, JSON.stringify([text]))
+      localStorage.setItem(`${key}:unreadable:0000000001-seed`, text)
       sessionStorage.setItem('seeded', '1')
     },
     { key: PROJECT_KEY, text: kept },
@@ -182,10 +192,5 @@ test('다른 탭이 읽지 못하는 형식(더 새 버전)으로 저장하면, 
   // 원문이 둘이라 하나씩 받습니다(한 번에 여러 파일을 받으면 브라우저가 막을 수 있음).
   await expect(page.getByRole('button', { name: '보관한 작업 1 받기' })).toBeVisible()
   await expect(page.getByRole('button', { name: '보관한 작업 2 받기' })).toBeVisible()
-  expect(
-    await page.evaluate(
-      (key) => JSON.parse(localStorage.getItem(`${key}:unreadable`) ?? '[]'),
-      PROJECT_KEY,
-    ),
-  ).toEqual([kept, newer])
+  expect(await keptTexts(page)).toEqual([kept, newer])
 })

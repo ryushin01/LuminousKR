@@ -1,9 +1,10 @@
 import { batch, createSignal } from 'solid-js'
 import { createStore, produce, reconcile, unwrap } from 'solid-js/store'
 import {
+  type KeptText,
   STORAGE_KEY,
   type SaveOutcome,
-  UNREADABLE_KEY,
+  UNREADABLE_PREFIX,
   loadSaved,
   parseSaved,
   projectStorage,
@@ -32,7 +33,7 @@ const [futureSize, setFutureSize] = createSignal(0)
 const [saveFailure, setSaveFailure] = createSignal<Exclude<SaveOutcome, 'ok'> | null>(null)
 const [syncedAt, setSyncedAt] = createSignal(0)
 /** 보관 열쇠에 둔 읽지 못한 원문들 */
-const [keptTexts, setKeptTexts] = createSignal<string[]>(loaded.kept)
+const [keptTexts, setKeptTexts] = createSignal<KeptText[]>(loaded.kept)
 /** 저장 공간이 모자라 보관하지 못하고 메모리에만 들고 있는 읽지 못한 원문 */
 const [inPlaceText, setInPlaceText] = createSignal<string | null>(loaded.inPlace)
 
@@ -153,7 +154,7 @@ function releaseInPlace(): void {
   }
 }
 
-/** 보관 열쇠에 둔 읽지 못한 원문들 */
+/** 보관 열쇠에 둔 읽지 못한 원문들 (보관한 차례대로) */
 export const keptUnreadableTexts = keptTexts
 
 /** 보관하지 못하고 이 탭에만 있는 읽지 못한 원문 */
@@ -161,7 +162,12 @@ export const inPlaceUnreadableText = inPlaceText
 
 /** 화면에 보여 준 보관 원문을 지웁니다. 그사이 다른 탭이 더한 원문은 남겨 다시 보여 줍니다. */
 export function discardKeptUnreadable(): void {
-  setKeptTexts(removeKept(storage, keptTexts()))
+  setKeptTexts(
+    removeKept(
+      storage,
+      keptTexts().map((entry) => entry.key),
+    ),
+  )
 }
 
 /**
@@ -288,6 +294,8 @@ export function receiveOtherTabSave(text: string | null): void {
   // 다른 탭이 읽을 수 있는 작업을 썼으므로, 원래 자리(읽지 못한 원문이나 새 형식)를 지키려고 멈춰 둘 까닭이 없습니다.
   // 멈춘 동안 고친 것도 아직 쓰지 못한 변경이므로 맞추기 전에 먼저 씁니다.
   if (pause()) setPause(null)
+  // 이 값을 본 것으로 적어 둡니다. 다시 써 보다 실패해도, 그 뒤 읽지 못하는 저장이 또 오면 새 변화로 알아봅니다.
+  lastSeen = text
   if (dirty) {
     saveNow()
     return
@@ -302,8 +310,9 @@ export function receiveOtherTabSave(text: string | null): void {
 export function startProjectSync(): () => void {
   const onStorage = (event: StorageEvent) => {
     if (event.storageArea && event.storageArea !== storage) return
-    // 다른 탭이 읽지 못한 원문을 보관하거나 지우면 이 탭의 목록도 맞춥니다.
-    if (event.key === UNREADABLE_KEY) setKeptTexts(readKept(storage))
+    // 다른 탭이 읽지 못한 원문을 보관하거나 지우면 이 탭의 목록도 맞춥니다(clear()면 key가 null).
+    if (event.key === null || event.key.startsWith(UNREADABLE_PREFIX))
+      setKeptTexts(readKept(storage))
     if (event.key === STORAGE_KEY) receiveOtherTabSave(storageChangeToAdopt())
   }
   const onPageHide = () => flushProjectSave()
@@ -323,7 +332,7 @@ export function startProjectSync(): () => void {
 /** 테스트용: 저장소를 기본 프리셋으로 되돌리고 기록·알림을 비웁니다. */
 export function resetProjectStoreForTest(
   next: FontProject = createPresetProject(),
-  options: { storage?: Storage; kept?: string[]; inPlace?: string | null } = {},
+  options: { storage?: Storage; kept?: KeptText[]; inPlace?: string | null } = {},
 ): void {
   clearTimeout(saveTimer)
   saveTimer = undefined

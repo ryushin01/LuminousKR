@@ -37,11 +37,11 @@ export function AutosaveStatus() {
   onCleanup(() => clearTimeout(timer))
 
   const downloadKept = (index: number) => {
-    const texts = keptUnreadableTexts()
-    const text = texts[index]
-    if (text === undefined) return
-    const suffix = texts.length > 1 ? `-${index + 1}` : ''
-    saveJson(text, `luminous-kr-kept-project${suffix}.json`)
+    const kept = keptUnreadableTexts()
+    const entry = kept[index]
+    if (!entry) return
+    const suffix = kept.length > 1 ? `-${index + 1}` : ''
+    saveJson(entry.text, `luminous-kr-kept-project${suffix}.json`)
   }
   const downloadInPlace = () => {
     const text = inPlaceUnreadableText()

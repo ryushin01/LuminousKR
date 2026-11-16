@@ -1,11 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
   STORAGE_KEY,
-  UNREADABLE_KEY,
+  UNREADABLE_PREFIX,
   loadSaved,
-  parseKept,
-  readSavedText,
   readKept,
+  readSavedText,
   removeKept,
   serializeProject,
   writeSaved,
@@ -31,6 +30,7 @@ function memoryStorage(initial: Record<string, string> = {}, full = false): Stor
 }
 
 const preset = () => serializeProject(createPresetProject())
+const texts = (storage: Storage) => readKept(storage).map((entry) => entry.text)
 
 describe('자동 저장 읽기·쓰기', () => {
   it('저장한 프로젝트와 그 원문을 그대로 읽습니다', () => {
@@ -47,73 +47,60 @@ describe('자동 저장 읽기·쓰기', () => {
     expect(readSavedText(storage)).toBe(text)
   })
 
-  it('읽지 못한 저장은 덮어쓰기 전에 보관 열쇠로 옮기고 원문을 돌려줍니다', () => {
+  it('읽지 못한 저장은 새 보관 열쇠에 복사하고, 원래 자리는 비우지 않습니다', () => {
     const text = JSON.stringify({ format: 'luminous-kr', version: 99 })
     const storage = memoryStorage({ [STORAGE_KEY]: text })
     const loaded = loadSaved(storage)
-    expect(loaded).toMatchObject({ project: null, kept: [text], inPlace: null })
-    expect(parseKept(storage.getItem(UNREADABLE_KEY))).toEqual([text])
-    expect(storage.getItem(STORAGE_KEY)).toBeNull()
+    expect(loaded.project).toBeNull()
+    expect(loaded.inPlace).toBeNull()
+    expect(loaded.kept.map((entry) => entry.text)).toEqual([text])
+    expect(loaded.kept[0]!.key.startsWith(UNREADABLE_PREFIX)).toBe(true)
+    // 그사이 다른 탭이 썼을 수 있는 새 작업을 지우지 않도록 원래 자리는 그대로 둡니다.
+    expect(storage.getItem(STORAGE_KEY)).toBe(text)
+    // 다시 읽어도 같은 원문은 한 번만 보관합니다.
+    expect(loadSaved(storage).kept).toHaveLength(1)
 
-    // 다음 방문에도 보관한 원문을 알립니다(새 작업은 그대로 읽음).
+    // 다음 저장이 원래 자리를 덮어써도 보관한 원문은 남습니다.
     writeSaved(storage, preset())
     const again = loadSaved(storage)
     expect(again.project).not.toBeNull()
-    expect(again.kept).toEqual([text])
-    expect(removeKept(storage, [text])).toEqual([])
-    expect(storage.getItem(UNREADABLE_KEY)).toBeNull()
+    expect(again.kept.map((entry) => entry.text)).toEqual([text])
+    expect(removeKept(storage, [again.kept[0]!.key])).toEqual([])
     expect(loadSaved(storage).kept).toEqual([])
   })
 
-  it('이미 보관한 원문이 있을 때 또 읽지 못한 원문이 생기면 앞의 것을 덮어쓰지 않고 목록에 더합니다', () => {
+  it('이미 보관한 원문이 있을 때 또 읽지 못한 원문이 생기면 따로 보관합니다', () => {
     const first = '{"format":"luminous-kr","version":7}'
     const second = '{"format":"luminous-kr","version":8}'
     const storage = memoryStorage({ [STORAGE_KEY]: first })
     loadSaved(storage)
     storage.setItem(STORAGE_KEY, second)
-    expect(loadSaved(storage).kept).toEqual([first, second])
-    // 같은 원문은 두 번 넣지 않습니다.
-    storage.setItem(STORAGE_KEY, second)
-    expect(loadSaved(storage).kept).toEqual([first, second])
-    expect(parseKept(storage.getItem(UNREADABLE_KEY))).toEqual([first, second])
+    expect(loadSaved(storage).kept.map((entry) => entry.text)).toEqual([first, second])
+    expect(texts(storage)).toEqual([first, second])
   })
 
-  it('보관 목록에서 보여 준 원문만 지우고 그사이 더해진 원문은 남깁니다', () => {
-    const storage = memoryStorage({ [UNREADABLE_KEY]: JSON.stringify(['A', 'B']) })
-    expect(removeKept(storage, ['A'])).toEqual(['B'])
-    expect(readKept(storage)).toEqual(['B'])
-  })
-
-  it('보관 열쇠의 값이 목록이 아니면(이전 형식) 원문 하나로 읽습니다', () => {
-    expect(parseKept('{"format":"luminous-kr"}')).toEqual(['{"format":"luminous-kr"}'])
-    expect(parseKept('["a","b"]')).toEqual(['a', 'b'])
-    expect(parseKept('[1,2]')).toEqual(['[1,2]'])
-    expect(parseKept(null)).toEqual([])
-  })
-
-  it('보관한 뒤 원래 자리를 비울 때, 그사이 다른 탭이 쓴 새 작업은 지우지 않습니다', () => {
-    const broken = '{"format":"luminous-kr","version":9}'
-    const storage = memoryStorage({ [STORAGE_KEY]: broken })
-    const setItem = storage.setItem.bind(storage)
-    // 보관 목록을 쓰는 순간 다른 탭이 새 작업을 씁니다.
-    storage.setItem = (key, value) => {
-      setItem(key, value)
-      if (key === UNREADABLE_KEY) setItem(STORAGE_KEY, preset())
-    }
-    loadSaved(storage)
-    expect(storage.getItem(STORAGE_KEY)).toBe(preset())
+  it('보여 준 원문의 열쇠만 지워, 그사이 다른 탭이 보관한 원문은 남깁니다', () => {
+    const storage = memoryStorage({ [STORAGE_KEY]: '{A' })
+    const shown = loadSaved(storage).kept
+    // 다른 탭이 원문을 하나 더 보관합니다.
+    storage.setItem(`${UNREADABLE_PREFIX}zzzzzzzzzz-other`, '{B')
+    const remaining = removeKept(
+      storage,
+      shown.map((entry) => entry.key),
+    )
+    expect(remaining.map((entry) => entry.text)).toEqual(['{B'])
+    expect(texts(storage)).toEqual(['{B'])
   })
 
   it('보관할 공간이 없으면 원래 자리에 두고(inPlace) 앞의 보관도 그대로 둡니다', () => {
     const storage = memoryStorage(
-      {
-        [STORAGE_KEY]: '{깨진 JSON',
-        [UNREADABLE_KEY]: JSON.stringify(['앞의 원문']),
-      },
+      { [STORAGE_KEY]: '{깨진 JSON', [`${UNREADABLE_PREFIX}1`]: '앞의 원문' },
       true,
     )
     const loaded = loadSaved(storage)
-    expect(loaded).toMatchObject({ project: null, kept: ['앞의 원문'], inPlace: '{깨진 JSON' })
+    expect(loaded.project).toBeNull()
+    expect(loaded.inPlace).toBe('{깨진 JSON')
+    expect(loaded.kept.map((entry) => entry.text)).toEqual(['앞의 원문'])
     expect(storage.getItem(STORAGE_KEY)).toBe('{깨진 JSON')
   })
 

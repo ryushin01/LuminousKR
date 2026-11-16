@@ -103,6 +103,8 @@ function memoryStorage(full = false) {
   return storage
 }
 
+const keptTexts = () => keptUnreadableTexts().map((entry) => entry.text)
+
 const savedWeight = (storage: Storage) =>
   (JSON.parse(storage.getItem(STORAGE_KEY) ?? 'null') as { style: { weight: number } } | null)
     ?.style.weight
@@ -227,29 +229,67 @@ describe('자동 저장과 탭 사이 맞추기', () => {
 
   it('보관한 원문은 지울 때까지 남고, 지우면 보관 열쇠까지 지웁니다', () => {
     const storage = memoryStorage()
-    storage.setItem(`${STORAGE_KEY}:unreadable`, JSON.stringify(['{보관']))
-    resetProjectStoreForTest(createPresetProject(), { storage, kept: ['{보관'] })
-    expect(keptUnreadableTexts()).toEqual(['{보관'])
+    const key = `${STORAGE_KEY}:unreadable:1`
+    storage.setItem(key, '{보관')
+    resetProjectStoreForTest(createPresetProject(), { storage, kept: [{ key, text: '{보관' }] })
+    expect(keptTexts()).toEqual(['{보관'])
     discardKeptUnreadable()
-    expect(keptUnreadableTexts()).toEqual([])
-    expect(storage.getItem(`${STORAGE_KEY}:unreadable`)).toBeNull()
+    expect(keptTexts()).toEqual([])
+    expect(storage.getItem(key)).toBeNull()
   })
 
   it('다른 탭이 원문을 더 보관하면 목록을 맞추고, 지울 때는 보여 준 것만 지웁니다', () => {
     const storage = memoryStorage()
-    const key = `${STORAGE_KEY}:unreadable`
-    storage.setItem(key, JSON.stringify(['{A']))
-    resetProjectStoreForTest(createPresetProject(), { storage, kept: ['{A'] })
+    const a = `${STORAGE_KEY}:unreadable:1`
+    storage.setItem(a, '{A')
+    resetProjectStoreForTest(createPresetProject(), { storage, kept: [{ key: a, text: '{A' }] })
     const stop = startProjectSync()
     // 이 탭은 {A만 보여 주고 있는데, 다른 탭이 {B를 더 보관합니다(이벤트가 오기 전에 지우기).
-    storage.setItem(key, JSON.stringify(['{A', '{B']))
+    storage.setItem(`${STORAGE_KEY}:unreadable:2`, '{B')
     discardKeptUnreadable()
-    expect(JSON.parse(storage.getItem(key)!)).toEqual(['{B'])
-    expect(keptUnreadableTexts()).toEqual(['{B'])
+    expect(keptTexts()).toEqual(['{B'])
     // 이벤트로 목록을 맞춥니다.
-    storage.setItem(key, JSON.stringify(['{B', '{C']))
-    window.dispatchEvent(new StorageEvent('storage', { key }))
-    expect(keptUnreadableTexts()).toEqual(['{B', '{C'])
+    const c = `${STORAGE_KEY}:unreadable:3`
+    storage.setItem(c, '{C')
+    window.dispatchEvent(new StorageEvent('storage', { key: c }))
+    expect(keptTexts()).toEqual(['{B', '{C'])
+    stop()
+  })
+
+  it('저장이 실패한 채 읽을 수 있는 저장을 받은 뒤 읽지 못하는 저장이 또 오면, 다시 멈춥니다', () => {
+    const storage = memoryStorage()
+    resetProjectStoreForTest(createPresetProject(), { storage })
+    const stop = startProjectSync()
+    const unreadable = JSON.stringify({ format: 'luminous-kr', version: 2 })
+    const readable = JSON.stringify({ ...createPresetProject(), name: '다른 탭' })
+    const send = (text: string) => {
+      storage.full = false
+      storage.setItem(STORAGE_KEY, text)
+      window.dispatchEvent(new StorageEvent('storage', { key: STORAGE_KEY }))
+    }
+    send(unreadable) // U: 멈춤
+    expect(projectSavePausedByOtherTab()).toBe(true)
+    editProject((d) => void (d.style.weight = 99))
+    storage.full = true
+    storage.setItem = ((original) =>
+      function (this: Storage, key: string, value: string) {
+        if (storage.full && key === STORAGE_KEY)
+          throw new DOMException('가득 참', 'QuotaExceededError')
+        return original.call(this, key, value)
+      })(storage.setItem)
+    // R: 멈춤을 풀고 이 탭의 편집을 써 보지만 실패합니다.
+    storage.full = false
+    storage.setItem(STORAGE_KEY, readable)
+    storage.full = true
+    window.dispatchEvent(new StorageEvent('storage', { key: STORAGE_KEY }))
+    expect(projectSavePausedByOtherTab()).toBe(false)
+    expect(projectSaveFailure()).toBe('quota')
+    // U가 또 오면 새 변화로 알아보고 다시 멈춰, 그 뒤의 저장이 덮어쓰지 않습니다.
+    send(unreadable)
+    expect(projectSavePausedByOtherTab()).toBe(true)
+    editProject((d) => void (d.style.weight = 98))
+    flushProjectSave()
+    expect(storage.getItem(STORAGE_KEY)).toBe(unreadable)
     stop()
   })
 
@@ -377,7 +417,7 @@ describe('자동 저장과 탭 사이 맞추기', () => {
     const storage = memoryStorage()
     resetProjectStoreForTest(createPresetProject(), {
       storage,
-      kept: ['{먼저 보관한 작업'],
+      kept: [{ key: `${STORAGE_KEY}:unreadable:1`, text: '{먼저 보관한 작업' }],
       inPlace: '{원래 작업',
     })
     expect(inPlaceUnreadableState()).toBe('paused')
@@ -386,7 +426,7 @@ describe('자동 저장과 탭 사이 맞추기', () => {
     adoptSavedProject(JSON.stringify(other))
     expect(inPlaceUnreadableState()).toBe('memory')
     // 먼저 보관한 원문과 이 탭에만 있는 원문을 모두 받을 수 있습니다.
-    expect(keptUnreadableTexts()).toEqual(['{먼저 보관한 작업'])
+    expect(keptTexts()).toEqual(['{먼저 보관한 작업'])
     expect(inPlaceUnreadableText()).toBe('{원래 작업')
     editProject((d) => void (d.style.weight = 125))
     flushProjectSave()
