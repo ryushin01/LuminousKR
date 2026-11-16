@@ -24,7 +24,7 @@ const ROUTES = [
   { path: 'export', title: '내보내기', module: 'src/pages/export/index.ts' },
   { path: 'guide', title: '안내', module: 'src/pages/guide/index.ts' },
 ]
-const NOT_FOUND = { title: '없는 화면', module: 'src/pages/not-found/index.ts' }
+const NOT_FOUND = { title: '없는 화면', module: 'src/pages/not-found/index.ts', noindex: true }
 
 // 기준 경로는 진입 스크립트 주소에서 읽습니다(BASE_PATH=/LuminousKR/ 빌드면 /LuminousKR/).
 const entry = manifest['index.html']
@@ -59,10 +59,28 @@ function preloadTags(module) {
   ].join('\n    ')
 }
 
+/** 운영 주소 (공유 미리보기·canonical의 기준) */
+const SITE = 'https://ryushin01.github.io/LuminousKR/'
+
 function pageHtml(route) {
   let out = html.replace(/\n\s*<\/head>/, `\n    ${preloadTags(route.module)}\n  </head>`)
   if (route.title) {
     out = out.replace(/<title>[^<]*<\/title>/, `<title>${route.title} — LuminousKR</title>`)
+  }
+  // 화면별 사본은 공유 주소·canonical을 그 화면 주소로 (없는 화면은 검색에 남기지 않음)
+  if (route.path) {
+    const url = `${SITE}${route.path}/`
+    out = out
+      .replace(
+        `<meta property="og:url" content="${SITE}" />`,
+        `<meta property="og:url" content="${url}" />`,
+      )
+      .replace(`<link rel="canonical" href="${SITE}" />`, `<link rel="canonical" href="${url}" />`)
+  }
+  if (route.noindex) {
+    out = out
+      .replace(/\s*<link rel="canonical"[^>]*>/, '')
+      .replace('</title>', '</title>\n    <meta name="robots" content="noindex" />')
   }
   return out
 }
