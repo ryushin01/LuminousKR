@@ -1,12 +1,13 @@
 import { createEffect, createSignal, on, onCleanup } from 'solid-js'
 import {
-  discardUnreadableProject,
+  discardInPlaceUnreadable,
+  discardKeptUnreadable,
+  inPlaceUnreadableState,
+  inPlaceUnreadableText,
+  keptUnreadableTexts,
   projectSaveFailure,
   projectSavePausedByOtherTab,
   projectSyncedAt,
-  unreadableProjectDownloaded,
-  unreadableProjectState,
-  unreadableProjectTexts,
 } from '@/entities/font'
 import { downloadFile } from '@/shared/lib/download'
 import { AutosaveNotice } from './AutosaveNotice.tsx'
@@ -14,7 +15,9 @@ import { AutosaveNotice } from './AutosaveNotice.tsx'
 /** '불러왔습니다' 알림을 보여 주는 시간. 바뀐 결과는 화면에 남으므로 잠시만 둡니다. */
 export const SYNCED_NOTICE_MS = 8000
 
-/** 자동 저장 상태(다른 탭에서 불러옴, 저장 실패, 읽지 못해 보관한 작업)를 알립니다. */
+const saveJson = (text: string, name: string) => downloadFile(text, name, 'application/json')
+
+/** 자동 저장 상태(다른 탭에서 불러옴, 저장 실패, 멈춤, 읽지 못한 작업)를 알립니다. */
 export function AutosaveStatus() {
   const [synced, setSynced] = createSignal(false)
   let timer: ReturnType<typeof setTimeout> | undefined
@@ -33,23 +36,29 @@ export function AutosaveStatus() {
   )
   onCleanup(() => clearTimeout(timer))
 
-  /** 읽지 못한 원문을 하나씩 파일로 받습니다(여럿이면 번호를 붙임). */
-  const download = () => {
-    const texts = unreadableProjectTexts()
-    texts.forEach((text, i) => {
-      const suffix = texts.length > 1 ? `-${i + 1}` : ''
-      downloadFile(text, `luminous-kr-unreadable-project${suffix}.json`, 'application/json')
-    })
-    if (texts.length > 0) unreadableProjectDownloaded()
+  const downloadKept = (index: number) => {
+    const texts = keptUnreadableTexts()
+    const text = texts[index]
+    if (text === undefined) return
+    const suffix = texts.length > 1 ? `-${index + 1}` : ''
+    saveJson(text, `luminous-kr-kept-project${suffix}.json`)
   }
+  const downloadInPlace = () => {
+    const text = inPlaceUnreadableText()
+    if (text !== null) saveJson(text, 'luminous-kr-unreadable-project.json')
+  }
+
   return (
     <AutosaveNotice
       synced={synced()}
       failure={projectSaveFailure()}
-      unreadable={unreadableProjectState()}
+      keptCount={keptUnreadableTexts().length}
+      inPlace={inPlaceUnreadableState()}
       pausedByOtherTab={projectSavePausedByOtherTab()}
-      onDownloadUnreadable={download}
-      onDiscardUnreadable={discardUnreadableProject}
+      onDownloadKept={downloadKept}
+      onDiscardKept={discardKeptUnreadable}
+      onDownloadInPlace={downloadInPlace}
+      onDiscardInPlace={discardInPlaceUnreadable}
       onReload={() => location.reload()}
     />
   )

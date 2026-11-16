@@ -16,10 +16,11 @@ import {
   resetProjectStoreForTest,
   startProjectSync,
   undo,
-  unreadableProjectDownloaded,
-  unreadableProjectState,
-  unreadableProjectTexts,
-  discardUnreadableProject,
+  discardInPlaceUnreadable,
+  discardKeptUnreadable,
+  inPlaceUnreadableState,
+  inPlaceUnreadableText,
+  keptUnreadableTexts,
   projectSavePausedByOtherTab,
   receiveOtherTabSave,
 } from './store.ts'
@@ -209,31 +210,56 @@ describe('자동 저장과 탭 사이 맞추기', () => {
     stop()
   })
 
-  it('읽지 못한 원문을 보관하지 못했으면, 받거나 버리기 전까지 자동 저장이 덮어쓰지 않습니다', () => {
+  it('읽지 못한 원문을 보관하지 못했으면, 버리기 전까지 자동 저장이 덮어쓰지 않습니다', () => {
     const storage = memoryStorage()
     storage.setItem(STORAGE_KEY, '{원래 작업')
     resetProjectStoreForTest(createPresetProject(), { storage, inPlace: '{원래 작업' })
-    expect(unreadableProjectState()).toBe('paused')
+    expect(inPlaceUnreadableState()).toBe('paused')
     editProject((d) => void (d.style.weight = 90))
     flushProjectSave()
     expect(storage.getItem(STORAGE_KEY)).toBe('{원래 작업')
 
-    // 받으면 덮어써도 되므로, 멈춰 있던 변경을 바로 씁니다.
-    unreadableProjectDownloaded()
-    expect(unreadableProjectTexts()).toEqual([])
+    // 버리면(사용자가 받은 것을 확인한 뒤) 멈춰 있던 변경을 바로 씁니다.
+    discardInPlaceUnreadable()
+    expect(inPlaceUnreadableText()).toBeNull()
     expect(savedWeight(storage)).toBe(90)
   })
 
-  it('보관한 원문은 받아도 남아 있고, 버리면 보관 열쇠까지 지웁니다', () => {
+  it('보관한 원문은 지울 때까지 남고, 지우면 보관 열쇠까지 지웁니다', () => {
     const storage = memoryStorage()
     resetProjectStoreForTest(createPresetProject(), { storage, kept: ['{보관'] })
-    unreadableProjectDownloaded()
-    expect(unreadableProjectTexts()).toEqual(['{보관'])
-    expect(unreadableProjectState()).toBe('kept')
+    expect(keptUnreadableTexts()).toEqual(['{보관'])
     const removed = vi.spyOn(storage, 'removeItem')
-    discardUnreadableProject()
-    expect(unreadableProjectTexts()).toEqual([])
+    discardKeptUnreadable()
+    expect(keptUnreadableTexts()).toEqual([])
     expect(removed).toHaveBeenCalledWith(`${STORAGE_KEY}:unreadable`)
+  })
+
+  it('저장이 실패한 변경은 다른 탭의 저장을 받아도 덮어쓰지 않고, 다시 써 봅니다', () => {
+    const storage = memoryStorage(true)
+    resetProjectStoreForTest(createPresetProject(), { storage })
+    editProject((d) => void (d.style.weight = 111))
+    flushProjectSave()
+    expect(projectSaveFailure()).toBe('quota')
+
+    // 다른 탭은 더 작은 작업을 저장할 수 있었습니다.
+    const other = createPresetProject()
+    other.style.weight = 140
+    const text = JSON.stringify(other)
+    storage.full = false
+    storage.setItem(STORAGE_KEY, text)
+    storage.full = true
+    receiveOtherTabSave(text)
+    // 다시 써도 실패하면 이 탭의 작업을 그대로 두고 실패 알림을 유지합니다.
+    expect(fontProject.style.weight).toBe(111)
+    expect(projectSaveFailure()).toBe('quota')
+    expect(savedWeight(storage)).toBe(140)
+
+    // 공간이 생기면 다음에 받을 때 이 탭의 작업을 씁니다.
+    storage.full = false
+    receiveOtherTabSave(text)
+    expect(savedWeight(storage)).toBe(111)
+    expect(projectSaveFailure()).toBeNull()
   })
 
   it('이 탭이 기다리던 저장은 다른 탭의 저장을 받으면 버립니다(받은 작업을 덮어쓰지 않게)', () => {
@@ -315,13 +341,14 @@ describe('자동 저장과 탭 사이 맞추기', () => {
       kept: ['{먼저 보관한 작업'],
       inPlace: '{원래 작업',
     })
-    expect(unreadableProjectState()).toBe('paused')
+    expect(inPlaceUnreadableState()).toBe('paused')
     const other = createPresetProject()
     other.style.weight = 120
     adoptSavedProject(JSON.stringify(other))
-    expect(unreadableProjectState()).toBe('memory')
-    // 받을 수 있는 원문에는 먼저 보관한 것도 그대로 있습니다.
-    expect(unreadableProjectTexts()).toEqual(['{먼저 보관한 작업', '{원래 작업'])
+    expect(inPlaceUnreadableState()).toBe('memory')
+    // 먼저 보관한 원문과 이 탭에만 있는 원문을 모두 받을 수 있습니다.
+    expect(keptUnreadableTexts()).toEqual(['{먼저 보관한 작업'])
+    expect(inPlaceUnreadableText()).toBe('{원래 작업')
     editProject((d) => void (d.style.weight = 125))
     flushProjectSave()
     expect(savedWeight(storage)).toBe(125)

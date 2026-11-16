@@ -50,10 +50,14 @@ export {
 export {
   canRedo,
   canUndo,
-  discardUnreadableProject,
+  discardInPlaceUnreadable,
+  discardKeptUnreadable,
   editProject,
   flushProjectSave,
   fontProject,
+  inPlaceUnreadableState,
+  inPlaceUnreadableText,
+  keptUnreadableTexts,
   projectRevision,
   projectSaveFailure,
   projectSavePausedByOtherTab,
@@ -63,9 +67,6 @@ export {
   replaceProject,
   startProjectSync,
   undo,
-  unreadableProjectDownloaded,
-  unreadableProjectState,
-  unreadableProjectTexts,
 } from './model/store.ts'
 export { createRenderedGlyphs, currentSource, sourceWithStyle } from './model/rendered.ts'
 export type { RenderSource } from './model/rendered.ts'

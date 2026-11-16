@@ -103,7 +103,8 @@ export function loadSaved(storage: Storage | undefined): LoadResult {
       return { project: null, text: null, kept, inPlace: text }
     }
     try {
-      storage.removeItem(STORAGE_KEY)
+      // 그사이 다른 탭이 새 작업을 썼다면 지우지 않습니다(보관한 그 원문일 때만 비움).
+      if (storage.getItem(STORAGE_KEY) === text) storage.removeItem(STORAGE_KEY)
     } catch {
       // 보관은 했으므로 원래 자리는 다음 저장이 덮어써도 됩니다.
     }

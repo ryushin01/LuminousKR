@@ -83,6 +83,19 @@ describe('자동 저장 읽기·쓰기', () => {
     expect(parseKept(null)).toEqual([])
   })
 
+  it('보관한 뒤 원래 자리를 비울 때, 그사이 다른 탭이 쓴 새 작업은 지우지 않습니다', () => {
+    const broken = '{"format":"luminous-kr","version":9}'
+    const storage = memoryStorage({ [STORAGE_KEY]: broken })
+    const setItem = storage.setItem.bind(storage)
+    // 보관 목록을 쓰는 순간 다른 탭이 새 작업을 씁니다.
+    storage.setItem = (key, value) => {
+      setItem(key, value)
+      if (key === UNREADABLE_KEY) setItem(STORAGE_KEY, preset())
+    }
+    loadSaved(storage)
+    expect(storage.getItem(STORAGE_KEY)).toBe(preset())
+  })
+
   it('보관할 공간이 없으면 원래 자리에 두고(inPlace) 앞의 보관도 그대로 둡니다', () => {
     const storage = memoryStorage(
       {

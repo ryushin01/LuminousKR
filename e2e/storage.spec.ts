@@ -64,7 +64,8 @@ test('자동 저장에 실패하면 원인과 할 일을 알립니다', async ({
   await openPage(page, '/studio')
   await page.getByRole('slider', { name: '굵기' }).fill('120')
   const alert = page.getByRole('alert').filter({ hasText: '자동 저장하지 못했습니다' })
-  await expect(alert).toBeVisible()
+  // 0.4초 뒤 저장을 시도해야 나타나므로, 바쁜 기기에서도 넉넉히 기다립니다.
+  await expect(alert).toBeVisible({ timeout: 15_000 })
   await expect(alert).toContainText('프로젝트 파일(.json)로 저장해 두세요')
 })
 
@@ -106,7 +107,7 @@ test('바꾸고 바로 탭을 닫아도 마지막 변경이 저장됩니다', as
   await expect(next.getByRole('slider', { name: '굵기' })).toHaveValue('133')
 })
 
-test('읽지 못한 저장을 보관할 공간이 없으면, 받기 전까지 자동 저장이 덮어쓰지 않습니다', async ({
+test('읽지 못한 저장을 보관할 공간이 없으면, 받아 두고 버리기 전까지 자동 저장이 덮어쓰지 않습니다', async ({
   page,
 }) => {
   const broken = '{"format":"luminous-kr","version":99}'
@@ -126,9 +127,7 @@ test('읽지 못한 저장을 보관할 공간이 없으면, 받기 전까지 �
     { key: PROJECT_KEY, text: broken },
   )
   await openPage(page, '/studio')
-  await expect(
-    page.getByRole('alert').filter({ hasText: '받거나 버리기 전까지 자동 저장을 멈춥니다' }),
-  ).toBeVisible()
+  await expect(page.getByRole('alert').filter({ hasText: '자동 저장을 멈췄습니다' })).toBeVisible()
   await page.getByRole('slider', { name: '굵기' }).fill('120')
   await page.waitForTimeout(700)
   expect(await page.evaluate((key) => localStorage.getItem(key), PROJECT_KEY)).toBe(broken)
@@ -138,7 +137,10 @@ test('읽지 못한 저장을 보관할 공간이 없으면, 받기 전까지 �
     page.getByRole('button', { name: '원래 작업 받기' }).click(),
   ])
   expect(readFileSync((await download.path())!, 'utf8')).toBe(broken)
-  // 받은 뒤에는 멈춰 있던 변경을 바로 씁니다.
+  // 받기만으로는 놓지 않습니다(브라우저가 내려받기를 막아도 알 수 없음). 버려야 멈춰 있던 변경을 씁니다.
+  await page.waitForTimeout(500)
+  expect(await page.evaluate((key) => localStorage.getItem(key), PROJECT_KEY)).toBe(broken)
+  await page.getByRole('button', { name: '원래 작업 버리기' }).click()
   await expect.poll(() => saved(page)).toMatchObject({ weight: 120 })
   await expect(page.getByRole('button', { name: '원래 작업 받기' })).toHaveCount(0)
 })
@@ -177,7 +179,9 @@ test('다른 탭이 읽지 못하는 형식(더 새 버전)으로 저장하면, 
 
   // 새로 고쳐도(이 빌드는 그 형식을 읽지 못함) 전에 보관한 원문은 덮이지 않고 둘 다 남습니다.
   await page.getByRole('button', { name: '새로 고침' }).click()
-  await expect(page.getByRole('button', { name: '보관한 작업 받기' })).toBeVisible()
+  // 원문이 둘이라 하나씩 받습니다(한 번에 여러 파일을 받으면 브라우저가 막을 수 있음).
+  await expect(page.getByRole('button', { name: '보관한 작업 1 받기' })).toBeVisible()
+  await expect(page.getByRole('button', { name: '보관한 작업 2 받기' })).toBeVisible()
   expect(
     await page.evaluate(
       (key) => JSON.parse(localStorage.getItem(`${key}:unreadable`) ?? '[]'),

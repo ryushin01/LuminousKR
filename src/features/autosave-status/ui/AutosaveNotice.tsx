@@ -1,4 +1,4 @@
-import { Show } from 'solid-js'
+import { For, Show } from 'solid-js'
 import { Button } from '@/shared/ui/button'
 import { Icon } from '@/shared/ui/icon'
 import styles from './AutosaveNotice.module.css'
@@ -10,15 +10,19 @@ export type AutosaveNoticeProps = {
   synced: boolean
   /** 마지막 자동 저장이 실패한 까닭 */
   failure: SaveFailure | null
+  /** 따로 보관한 읽지 못한 원문 수 */
+  keptCount: number
   /**
-   * 읽지 못한 저장. kept: 따로 보관함, paused: 보관하지 못해 받거나 버리기 전까지 자동 저장을 멈춤,
-   * memory: 보관하지 못했고 이 탭에서만 받을 수 있음(닫으면 사라짐), null: 없음
+   * 보관하지 못한 읽지 못한 원문. paused: 버리기 전까지 자동 저장을 멈춤,
+   * memory: 이 탭에만 있음(닫으면 사라짐), null: 없음
    */
-  unreadable: 'kept' | 'paused' | 'memory' | null
+  inPlace: 'paused' | 'memory' | null
   /** 다른 탭이 이 탭이 읽지 못하는 형식으로 저장해 자동 저장을 멈췄는지 */
   pausedByOtherTab: boolean
-  onDownloadUnreadable: () => void
-  onDiscardUnreadable: () => void
+  onDownloadKept: (index: number) => void
+  onDiscardKept: () => void
+  onDownloadInPlace: () => void
+  onDiscardInPlace: () => void
   onReload: () => void
 }
 
@@ -29,18 +33,14 @@ const FAILURE_TEXT: Record<SaveFailure, string> = {
     '자동 저장하지 못했습니다. 브라우저가 저장 공간을 막고 있습니다(사생활 보호 설정 등). 작업을 잃지 않도록 작업실이나 내보내기에서 프로젝트 파일(.json)로 저장해 두세요.',
 }
 
-const UNREADABLE_TEXT = {
-  kept: '저장된 작업을 열지 못해 기본 글꼴로 시작했습니다. 원래 작업은 지우지 않고 따로 보관했으니 받아 두세요.',
-  paused:
-    '저장된 작업을 열지 못해 기본 글꼴로 시작했습니다. 저장 공간이 모자라 원래 작업을 따로 보관하지 못해, 받거나 버리기 전까지 자동 저장을 멈춥니다.',
-  memory:
-    '저장된 작업을 열지 못해 기본 글꼴로 시작했습니다. 원래 작업은 따로 보관하지 못해 이 탭을 닫으면 사라지니 받아 두세요.',
-} as const
+const KEPT_TEXT =
+  '저장된 작업을 열지 못해 기본 글꼴로 시작했습니다. 원래 작업은 지우지 않고 따로 보관했으니 받아 두세요.'
 
-const UNREADABLE_LABEL = {
-  kept: { download: '보관한 작업 받기', discard: '보관한 작업 지우기' },
-  paused: { download: '원래 작업 받기', discard: '원래 작업 버리기' },
-  memory: { download: '원래 작업 받기', discard: '원래 작업 버리기' },
+const IN_PLACE_TEXT = {
+  paused:
+    "저장된 작업을 열지 못해 기본 글꼴로 시작했습니다. 저장 공간이 모자라 원래 작업을 따로 보관하지 못해 자동 저장을 멈췄습니다. 원래 작업을 받아 두고 '원래 작업 버리기'를 누르면 다시 저장합니다.",
+  memory:
+    '저장된 작업을 열지 못했는데 저장 공간이 모자라 따로 보관하지 못했습니다. 원래 작업은 이 탭을 닫으면 사라지니 받아 두세요.',
 } as const
 
 const OTHER_TAB_TEXT =
@@ -51,18 +51,22 @@ const SYNCED_TEXT =
 
 /**
  * 자동 저장 알림. 화면 아래쪽에 떠서 내용을 밀어내지 않습니다.
- * 상태(불러옴)와 경고(저장 실패, 보관한 작업) 영역은 처음부터 DOM에 두고 글자만 바꿉니다.
+ * 상태(불러옴)와 경고(저장 실패, 멈춤, 읽지 못한 작업) 영역은 처음부터 DOM에 두고 글자만 바꿉니다.
+ * 원문은 하나씩 받습니다(한 번에 여러 파일을 받으면 브라우저가 막을 수 있음).
  */
 export function AutosaveNotice(props: AutosaveNoticeProps) {
   const alertText = () =>
     [
       props.pausedByOtherTab ? OTHER_TAB_TEXT : '',
       props.failure ? FAILURE_TEXT[props.failure] : '',
-      props.unreadable ? UNREADABLE_TEXT[props.unreadable] : '',
+      props.inPlace ? IN_PLACE_TEXT[props.inPlace] : '',
+      props.keptCount > 0 ? KEPT_TEXT : '',
     ]
       .filter(Boolean)
       .join(' ')
   const active = () => props.synced || alertText() !== ''
+  const keptLabel = (index: number) =>
+    props.keptCount > 1 ? `보관한 작업 ${index + 1} 받기` : '보관한 작업 받기'
 
   return (
     <div class={styles.root}>
@@ -81,19 +85,37 @@ export function AutosaveNotice(props: AutosaveNoticeProps) {
             </Button>
           </div>
         </Show>
-        <Show when={props.unreadable}>
-          {(state) => (
-            <div class={styles.actions}>
-              <Button size="small" variant="secondary" onClick={() => props.onDownloadUnreadable()}>
-                <Icon name="download" size={16} />
-                {UNREADABLE_LABEL[state()].download}
-              </Button>
-              <Button size="small" variant="ghost" onClick={() => props.onDiscardUnreadable()}>
-                <Icon name="trash" size={16} />
-                {UNREADABLE_LABEL[state()].discard}
-              </Button>
-            </div>
-          )}
+        <Show when={props.inPlace}>
+          <div class={styles.actions}>
+            <Button size="small" variant="secondary" onClick={() => props.onDownloadInPlace()}>
+              <Icon name="download" size={16} />
+              원래 작업 받기
+            </Button>
+            <Button size="small" variant="ghost" onClick={() => props.onDiscardInPlace()}>
+              <Icon name="trash" size={16} />
+              원래 작업 버리기
+            </Button>
+          </div>
+        </Show>
+        <Show when={props.keptCount > 0}>
+          <div class={styles.actions}>
+            <For each={Array.from({ length: props.keptCount }, (_, i) => i)}>
+              {(index) => (
+                <Button
+                  size="small"
+                  variant="secondary"
+                  onClick={() => props.onDownloadKept(index)}
+                >
+                  <Icon name="download" size={16} />
+                  {keptLabel(index)}
+                </Button>
+              )}
+            </For>
+            <Button size="small" variant="ghost" onClick={() => props.onDiscardKept()}>
+              <Icon name="trash" size={16} />
+              보관한 작업 지우기
+            </Button>
+          </div>
         </Show>
       </div>
     </div>

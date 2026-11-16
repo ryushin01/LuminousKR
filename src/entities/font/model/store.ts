@@ -50,6 +50,11 @@ let lastCoalesce: { key: string; at: number } | null = null
 let saveTimer: ReturnType<typeof setTimeout> | undefined
 /** 이 탭이 마지막으로 쓰거나 받아 맞춘 저장 원문 (다른 탭의 지난 이벤트를 거르는 기준) */
 let lastSeen: string | null = loaded.text
+/**
+ * 아직 저장소에 쓰지 못한 이 탭의 변경이 있는지(저장을 기다리는 중이거나 저장이 실패함).
+ * 있으면 다른 탭의 저장을 받아도 이 탭의 작업을 덮어쓰지 않습니다.
+ */
+let dirty = false
 
 // 되돌리기용 복사본은 추적하지 않고 그 순간의 값을 뜹니다.
 const snapshot = (): FontProject => structuredClone(unwrap(project))
@@ -60,7 +65,10 @@ function saveNow(): void {
   if (pause()) return
   const text = serializeProject(unwrap(project))
   const outcome = writeSaved(storage, text)
-  if (outcome === 'ok') lastSeen = text
+  if (outcome === 'ok') {
+    lastSeen = text
+    dirty = false
+  }
   setSaveFailure(outcome === 'ok' ? null : outcome)
 }
 
@@ -99,6 +107,7 @@ function pushHistory(coalesceKey?: string): void {
 }
 
 function committed(): void {
+  dirty = true
   setRevision((r) => r + 1)
   syncHistorySignals()
   scheduleSave()
@@ -120,20 +129,14 @@ export const projectSaveFailure = saveFailure
 /** 다른 탭에서 저장한 작업을 이 탭에 마지막으로 맞춘 시각 (없으면 0) */
 export const projectSyncedAt = syncedAt
 
-/** 받을 수 있는 읽지 못한 원문들 (보관한 것 + 보관하지 못한 것) */
-export function unreadableProjectTexts(): string[] {
-  const inPlace = inPlaceText()
-  return inPlace === null ? keptTexts() : [...keptTexts(), inPlace]
-}
-
 /**
- * 읽지 못한 원문이 어디에 있는지.
- * kept: 보관 열쇠에 둠, paused: 원래 자리에만 있어 받거나 버리기 전까지 자동 저장을 멈춤,
- * memory: 보관하지 못했고 다른 탭이 원래 자리를 덮어써 이 탭에서만 받을 수 있음(닫으면 사라짐), null: 없음
+ * 보관하지 못한 읽지 못한 원문의 상태.
+ * paused: 원래 자리에만 있어 버리기 전까지 자동 저장을 멈춤,
+ * memory: 다른 탭이 원래 자리를 덮어써 이 탭에서만 받을 수 있음(닫으면 사라짐), null: 없음
  */
-export function unreadableProjectState(): 'kept' | 'paused' | 'memory' | null {
-  if (inPlaceText() !== null) return pause() === 'unreadable-here' ? 'paused' : 'memory'
-  return keptTexts().length > 0 ? 'kept' : null
+export function inPlaceUnreadableState(): 'paused' | 'memory' | null {
+  if (inPlaceText() === null) return null
+  return pause() === 'unreadable-here' ? 'paused' : 'memory'
 }
 
 /** 다른 탭이 읽지 못하는 형식으로 저장해, 그것을 덮어쓰지 않으려고 이 탭의 자동 저장을 멈췄는지 */
@@ -148,18 +151,23 @@ function releaseInPlace(): void {
   }
 }
 
-/**
- * 읽지 못한 원문을 받았을 때. 보관하지 못한 원문은 이제 덮어써도 되므로 자동 저장을 다시 켭니다.
- * 보관 열쇠에 둔 원문은 버릴 때까지 남깁니다.
- */
-export function unreadableProjectDownloaded(): void {
-  if (inPlaceText() !== null) releaseInPlace()
-}
+/** 보관 열쇠에 둔 읽지 못한 원문들 */
+export const keptUnreadableTexts = keptTexts
 
-/** 읽지 못한 원문을 모두 버립니다 (보관 열쇠도 지움). */
-export function discardUnreadableProject(): void {
+/** 보관하지 못하고 이 탭에만 있는 읽지 못한 원문 */
+export const inPlaceUnreadableText = inPlaceText
+
+/** 보관해 둔 읽지 못한 원문을 모두 지웁니다. */
+export function discardKeptUnreadable(): void {
   removeUnreadable(storage)
   setKeptTexts([])
+}
+
+/**
+ * 보관하지 못한 원문을 버리고 자동 저장을 다시 켭니다.
+ * 받기만으로는 놓지 않습니다(브라우저가 내려받기를 막아도 알 수 없으므로, 사용자가 받은 것을 확인하고 버림).
+ */
+export function discardInPlaceUnreadable(): void {
   releaseInPlace()
 }
 
@@ -235,6 +243,7 @@ export function adoptSavedProject(text: string | null): boolean {
     clearTimeout(saveTimer)
     saveTimer = undefined
     lastSeen = text
+    dirty = false
     // 다른 탭이 이미 원래 자리를 덮어썼으므로 이 탭이 저장을 멈춰 둘 까닭이 없습니다(원문은 화면에서 계속 받을 수 있음).
     setPause(null)
     setProject(reconcile(next))
@@ -258,13 +267,14 @@ export function storageChangeToAdopt(): string | null {
 
 /**
  * 다른 탭이 저장한 것을 받습니다.
- * 이 탭에 아직 저장하지 않은 편집(0.4초 기다리는 중)이 있으면 그것이 가장 나중의 편집이므로, 맞추지 않고 바로 써서
- * 다른 탭이 이 저장을 받아 맞추게 합니다(지금 보고 있는 탭의 방금 고친 것이 사라지지 않게).
+ * 이 탭에 아직 저장소에 쓰지 못한 변경(0.4초 기다리는 중이거나 저장이 실패함)이 있으면 그것이 가장 나중의 편집이므로,
+ * 맞추지 않고 바로 써서 다른 탭이 이 저장을 받아 맞추게 합니다(지금 보고 있는 탭의 방금 고친 것이 사라지지 않게).
+ * 다시 써도 실패하면 이 탭의 작업을 메모리에 그대로 두고 실패 알림을 유지합니다.
  * 다만 다른 탭의 저장을 읽지 못하면(더 새 형식) 덮어쓰지 않도록 쓰지 않고 멈춥니다.
  */
 export function receiveOtherTabSave(text: string | null): void {
   if (text === null) return
-  if (saveTimer !== undefined && !pause()) {
+  if (dirty && !pause()) {
     let readable = true
     try {
       parseSaved(text)
@@ -311,6 +321,7 @@ export function resetProjectStoreForTest(
   saveTimer = undefined
   storage = options.storage ?? projectStorage()
   lastSeen = null
+  dirty = false
   setProject(reconcile(structuredClone(next)))
   clearHistory()
   setSaveFailure(null)
