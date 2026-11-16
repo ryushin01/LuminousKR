@@ -1,5 +1,6 @@
 import { type RouteSectionProps, useLocation } from '@solidjs/router'
 import { Suspense, createEffect, on } from 'solid-js'
+import { AutosaveStatus } from '@/features/autosave-status'
 import { motionPaused } from '@/shared/lib/motion'
 import { CosmosBackdrop } from '@/widgets/cosmos-backdrop'
 import { SiteHeader } from '@/widgets/site-header'
@@ -39,6 +40,7 @@ export function AppShell(props: RouteSectionProps) {
         </Suspense>
       </main>
       <SiteFooter />
+      <AutosaveStatus />
     </div>
   )
 }
