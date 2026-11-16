@@ -61,7 +61,7 @@ export function RouteError(props: RouteErrorProps) {
             }
           >
             {(block) => (
-              <Button variant="danger" onClick={() => reloadApp(true)}>
+              <Button variant="danger" onClick={() => setBlocked(reloadApp(block()))}>
                 <Icon name="reset" size={18} />
                 {reloadDiscardLabel(block())}
               </Button>

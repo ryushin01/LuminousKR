@@ -1,5 +1,5 @@
 import { Show, createSignal } from 'solid-js'
-import { flushProjectSave, inPlaceUnreadableState } from '@/entities/font'
+import { flushProjectSave, inPlaceUnreadableOnlyHere } from '@/entities/font'
 import { assetLoadFailed } from '@/shared/lib/app-update'
 import { Button } from '@/shared/ui/button'
 import { Icon } from '@/shared/ui/icon'
@@ -17,7 +17,7 @@ export type UpdateNoticeViewProps = {
   /** 새로 고치면 잃는 것이 있어 새로 고치지 않았으면 그 까닭 */
   blocked: ReloadBlock | null
   onReload: () => void
-  /** 잃는 것을 버리고 새로 고침 */
+  /** 알린 까닭(blocked)의 것을 버리고 새로 고침 */
   onForceReload: () => void
 }
 
@@ -78,18 +78,21 @@ export function UpdateNoticeView(props: UpdateNoticeViewProps) {
   )
 }
 
+function lossOf(changes: boolean, unreadable: boolean): ReloadBlock | null {
+  if (changes && unreadable) return 'both'
+  if (changes) return 'changes'
+  return unreadable ? 'unreadable' : null
+}
+
 /**
  * 새로 고치기 전에 기다리던(또는 실패한) 자동 저장을 바로 씁니다. 그래도 새로 고치면 잃는 것이 남으면
  * (저장 공간 초과로 쓰지 못한 변경, 이 탭에만 남은 원래 작업) 새로 고치지 않고 그 까닭을 돌려줍니다.
- * force면 그것을 버리고 새로 고칩니다.
+ * @param discard 사용자가 버리기로 확인한 까닭(화면에 알린 것). 그 뒤 새로 생긴 잃을 것이 있으면 버리지 않고
+ *   늘어난 까닭을 돌려주어 다시 확인받습니다.
  */
-export function reloadApp(force = false): ReloadBlock | null {
-  const changes = !flushProjectSave()
-  const unreadable = inPlaceUnreadableState() === 'memory'
-  if (!force && (changes || unreadable)) {
-    if (changes && unreadable) return 'both'
-    return changes ? 'changes' : 'unreadable'
-  }
+export function reloadApp(discard: ReloadBlock | null = null): ReloadBlock | null {
+  const loss = lossOf(!flushProjectSave(), inPlaceUnreadableOnlyHere())
+  if (loss !== null && discard !== 'both' && discard !== loss) return loss
   location.reload()
   return null
 }
@@ -101,7 +104,7 @@ export function UpdateNotice() {
       failed={assetLoadFailed()}
       blocked={blocked()}
       onReload={() => setBlocked(reloadApp())}
-      onForceReload={() => reloadApp(true)}
+      onForceReload={() => setBlocked(reloadApp(blocked()))}
     />
   )
 }

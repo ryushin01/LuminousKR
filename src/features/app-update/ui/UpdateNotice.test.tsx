@@ -5,7 +5,7 @@ import { UpdateNoticeView, reloadApp } from './UpdateNotice.tsx'
 
 const font = vi.hoisted(() => ({
   flushProjectSave: vi.fn(() => true),
-  inPlaceUnreadableState: vi.fn((): 'paused' | 'memory' | null => null),
+  inPlaceUnreadableOnlyHere: vi.fn(() => false),
 }))
 vi.mock('@/entities/font', async (original) => ({
   ...(await original<Record<string, unknown>>()),
@@ -67,7 +67,7 @@ describe('UpdateNoticeView', () => {
 describe('reloadApp', () => {
   afterEach(() => {
     font.flushProjectSave.mockReturnValue(true)
-    font.inPlaceUnreadableState.mockReturnValue(null)
+    font.inPlaceUnreadableOnlyHere.mockReturnValue(false)
     vi.unstubAllGlobals()
   })
 
@@ -84,27 +84,38 @@ describe('reloadApp', () => {
     expect(reload).toHaveBeenCalledOnce()
   })
 
-  it('원래 작업이 원래 자리에 있으면(자동 저장을 멈춘 상태) 새로 고쳐도 잃지 않으므로 막지 않습니다', () => {
-    const reload = stubReload()
-    font.inPlaceUnreadableState.mockReturnValue('paused')
-    expect(reloadApp()).toBeNull()
-    expect(reload).toHaveBeenCalledOnce()
-  })
-
   it.each([
-    { saved: false, inPlace: null, block: 'changes' },
-    { saved: true, inPlace: 'memory', block: 'unreadable' },
-    { saved: false, inPlace: 'memory', block: 'both' },
+    { saved: false, onlyHere: false, loss: 'changes' },
+    { saved: true, onlyHere: true, loss: 'unreadable' },
+    { saved: false, onlyHere: true, loss: 'both' },
   ] as const)(
-    '잃을 것($block)이 있으면 새로 고치지 않고 까닭을 돌려주며, force면 버리고 새로 고칩니다',
-    ({ saved, inPlace, block }) => {
+    '잃을 것($loss)이 있으면 새로 고치지 않고 까닭을 돌려주며, 그 까닭을 버리기로 하면 새로 고칩니다',
+    ({ saved, onlyHere, loss }) => {
       const reload = stubReload()
       font.flushProjectSave.mockReturnValue(saved)
-      font.inPlaceUnreadableState.mockReturnValue(inPlace)
-      expect(reloadApp()).toBe(block)
+      font.inPlaceUnreadableOnlyHere.mockReturnValue(onlyHere)
+      expect(reloadApp()).toBe(loss)
       expect(reload).not.toHaveBeenCalled()
-      expect(reloadApp(true)).toBeNull()
+      expect(reloadApp(loss)).toBeNull()
       expect(reload).toHaveBeenCalledOnce()
     },
   )
+
+  it('버리기로 한 뒤 새로 생긴 잃을 것은 버리지 않고 늘어난 까닭으로 다시 확인받습니다', () => {
+    const reload = stubReload()
+    font.inPlaceUnreadableOnlyHere.mockReturnValue(true)
+    expect(reloadApp()).toBe('unreadable')
+    // 알린 뒤 편집을 이어 가다 저장에 실패함
+    font.flushProjectSave.mockReturnValue(false)
+    expect(reloadApp('unreadable')).toBe('both')
+    expect(reload).not.toHaveBeenCalled()
+    expect(reloadApp('both')).toBeNull()
+    expect(reload).toHaveBeenCalledOnce()
+  })
+
+  it('버리기로 한 것보다 잃을 것이 줄었으면(저장됨) 그대로 새로 고칩니다', () => {
+    const reload = stubReload()
+    expect(reloadApp('changes')).toBeNull()
+    expect(reload).toHaveBeenCalledOnce()
+  })
 })

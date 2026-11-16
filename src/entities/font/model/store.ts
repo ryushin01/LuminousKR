@@ -166,16 +166,23 @@ export function inPlaceUnreadableState(): 'paused' | 'memory' | null {
 /** 다른 탭이 읽지 못하는 형식으로 저장해, 그것을 덮어쓰지 않으려고 이 탭의 자동 저장을 멈췄는지 */
 export const projectSavePausedByOtherTab = () => pause() === 'unreadable-other-tab'
 
-function releaseInPlace(): void {
-  // 사용자가 버린 원문이므로 이제 덮어써도 됩니다(쓰기 전 확인이 다시 멈추지 않게 본 것으로 적음).
+/**
+ * 붙잡고 있던 원문을 놓고, 그 원문을 지키려던 멈춤을 풉니다.
+ * 원래 자리를 그사이 다른 탭이 덮어썼으면(storage 이벤트가 아직 오지 않았어도) 이 탭의 작업으로 덮지 않고 받아 맞춥니다
+ * (이 탭에 쓰지 못한 변경이 있으면 그것을 씀). 원래 자리에 아직 그 원문이 있으면 쓰지 못한 변경을 쓰고,
+ * overwrite면 변경이 없어도 지금 작업을 써서 새로 고쳐도 그 원문을 다시 보관하거나 멈추지 않게 합니다.
+ */
+function releaseInPlace(overwrite: boolean): void {
   const text = inPlaceText()
-  if (text !== null) lastSeen = text
+  if (text === null) return
+  // 버렸거나 다른 곳에 보관된 원문이므로 이제 덮어써도 됩니다(쓰기 전 확인이 다시 멈추지 않게 본 것으로 적음).
+  lastSeen = text
   setInPlaceText(null)
-  if (pause() === 'unreadable-here') {
-    setPause(null)
-    // 멈춰 있던 동안의 변경을 바로 씁니다.
-    saveNow()
-  }
+  if (pause() !== 'unreadable-here') return
+  setPause(null)
+  const current = storageChangeToAdopt()
+  if (current !== null) receiveOtherTabSave(current)
+  else if (overwrite || dirty) saveNow()
 }
 
 /**
@@ -184,7 +191,19 @@ function releaseInPlace(): void {
  */
 function releaseInPlaceIfKept(): void {
   const text = inPlaceText()
-  if (text !== null && keptTexts().some((entry) => entry.text === text)) releaseInPlace()
+  if (text !== null && keptTexts().some((entry) => entry.text === text)) releaseInPlace(false)
+}
+
+/**
+ * 새로 고치거나 닫으면 잃는 원래 작업(보관하지 못한 읽지 못한 원문)이 이 탭에만 있는지.
+ * 저장소를 바로 읽어 확인합니다(다른 탭이 원래 자리를 바꾼 storage 이벤트가 아직 오지 않았어도 알 수 있게).
+ * 원래 자리나 보관 열쇠에 같은 원문이 있으면 다시 열어도 남으므로 false.
+ */
+export function inPlaceUnreadableOnlyHere(): boolean {
+  const text = inPlaceText()
+  if (text === null) return false
+  if (readSavedText(storage) === text) return false
+  return !readKept(storage).some((entry) => entry.text === text)
 }
 
 /** 보관 열쇠에 둔 읽지 못한 원문들 (보관한 차례대로) */
@@ -214,7 +233,7 @@ export function discardKeptUnreadable(): void {
  * 받기만으로는 놓지 않습니다(브라우저가 내려받기를 막아도 알 수 없으므로, 사용자가 받은 것을 확인하고 버림).
  */
 export function discardInPlaceUnreadable(): void {
-  releaseInPlace()
+  releaseInPlace(true)
 }
 
 /**

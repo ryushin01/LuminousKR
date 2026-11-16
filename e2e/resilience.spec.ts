@@ -166,3 +166,45 @@ test('이 탭에만 남은 원래 작업(읽지 못하고 보관하지 못한 �
   await page.getByRole('main').getByRole('button', { name: '원래 작업을 버리고 새로 고침' }).click()
   await expect(page.getByRole('heading', { level: 1, name: '조합의 원리' })).toBeVisible()
 })
+
+test('멈춘 동안 원래 자리가 바뀐 것을 아직 모르더라도(이벤트 전), 새로 고치기 직전에 확인해 막습니다', async ({
+  page,
+}) => {
+  const key = 'luminous-kr:project:v1'
+  const broken = '{"format":"luminous-kr","version":99}'
+  await page.addInitScript(
+    ({ name, text }) => {
+      if (!sessionStorage.getItem('seeded')) {
+        localStorage.setItem(name, text)
+        sessionStorage.setItem('seeded', '1')
+      }
+      const setItem = Storage.prototype.setItem
+      Storage.prototype.setItem = function (item: string, value: string) {
+        if (item.startsWith(`${name}:unreadable:`)) {
+          throw new DOMException('가득 참', 'QuotaExceededError')
+        }
+        return setItem.call(this, item, value)
+      }
+    },
+    { name: key, text: broken },
+  )
+  await openPage(page, '/preview')
+  await expect(page.getByRole('alert').filter({ hasText: '자동 저장을 멈췄습니다' })).toBeVisible()
+  // 같은 탭에서 바꾸면 storage 이벤트가 오지 않으므로, 이벤트를 아직 받지 못한 순간과 같습니다.
+  await page.evaluate((name) => localStorage.setItem(name, '{"format":"luminous-kr"}'), key)
+
+  const chunk = /\/assets\/guide-[^/]+\.js$/
+  await page.route(chunk, (route) => route.fulfill({ status: 404, body: 'Not Found' }))
+  await page.getByRole('button', { name: '전체 메뉴 열기' }).click()
+  await page
+    .getByRole('dialog')
+    .getByRole('link', { name: /06 안내/ })
+    .click()
+  await page.getByRole('main').getByRole('button', { name: '새로 고침' }).click()
+  await expect(
+    page.getByRole('main').getByRole('alert').filter({ hasText: '이 탭에만 남은 원래 작업' }),
+  ).toBeVisible()
+  await expect(
+    page.getByRole('main').getByRole('button', { name: '원래 작업을 버리고 새로 고침' }),
+  ).toBeVisible()
+})
