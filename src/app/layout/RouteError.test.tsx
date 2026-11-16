@@ -4,6 +4,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { assetLoadFailed, resetAssetLoadFailureForTest } from '@/shared/lib/app-update'
 import { RouteError } from './RouteError.tsx'
 
+const flushProjectSave = vi.hoisted(() => vi.fn(() => true))
+vi.mock('@/entities/font', async (original) => ({
+  ...(await original<Record<string, unknown>>()),
+  flushProjectSave,
+}))
+
 describe('RouteError', () => {
   afterEach(() => {
     resetAssetLoadFailureForTest()
@@ -39,5 +45,21 @@ describe('RouteError', () => {
     expect(reset).toHaveBeenCalledOnce()
     expect(logged).toHaveBeenCalledWith(error)
     expect(assetLoadFailed()).toBe(false)
+  })
+
+  it('저장하지 못한 변경이 있으면 새로 고치지 않고 알리며, 버리고 새로 고칠 수 있게 합니다', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const reload = vi.fn()
+    vi.stubGlobal('location', { ...location, reload })
+    flushProjectSave.mockReturnValue(false)
+    render(() => <RouteError error={new Error('x')} reset={() => {}} />)
+    expect(screen.getByRole('alert')).toBeEmptyDOMElement()
+    await user.click(screen.getByRole('button', { name: '새로 고침' }))
+    expect(reload).not.toHaveBeenCalled()
+    expect(screen.getByRole('alert')).toHaveTextContent('자동 저장하지 못한 변경이 있어')
+    await user.click(screen.getByRole('button', { name: '변경을 버리고 새로 고침' }))
+    expect(reload).toHaveBeenCalledOnce()
+    vi.unstubAllGlobals()
   })
 })

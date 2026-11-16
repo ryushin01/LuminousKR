@@ -90,6 +90,12 @@
   padding-bottom: var(--space-8);
 }
 
+.errorAlert {
+  max-width: 68ch;
+  font-size: 14px;
+  color: var(--c-danger);
+}
+
 .errorActions {
   display: flex;
   flex-wrap: wrap;

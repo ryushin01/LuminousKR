@@ -58,7 +58,7 @@ jsdom에는 Web Worker가 없어 `vitest.setup.ts`에서 답하지 않는 워커
 
 ## 배포 뒤 열린 탭
 
-GitHub Pages는 배포할 때 이전 파일을 남기지 않아, 배포 전에 연 탭이 아직 받지 않은 화면 조각·워커·pdf.js를 찾으면 404가 됩니다. `shared/lib/app-update`가 이런 오류(브라우저마다 다른 문구, `vite:preloadError`, `WorkerLoadError`)를 알아보고 앱 전체에 알리면, 화면 아래 새로 고침 안내(`features/app-update`)가 나타납니다. 화면을 그리다 난 오류는 `app/layout`의 오류 경계(`RouteError`)가 받습니다. 새로 고침은 기다리던 자동 저장을 먼저 씁니다.
+GitHub Pages는 배포할 때 이전 파일을 남기지 않아, 배포 전에 연 탭이 아직 받지 않은 화면 조각·워커·pdf.js를 찾으면 404가 됩니다. `shared/lib/app-update`가 이런 오류(브라우저마다 다른 문구, `vite:preloadError`, `WorkerLoadError`)를 알아보고 앱 전체에 알리면, 화면 아래 새로 고침 안내(`features/app-update`)가 나타납니다. 화면을 그리다 난 오류는 `app/layout`의 오류 경계(`RouteError`)가 받습니다. 새로 고침은 기다리던(또는 실패한) 자동 저장을 먼저 쓰고, 저장하지 못한 변경이 남으면(저장 공간 초과 등) 새로 고치지 않고 알린 뒤 '변경을 버리고 새로 고침'을 따로 고르게 합니다.
 
 ## 글꼴
 

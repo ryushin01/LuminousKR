@@ -97,9 +97,13 @@ function scheduleSave(): void {
   saveTimer = setTimeout(saveNow, SAVE_DELAY_MS)
 }
 
-/** 기다리는 저장이 있으면 바로 씁니다 (탭을 닫거나 새로 고치기 직전). */
-export function flushProjectSave(): void {
-  if (saveTimer !== undefined) saveNow()
+/**
+ * 기다리는 저장(또는 실패한 저장)이 있으면 바로 씁니다 (탭을 닫거나 새로 고치기 직전).
+ * 이 탭의 변경이 모두 저장소에 있으면 true. 저장에 실패했거나 저장을 멈춘 동안 고친 것이 있으면 false.
+ */
+export function flushProjectSave(): boolean {
+  if (saveTimer !== undefined || dirty) saveNow()
+  return !dirty
 }
 
 function syncHistorySignals(): void {

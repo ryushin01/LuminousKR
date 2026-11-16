@@ -131,6 +131,18 @@ describe('자동 저장과 탭 사이 맞추기', () => {
     stop()
   })
 
+  it('저장을 비우면 이 탭의 변경이 모두 저장소에 있는지 알려 줍니다(실패한 저장도 다시 써 봄)', () => {
+    const storage = memoryStorage(true)
+    resetProjectStoreForTest(createPresetProject(), { storage })
+    expect(flushProjectSave()).toBe(true) // 바꾼 것이 없음
+    editProject((d) => void (d.style.weight = 90))
+    expect(flushProjectSave()).toBe(false) // 저장 공간 초과
+    storage.full = false
+    // 새 편집 없이 다시 비워도 실패했던 변경을 씁니다.
+    expect(flushProjectSave()).toBe(true)
+    expect(savedWeight(storage)).toBe(90)
+  })
+
   it('저장 공간이 모자라 실패하면 까닭을 알리고, 다음 저장이 성공하면 거둡니다', () => {
     vi.useFakeTimers()
     const storage = memoryStorage(true)
