@@ -29,8 +29,10 @@ const [pastSize, setPastSize] = createSignal(0)
 const [futureSize, setFutureSize] = createSignal(0)
 const [saveFailure, setSaveFailure] = createSignal<Exclude<SaveOutcome, 'ok'> | null>(null)
 const [syncedAt, setSyncedAt] = createSignal(0)
-const [unreadable, setUnreadable] = createSignal<string | null>(loaded.unreadable)
-const [unreadableKept, setUnreadableKept] = createSignal(loaded.kept)
+/** 보관 열쇠에 둔 읽지 못한 원문들 */
+const [keptTexts, setKeptTexts] = createSignal<string[]>(loaded.kept)
+/** 저장 공간이 모자라 보관하지 못하고 메모리에만 들고 있는 읽지 못한 원문 */
+const [inPlaceText, setInPlaceText] = createSignal<string | null>(loaded.inPlace)
 
 /**
  * 자동 저장을 멈춘 까닭. 멈춘 동안 바뀐 것은 저장소에 쓰지 않습니다.
@@ -39,7 +41,7 @@ const [unreadableKept, setUnreadableKept] = createSignal(loaded.kept)
  */
 export type SavePause = 'unreadable-here' | 'unreadable-other-tab'
 const [pause, setPause] = createSignal<SavePause | null>(
-  loaded.unreadable !== null && !loaded.kept ? 'unreadable-here' : null,
+  loaded.inPlace !== null ? 'unreadable-here' : null,
 )
 
 const past: FontProject[] = []
@@ -118,8 +120,11 @@ export const projectSaveFailure = saveFailure
 /** 다른 탭에서 저장한 작업을 이 탭에 마지막으로 맞춘 시각 (없으면 0) */
 export const projectSyncedAt = syncedAt
 
-/** 읽지 못한 저장 원문 (없으면 null) */
-export const unreadableProjectText = unreadable
+/** 받을 수 있는 읽지 못한 원문들 (보관한 것 + 보관하지 못한 것) */
+export function unreadableProjectTexts(): string[] {
+  const inPlace = inPlaceText()
+  return inPlace === null ? keptTexts() : [...keptTexts(), inPlace]
+}
 
 /**
  * 읽지 못한 원문이 어디에 있는지.
@@ -127,17 +132,15 @@ export const unreadableProjectText = unreadable
  * memory: 보관하지 못했고 다른 탭이 원래 자리를 덮어써 이 탭에서만 받을 수 있음(닫으면 사라짐), null: 없음
  */
 export function unreadableProjectState(): 'kept' | 'paused' | 'memory' | null {
-  if (unreadable() === null) return null
-  if (unreadableKept()) return 'kept'
-  return pause() === 'unreadable-here' ? 'paused' : 'memory'
+  if (inPlaceText() !== null) return pause() === 'unreadable-here' ? 'paused' : 'memory'
+  return keptTexts().length > 0 ? 'kept' : null
 }
 
 /** 다른 탭이 읽지 못하는 형식으로 저장해, 그것을 덮어쓰지 않으려고 이 탭의 자동 저장을 멈췄는지 */
 export const projectSavePausedByOtherTab = () => pause() === 'unreadable-other-tab'
 
-function releaseUnreadable(): void {
-  setUnreadable(null)
-  setUnreadableKept(true)
+function releaseInPlace(): void {
+  setInPlaceText(null)
   if (pause() === 'unreadable-here') {
     setPause(null)
     // 멈춰 있던 동안의 변경을 바로 씁니다.
@@ -145,15 +148,19 @@ function releaseUnreadable(): void {
   }
 }
 
-/** 읽지 못한 원문을 받았을 때. 보관하지 못한 원문이면 이제 덮어써도 되므로 자동 저장을 다시 켭니다. */
+/**
+ * 읽지 못한 원문을 받았을 때. 보관하지 못한 원문은 이제 덮어써도 되므로 자동 저장을 다시 켭니다.
+ * 보관 열쇠에 둔 원문은 버릴 때까지 남깁니다.
+ */
 export function unreadableProjectDownloaded(): void {
-  if (!unreadableKept()) releaseUnreadable()
+  if (inPlaceText() !== null) releaseInPlace()
 }
 
-/** 읽지 못한 원문을 버립니다 (보관 열쇠도 지움). */
+/** 읽지 못한 원문을 모두 버립니다 (보관 열쇠도 지움). */
 export function discardUnreadableProject(): void {
   removeUnreadable(storage)
-  releaseUnreadable()
+  setKeptTexts([])
+  releaseInPlace()
 }
 
 /**
@@ -298,7 +305,7 @@ export function startProjectSync(): () => void {
 /** 테스트용: 저장소를 기본 프리셋으로 되돌리고 기록·알림을 비웁니다. */
 export function resetProjectStoreForTest(
   next: FontProject = createPresetProject(),
-  options: { storage?: Storage; unreadable?: string | null; kept?: boolean } = {},
+  options: { storage?: Storage; kept?: string[]; inPlace?: string | null } = {},
 ): void {
   clearTimeout(saveTimer)
   saveTimer = undefined
@@ -308,9 +315,7 @@ export function resetProjectStoreForTest(
   clearHistory()
   setSaveFailure(null)
   setSyncedAt(0)
-  setUnreadable(options.unreadable ?? null)
-  setUnreadableKept(options.kept ?? true)
-  setPause(
-    (options.unreadable ?? null) !== null && options.kept === false ? 'unreadable-here' : null,
-  )
+  setKeptTexts(options.kept ?? [])
+  setInPlaceText(options.inPlace ?? null)
+  setPause((options.inPlace ?? null) !== null ? 'unreadable-here' : null)
 }

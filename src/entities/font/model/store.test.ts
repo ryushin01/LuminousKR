@@ -18,7 +18,7 @@ import {
   undo,
   unreadableProjectDownloaded,
   unreadableProjectState,
-  unreadableProjectText,
+  unreadableProjectTexts,
   discardUnreadableProject,
   projectSavePausedByOtherTab,
   receiveOtherTabSave,
@@ -212,11 +212,7 @@ describe('자동 저장과 탭 사이 맞추기', () => {
   it('읽지 못한 원문을 보관하지 못했으면, 받거나 버리기 전까지 자동 저장이 덮어쓰지 않습니다', () => {
     const storage = memoryStorage()
     storage.setItem(STORAGE_KEY, '{원래 작업')
-    resetProjectStoreForTest(createPresetProject(), {
-      storage,
-      unreadable: '{원래 작업',
-      kept: false,
-    })
+    resetProjectStoreForTest(createPresetProject(), { storage, inPlace: '{원래 작업' })
     expect(unreadableProjectState()).toBe('paused')
     editProject((d) => void (d.style.weight = 90))
     flushProjectSave()
@@ -224,18 +220,19 @@ describe('자동 저장과 탭 사이 맞추기', () => {
 
     // 받으면 덮어써도 되므로, 멈춰 있던 변경을 바로 씁니다.
     unreadableProjectDownloaded()
-    expect(unreadableProjectText()).toBeNull()
+    expect(unreadableProjectTexts()).toEqual([])
     expect(savedWeight(storage)).toBe(90)
   })
 
   it('보관한 원문은 받아도 남아 있고, 버리면 보관 열쇠까지 지웁니다', () => {
     const storage = memoryStorage()
-    resetProjectStoreForTest(createPresetProject(), { storage, unreadable: '{보관', kept: true })
+    resetProjectStoreForTest(createPresetProject(), { storage, kept: ['{보관'] })
     unreadableProjectDownloaded()
-    expect(unreadableProjectText()).toBe('{보관')
+    expect(unreadableProjectTexts()).toEqual(['{보관'])
+    expect(unreadableProjectState()).toBe('kept')
     const removed = vi.spyOn(storage, 'removeItem')
     discardUnreadableProject()
-    expect(unreadableProjectText()).toBeNull()
+    expect(unreadableProjectTexts()).toEqual([])
     expect(removed).toHaveBeenCalledWith(`${STORAGE_KEY}:unreadable`)
   })
 
@@ -315,14 +312,16 @@ describe('자동 저장과 탭 사이 맞추기', () => {
     const storage = memoryStorage()
     resetProjectStoreForTest(createPresetProject(), {
       storage,
-      unreadable: '{원래 작업',
-      kept: false,
+      kept: ['{먼저 보관한 작업'],
+      inPlace: '{원래 작업',
     })
     expect(unreadableProjectState()).toBe('paused')
     const other = createPresetProject()
     other.style.weight = 120
     adoptSavedProject(JSON.stringify(other))
     expect(unreadableProjectState()).toBe('memory')
+    // 받을 수 있는 원문에는 먼저 보관한 것도 그대로 있습니다.
+    expect(unreadableProjectTexts()).toEqual(['{먼저 보관한 작업', '{원래 작업'])
     editProject((d) => void (d.style.weight = 125))
     flushProjectSave()
     expect(savedWeight(storage)).toBe(125)

@@ -65,7 +65,7 @@ export {
   undo,
   unreadableProjectDownloaded,
   unreadableProjectState,
-  unreadableProjectText,
+  unreadableProjectTexts,
 } from './model/store.ts'
 export { createRenderedGlyphs, currentSource, sourceWithStyle } from './model/rendered.ts'
 export type { RenderSource } from './model/rendered.ts'

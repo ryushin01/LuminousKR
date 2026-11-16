@@ -6,7 +6,7 @@ import {
   projectSyncedAt,
   unreadableProjectDownloaded,
   unreadableProjectState,
-  unreadableProjectText,
+  unreadableProjectTexts,
 } from '@/entities/font'
 import { downloadFile } from '@/shared/lib/download'
 import { AutosaveNotice } from './AutosaveNotice.tsx'
@@ -33,11 +33,14 @@ export function AutosaveStatus() {
   )
   onCleanup(() => clearTimeout(timer))
 
+  /** 읽지 못한 원문을 하나씩 파일로 받습니다(여럿이면 번호를 붙임). */
   const download = () => {
-    const text = unreadableProjectText()
-    if (!text) return
-    downloadFile(text, 'luminous-kr-unreadable-project.json', 'application/json')
-    unreadableProjectDownloaded()
+    const texts = unreadableProjectTexts()
+    texts.forEach((text, i) => {
+      const suffix = texts.length > 1 ? `-${i + 1}` : ''
+      downloadFile(text, `luminous-kr-unreadable-project${suffix}.json`, 'application/json')
+    })
+    if (texts.length > 0) unreadableProjectDownloaded()
   }
   return (
     <AutosaveNotice

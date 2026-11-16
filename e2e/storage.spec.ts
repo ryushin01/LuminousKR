@@ -148,6 +148,16 @@ test('다른 탭이 읽지 못하는 형식(더 새 버전)으로 저장하면, 
   page,
 }) => {
   test.slow()
+  // 전에 읽지 못해 보관해 둔 원문이 이미 있는 상황
+  const kept = '{"format":"luminous-kr","version":5,"note":"전에 보관한 작업"}'
+  await page.addInitScript(
+    ({ key, text }) => {
+      if (sessionStorage.getItem('seeded')) return
+      localStorage.setItem(`${key}:unreadable`, JSON.stringify([text]))
+      sessionStorage.setItem('seeded', '1')
+    },
+    { key: PROJECT_KEY, text: kept },
+  )
   await openPage(page, '/studio')
   const newer = '{"format":"luminous-kr","version":2,"note":"더 새 버전"}'
   const other = await context.newPage()
@@ -163,6 +173,15 @@ test('다른 탭이 읽지 못하는 형식(더 새 버전)으로 저장하면, 
   await page.getByRole('slider', { name: '굵기' }).fill('120')
   await page.waitForTimeout(700)
   expect(await page.evaluate((key) => localStorage.getItem(key), PROJECT_KEY)).toBe(newer)
-  await expect(page.getByRole('button', { name: '새로 고침' })).toBeVisible()
   await other.close()
+
+  // 새로 고쳐도(이 빌드는 그 형식을 읽지 못함) 전에 보관한 원문은 덮이지 않고 둘 다 남습니다.
+  await page.getByRole('button', { name: '새로 고침' }).click()
+  await expect(page.getByRole('button', { name: '보관한 작업 받기' })).toBeVisible()
+  expect(
+    await page.evaluate(
+      (key) => JSON.parse(localStorage.getItem(`${key}:unreadable`) ?? '[]'),
+      PROJECT_KEY,
+    ),
+  ).toEqual([kept, newer])
 })
