@@ -2,6 +2,7 @@
  * 글꼴 조합 워커: 미리보기 윤곽과 글꼴 파일을 메인 스레드 밖에서 만듭니다.
  */
 import { contoursToSvgPath } from '@/shared/lib/geometry'
+import { createZip } from '@/shared/lib/zip'
 import { serveRpc, type WorkerScopeLike } from '@/shared/lib/worker-rpc'
 import { buildFont } from '../lib/build-font.ts'
 import { ComponentCache, Composer } from '../lib/composer.ts'
@@ -50,5 +51,13 @@ serveRpc(self as unknown as WorkerScopeLike, {
     context.transfer(result.otf)
     if (result.woff) context.transfer(result.woff)
     return result
+  },
+
+  async zip(payload: EngineMethods['zip']['payload'], context) {
+    const zip = await createZip(
+      payload.entries.map((entry) => ({ name: entry.name, data: new Uint8Array(entry.data) })),
+    )
+    context.transfer(zip.buffer)
+    return zip.buffer
   },
 })

@@ -17,6 +17,8 @@ export type BuildRequest = {
   /** 이 글자만 넣은 작은 글꼴(미리보기용). 없으면 전체(음절 11,172자 + 호환 자모 51자) */
   chars?: string
   woff: boolean
+  /** 굵기 여러 벌을 한 가족으로 만들 때 이 벌의 굵기 등급(100~900). 이름·스타일 연결을 가족 규칙으로 */
+  member?: { weightClass: number }
 }
 
 export type BuildResult = {
@@ -31,11 +33,34 @@ export function glyphName(code: number): string {
   return `uni${code.toString(16).toUpperCase().padStart(4, '0')}`
 }
 
+/** 획 굵기(세로획, 1em = 1000) ↔ 굵기 등급(OS/2 usWeightClass) 기준점 */
+const WEIGHT_STOPS: readonly [weight: number, weightClass: number][] = [
+  [30, 100], [45, 200], [60, 300], [76, 400], [92, 500], [110, 600], [130, 700], [155, 800], [185, 900],
+] // prettier-ignore
+
+/** 굵기 등급의 영문 이름 (OpenType 관례) */
+export const WEIGHT_NAMES: Readonly<Record<number, string>> = {
+  100: 'Thin',
+  200: 'ExtraLight',
+  300: 'Light',
+  400: 'Regular',
+  500: 'Medium',
+  600: 'SemiBold',
+  700: 'Bold',
+  800: 'ExtraBold',
+  900: 'Black',
+}
+
+export const WEIGHT_CLASSES: readonly number[] = WEIGHT_STOPS.map(([, weightClass]) => weightClass)
+
+/** 굵기 등급에 맞는 획 굵기 (가족의 다른 벌을 만들 때) */
+export function strokeWeightFor(weightClass: number): number {
+  return WEIGHT_STOPS.find(([, c]) => c === weightClass)?.[0] ?? 76
+}
+
 /** 획 굵기를 OS/2 usWeightClass(100~900)로 */
 export function weightClassOf(weight: number): number {
-  const stops: [number, number][] = [
-    [30, 100], [45, 200], [60, 300], [76, 400], [92, 500], [110, 600], [130, 700], [155, 800], [185, 900],
-  ] // prettier-ignore
+  const stops = WEIGHT_STOPS
   if (weight <= stops[0]![0]) return 100
   for (let i = 1; i < stops.length; i++) {
     const [w1, c1] = stops[i]!
@@ -125,6 +150,37 @@ export function fontNamesOf(project: FontProject): FontNames {
 }
 
 /**
+ * 굵기 여러 벌을 한 가족으로 묶을 때 그 벌의 이름.
+ * Regular·Bold는 같은 가족 이름(이름 ID 1)에 스타일 이름만 다르고(스타일 연결), 그 밖의 굵기는
+ * '가족 이름 굵기'를 이름 ID 1로, 원래 가족 이름과 굵기를 typographic family·subfamily(ID 16·17)로 둡니다.
+ * 기울기가 있으면(이탤릭 비트·각도를 쓰는 벌) 이름에도 Italic을 넣어 똑바른 벌과 구별합니다
+ * (Italic·Bold Italic·Light Italic, PostScript 이름 -Italic·-BoldItalic·-LightItalic).
+ */
+export function familyMemberNames(project: FontProject, weightClass: number): FontNames {
+  const base = fontNamesOf(project)
+  const weightName = WEIGHT_NAMES[weightClass] ?? 'Regular'
+  const linked = weightClass === 400 || weightClass === 700
+  const italic = project.style.slant !== 0
+  /** 가족 안에서 이 벌을 부르는 이름 (typographic subfamily) */
+  const subfamily = italic ? (weightClass === 400 ? 'Italic' : `${weightName} Italic`) : weightName
+  /** 이름 ID 1 가족 안의 스타일 이름 (스타일 연결: Regular·Italic·Bold·Bold Italic) */
+  const styleName = linked ? subfamily : italic ? 'Italic' : 'Regular'
+  const ko = base.familyNameKo
+  return {
+    ...base,
+    familyName: linked ? base.familyName : `${base.familyName} ${weightName}`,
+    familyNameKo: ko && !linked ? `${ko} ${weightName}` : ko,
+    styleName,
+    fullName: `${base.familyName} ${subfamily}`,
+    fullNameKo: ko ? `${ko} ${subfamily}` : undefined,
+    postScriptName: postScriptName(base.familyName, subfamily),
+    typographicFamily: base.familyName,
+    typographicFamilyKo: ko,
+    typographicSubfamily: subfamily,
+  }
+}
+
+/**
  * 프로젝트로 글꼴 파일을 만듭니다. (Web Worker 안에서 부르는 것을 전제로 합니다)
  * @param cache 미리보기용 작은 글꼴을 편집하면서 거듭 만들 때 이어 쓸 윤곽 캐시
  */
@@ -157,11 +213,13 @@ export async function buildFont(
   })
   onProgress?.({ phase: 'encode', done: total, total })
 
-  const otf = buildOtf(glyphs, fontNamesOf(project), {
+  const member = request.member
+  const names = member ? familyMemberNames(project, member.weightClass) : fontNamesOf(project)
+  const otf = buildOtf(glyphs, names, {
     unitsPerEm: UNITS_PER_EM,
     ascender: ASCENDER,
     descender: DESCENDER,
-    weightClass: weightClassOf(project.style.weight),
+    weightClass: member?.weightClass ?? weightClassOf(project.style.weight),
     italicAngle: -project.style.slant,
   })
 

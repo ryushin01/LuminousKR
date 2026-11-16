@@ -17,4 +17,9 @@ export type EngineMethods = {
     result: BuildResult
     progress: BuildProgress
   }
+  /** 만든 파일들을 ZIP 하나로 (굵기 여러 벌 내보내기) */
+  zip: {
+    payload: { entries: { name: string; data: ArrayBuffer }[] }
+    result: ArrayBuffer
+  }
 }

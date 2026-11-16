@@ -59,3 +59,42 @@ test('만들기 전 확인: 빈 자모를 알리고 그 자모를 연 작업실�
   await expect(page).toHaveURL(/\/studio\?jamo=V8$/)
   await expect(page.getByRole('application', { name: 'ㅗ 중성 그리기 판' })).toBeVisible()
 })
+
+test('굵기를 더 고르면 한 가족(Light·Regular·Bold)을 만들어 ZIP 하나로 받습니다', async ({
+  page,
+  consoleErrors,
+}) => {
+  test.slow()
+  await openPage(page, '/export')
+  await expect(page.getByRole('checkbox', { name: /400 Regular/ })).toBeChecked()
+  await expect(page.getByRole('checkbox', { name: /400 Regular/ })).toBeDisabled()
+  await page.getByRole('checkbox', { name: /300 Light/ }).check()
+  await page.getByRole('checkbox', { name: /700 Bold/ }).check()
+  await page.getByRole('button', { name: '글꼴 파일 만들기' }).click()
+  const zipButton = page.getByRole('button', { name: /한 가족 ZIP 받기/ })
+  await expect(zipButton).toBeVisible({ timeout: 180_000 })
+  await expect(page.getByRole('status').filter({ hasText: 'Light·Regular·Bold 3벌' })).toBeVisible()
+
+  const [download] = await Promise.all([page.waitForEvent('download'), zipButton.click()])
+  expect(download.suggestedFilename()).toBe('Luminous-Modular-family.zip')
+  const zip = readFileSync((await download.path())!)
+  // 중앙 디렉터리의 파일 이름을 읽습니다.
+  const end = zip.length - 22
+  expect(zip.readUInt32LE(end)).toBe(0x06054b50)
+  let at = zip.readUInt32LE(end + 16)
+  const names: string[] = []
+  for (let i = 0; i < zip.readUInt16LE(end + 10); i++) {
+    const length = zip.readUInt16LE(at + 28)
+    names.push(zip.subarray(at + 46, at + 46 + length).toString('utf8'))
+    at += 46 + length
+  }
+  expect(names).toEqual([
+    'LuminousModular-Light.otf',
+    'LuminousModular-Light.woff',
+    'LuminousModular-Regular.otf',
+    'LuminousModular-Regular.woff',
+    'LuminousModular-Bold.otf',
+    'LuminousModular-Bold.woff',
+  ])
+  expect(consoleErrors).toEqual([])
+})
