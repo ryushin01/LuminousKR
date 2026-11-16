@@ -1,6 +1,40 @@
 import { readFileSync } from 'node:fs'
-import { defineConfig } from 'vite'
+import { type Plugin, defineConfig } from 'vite'
 import solid from 'vite-plugin-solid'
+
+/**
+ * 프로덕션 빌드에만 콘텐츠 보안 정책(CSP)을 meta로 넣습니다. GitHub Pages는 응답 헤더를 바꿀 수 없어
+ * frame-ancestors는 넣지 못합니다. 개발 서버는 HMR 때문에 넣지 않습니다.
+ * - 스크립트·워커는 같은 출처만, eval 금지(pdf.js 6은 eval을 쓰지 않음)
+ * - 인라인 style 속성(Solid의 style 바인딩), 칸 그림의 blob: 주소, CSS의 data: SVG는 허용
+ */
+export const CONTENT_SECURITY_POLICY = [
+  "default-src 'self'",
+  "script-src 'self'",
+  "worker-src 'self'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob:",
+  "font-src 'self'",
+  "connect-src 'self'",
+  "manifest-src 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+].join('; ')
+
+function contentSecurityPolicy(): Plugin {
+  return {
+    name: 'luminous-csp',
+    apply: 'build',
+    transformIndexHtml: () => [
+      {
+        tag: 'meta',
+        attrs: { 'http-equiv': 'Content-Security-Policy', content: CONTENT_SECURITY_POLICY },
+        injectTo: 'head-prepend',
+      },
+    ],
+  }
+}
 
 const { version } = JSON.parse(
   readFileSync(new URL('./package.json', import.meta.url), 'utf8'),
@@ -11,7 +45,7 @@ const base = process.env.BASE_PATH ?? '/'
 
 export default defineConfig({
   base,
-  plugins: [solid()],
+  plugins: [solid(), contentSecurityPolicy()],
   define: { __APP_VERSION__: JSON.stringify(version) },
   resolve: { tsconfigPaths: true },
   worker: { format: 'es' },
