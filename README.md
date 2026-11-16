@@ -1,14 +1,14 @@
 # LuminousKR - 한글 모듈 글꼴 조합기
 
 [![CI](https://github.com/ryushin01/LuminousKR/actions/workflows/ci.yml/badge.svg)](https://github.com/ryushin01/LuminousKR/actions/workflows/ci.yml)
-![version](https://img.shields.io/badge/version-0.11.0-ff6a1a)
+![version](https://img.shields.io/badge/version-1.0.0-ff6a1a)
 ![Storybook](https://img.shields.io/badge/Storybook-10-FF4785?logo=storybook&logoColor=white)
 
 초·중·종성 획의 뼈대만 그리면 한글 11,172자를 조합해 OTF·WOFF 글꼴 파일로 내보내는 웹 도구입니다. 자모 24자만 그려도 겹자음·겹받침·섞임 모음과 모든 음절이 만들어지고, 손으로 쓴 양식의 사진·스캔 PDF를 올려 획을 인식해 가져올 수도 있습니다.
 
 **[바로 써 보기](https://ryushin01.github.io/LuminousKR/)** · [Storybook](https://ryushin01.github.io/LuminousKR/storybook/)
 
-> **프로젝트 상태:** 개인 **포트폴리오 프로젝트**입니다. 서버 없이 브라우저 안에서만 동작하며, 그린 획·올린 사진·만든 글꼴 파일은 어디에도 보내지 않습니다. 화면 글꼴은 Syne(영문)과 IBM Plex Sans KR(한글)이고, 미리보기 견본은 이 조합기가 기본 프리셋으로 만든 글꼴로 그립니다.
+> **프로젝트 상태:** 개인 **포트폴리오 프로젝트**(v1.0.0)입니다. 서버 없이 브라우저 안에서만 동작하며, 그린 획·올린 사진·만든 글꼴 파일은 어디에도 보내지 않습니다. 화면 글꼴은 Syne(영문)과 IBM Plex Sans KR(한글)이고, 미리보기 견본은 이 조합기가 기본 프리셋으로 만든 글꼴로 그립니다.
 
 ## 화면
 
@@ -24,7 +24,7 @@
 
 | 내보내기 | 안내 |
 |---|---|
-| ![11,172칸이 모두 켜진 진행 그림과 OTF·WOFF 받기 단추, 만든 글꼴로 그린 글](docs/images/export.jpg) | ![여섯 가지 배치와 파생 규칙, 키보드 조작 표](docs/images/guide.jpg) |
+| ![글꼴 정보 입력칸, '빈 자모가 없습니다'라는 만들기 전 확인, 11,172칸이 모두 켜진 진행 그림](docs/images/export.jpg) | ![여섯 가지 배치와 파생 규칙, 키보드 조작 표](docs/images/guide.jpg) |
 
 | 모바일 홈 | 모바일 작업실 |
 |---|---|
@@ -105,22 +105,15 @@ src/
 | [CI · 배포](docs/deployment.md) | GitHub Actions, GitHub Pages, 화면별 HTML |
 | [버전 기록](CHANGELOG.md) | 버전별 변경 내용 |
 
-## 웹 폰트
-
-| 글꼴 | 쓰는 곳 | 굵기 | 저작자 | 라이선스 | 원본 |
-|---|---|---|---|---|---|
-| Syne | 영문·숫자 (제목·본문) | 400~800 가변 | Bonjour Monde, Lucas Descroix 외 | SIL OFL 1.1 | [Google Fonts](https://fonts.google.com/specimen/Syne) · [Fontsource](https://fontsource.org/fonts/syne) |
-| IBM Plex Sans KR | 한글 (제목·본문) | 100·400·600·700 | IBM Corp. (Mike Abbink, Bold Monday) | SIL OFL 1.1 | [google/fonts](https://github.com/google/fonts/tree/main/ofl/ibmplexsanskr) |
-
-모두 같은 사이트에서 제공합니다(외부 글꼴 CDN 없음). IBM Plex Sans KR은 화면에 쓰는 글자만 담은 작은 파일을 먼저 받고, 나머지 글자는 글자 묶음별 조각으로 나눠 그 글자를 쓸 때만 받습니다(`pnpm fonts`, fontTools 필요). OFL 예약 이름(Plex) 때문에 줄인 파일의 글꼴 이름은 `LuminousSans`입니다. 라이선스 전문은 `scripts/fonts/ibm-plex-sans-kr/OFL.txt`에 있습니다.
-
 ## 출처
 
 | 자료 | 저작자 | 사용 허락 | 원본 |
 |---|---|---|---|
+| Syne (화면 글꼴, 영문·숫자) | Bonjour Monde, Lucas Descroix 외 | SIL OFL 1.1 | [Google Fonts](https://fonts.google.com/specimen/Syne) · [Fontsource](https://fontsource.org/fonts/syne) |
+| IBM Plex Sans KR (화면 글꼴, 한글. 줄인 파일 이름은 `LuminousSans`) | IBM Corp. (Mike Abbink, Bold Monday) | SIL OFL 1.1 | [google/fonts](https://github.com/google/fonts/tree/main/ofl/ibmplexsanskr) |
 | opentype.js (OTF 쓰기) | Frederik De Bleser | MIT | [opentype.js](https://github.com/opentypejs/opentype.js) |
 | Clipper2 (두께 입히기·합치기) | Angus Johnson(원작), Jeremy Tribby(TypeScript 이식) | BSL-1.0 | [clipper2-ts](https://github.com/countertype/clipper2-ts) |
 | pdf.js (PDF 읽기) | Mozilla | Apache-2.0 | [pdf.js](https://github.com/mozilla/pdf.js) |
 | SolidJS (화면) | Ryan Carniato | MIT | [solid](https://github.com/solidjs/solid) |
 
-기본 프리셋(Luminous Modular), 아이콘, 우주 배경(WebGL)과 화면 사진은 이 프로젝트에서 직접 만들었습니다.
+글꼴은 모두 같은 사이트에서 제공하고(외부 CDN 없음), IBM Plex Sans KR은 화면 글자 파일과 글자 묶음별 조각으로 나눕니다([개발 가이드 · 글꼴](docs/development.md#글꼴), OFL 전문 `scripts/fonts/ibm-plex-sans-kr/OFL.txt`). 기본 프리셋(Luminous Modular), 아이콘, 우주 배경(WebGL), 공유 이미지와 화면 사진은 이 프로젝트에서 직접 만들었습니다.
