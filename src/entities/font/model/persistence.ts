@@ -80,7 +80,10 @@ function newKeptKey(): string {
 
 export type LoadResult = {
   project: FontProject | null
-  /** 읽은 프로젝트의 저장 원문 (이 탭이 저장소와 맞춰진 기준) */
+  /**
+   * 이 탭이 저장소와 맞춰진 기준이 되는 저장 원문. 읽은 프로젝트의 원문이거나,
+   * 읽지 못했지만 보관했으므로 덮어써도 되는 원문입니다.
+   */
   text: string | null
   /** 보관 열쇠에 둔 읽지 못한 원문들 (전에 보관한 것과 이번에 보관한 것) */
   kept: KeptText[]
@@ -111,14 +114,14 @@ export function loadSaved(storage: Storage | undefined): LoadResult {
   try {
     return { project: parseSaved(text), text, kept, inPlace: null }
   } catch {
-    if (kept.some((entry) => entry.text === text)) return { ...empty, kept }
+    if (kept.some((entry) => entry.text === text)) return { ...empty, text, kept }
     const key = newKeptKey()
     try {
       storage.setItem(key, text)
     } catch {
       return { ...empty, kept, inPlace: text }
     }
-    return { ...empty, kept: [...kept, { key, text }] }
+    return { ...empty, text, kept: [...kept, { key, text }] }
   }
 }
 

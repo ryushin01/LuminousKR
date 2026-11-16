@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { STORAGE_KEY } from './persistence.ts'
+import { STORAGE_KEY, loadSaved } from './persistence.ts'
 import { createPresetProject } from './preset.ts'
 import {
   adoptSavedProject,
@@ -225,6 +225,34 @@ describe('자동 저장과 탭 사이 맞추기', () => {
     discardInPlaceUnreadable()
     expect(inPlaceUnreadableText()).toBeNull()
     expect(savedWeight(storage)).toBe(90)
+  })
+
+  it('편집 없이 보관한 원문을 지우면 원래 자리도 지금 작업으로 써서, 새로 고쳐도 다시 보관되지 않습니다', () => {
+    const storage = memoryStorage()
+    const broken = '{"format":"luminous-kr","version":9}'
+    storage.setItem(STORAGE_KEY, broken)
+    const loaded = loadSaved(storage)
+    resetProjectStoreForTest(createPresetProject(), {
+      storage,
+      kept: loaded.kept,
+      seen: loaded.text,
+    })
+    discardKeptUnreadable()
+    expect(storage.getItem(STORAGE_KEY)).not.toBe(broken)
+    expect(loadSaved(storage).kept).toEqual([])
+  })
+
+  it('이벤트가 오기 전에 다른 탭이 읽지 못하는 원문을 썼으면, 쓰기 직전에 알아보고 덮어쓰지 않습니다', () => {
+    const storage = memoryStorage()
+    resetProjectStoreForTest(createPresetProject(), { storage })
+    editProject((d) => void (d.style.weight = 90))
+    flushProjectSave()
+    const newer = JSON.stringify({ format: 'luminous-kr', version: 2 })
+    storage.setItem(STORAGE_KEY, newer) // storage 이벤트는 아직 오지 않음
+    editProject((d) => void (d.style.weight = 91))
+    flushProjectSave()
+    expect(storage.getItem(STORAGE_KEY)).toBe(newer)
+    expect(projectSavePausedByOtherTab()).toBe(true)
   })
 
   it('보관한 원문은 지울 때까지 남고, 지우면 보관 열쇠까지 지웁니다', () => {

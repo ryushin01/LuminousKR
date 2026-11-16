@@ -62,10 +62,27 @@ let dirty = false
 // 되돌리기용 복사본은 추적하지 않고 그 순간의 값을 뜹니다.
 const snapshot = (): FontProject => structuredClone(unwrap(project))
 
+/**
+ * 쓰기 바로 전에 저장된 값을 확인합니다. 이 탭이 본 적 없는 읽지 못하는 원문(다른 탭의 더 새 형식 등)이 있으면,
+ * storage 이벤트가 아직 오지 않았더라도 덮어쓰지 않고 멈춥니다. 쓸 수 있으면 true
+ */
+function canOverwrite(): boolean {
+  const current = readSavedText(storage)
+  if (current === null || current === lastSeen) return true
+  try {
+    parseSaved(current)
+    return true
+  } catch {
+    lastSeen = current
+    setPause('unreadable-other-tab')
+    return false
+  }
+}
+
 function saveNow(): void {
   clearTimeout(saveTimer)
   saveTimer = undefined
-  if (pause()) return
+  if (pause() || !canOverwrite()) return
   const text = serializeProject(unwrap(project))
   const outcome = writeSaved(storage, text)
   if (outcome === 'ok') {
@@ -146,6 +163,9 @@ export function inPlaceUnreadableState(): 'paused' | 'memory' | null {
 export const projectSavePausedByOtherTab = () => pause() === 'unreadable-other-tab'
 
 function releaseInPlace(): void {
+  // 사용자가 버린 원문이므로 이제 덮어써도 됩니다(쓰기 전 확인이 다시 멈추지 않게 본 것으로 적음).
+  const text = inPlaceText()
+  if (text !== null) lastSeen = text
   setInPlaceText(null)
   if (pause() === 'unreadable-here') {
     setPause(null)
@@ -160,14 +180,20 @@ export const keptUnreadableTexts = keptTexts
 /** 보관하지 못하고 이 탭에만 있는 읽지 못한 원문 */
 export const inPlaceUnreadableText = inPlaceText
 
-/** 화면에 보여 준 보관 원문을 지웁니다. 그사이 다른 탭이 더한 원문은 남겨 다시 보여 줍니다. */
+/**
+ * 화면에 보여 준 보관 원문을 지웁니다. 그사이 다른 탭이 더한 원문은 남겨 다시 보여 줍니다.
+ * 지운 원문이 아직 원래 자리에 있으면(편집 없이 지운 경우) 지금 작업으로 바로 써서, 새로 고쳐도 다시 보관되지 않게 합니다.
+ */
 export function discardKeptUnreadable(): void {
+  const shown = keptTexts()
   setKeptTexts(
     removeKept(
       storage,
-      keptTexts().map((entry) => entry.key),
+      shown.map((entry) => entry.key),
     ),
   )
+  const current = readSavedText(storage)
+  if (current !== null && shown.some((entry) => entry.text === current)) saveNow()
 }
 
 /**
@@ -332,12 +358,18 @@ export function startProjectSync(): () => void {
 /** 테스트용: 저장소를 기본 프리셋으로 되돌리고 기록·알림을 비웁니다. */
 export function resetProjectStoreForTest(
   next: FontProject = createPresetProject(),
-  options: { storage?: Storage; kept?: KeptText[]; inPlace?: string | null } = {},
+  options: {
+    storage?: Storage
+    kept?: KeptText[]
+    inPlace?: string | null
+    /** 이 탭이 이미 본 저장 원문 (loadSaved의 text) */
+    seen?: string | null
+  } = {},
 ): void {
   clearTimeout(saveTimer)
   saveTimer = undefined
   storage = options.storage ?? projectStorage()
-  lastSeen = null
+  lastSeen = options.seen ?? null
   dirty = false
   setProject(reconcile(structuredClone(next)))
   clearHistory()
