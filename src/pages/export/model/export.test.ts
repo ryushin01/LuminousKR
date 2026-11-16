@@ -42,6 +42,23 @@ describe('글꼴 파일 만들기', () => {
     })
   })
 
+  it('입력이 글꼴 규격에 담기지 않으면(RangeError) 다시 누르라 하지 않고 고칠 것만 알립니다', async () => {
+    const tooLong = new Error(
+      '글꼴 정보가 너무 길어 이름 표에 담을 수 없습니다. 설명을 줄여 주세요.',
+    )
+    tooLong.name = 'RangeError' // 워커에서 넘어온 오류처럼 종류만 남은 경우
+    const build = vi.fn(() => Promise.reject(tooLong))
+    await createRoot(async (dispose) => {
+      const exporter = createExporter(build)
+      await exporter.start({ woff: true })
+      expect(exporter.state()).toBe('error')
+      expect(exporter.error()).toBe(
+        '글꼴 파일을 만들지 못했습니다. 글꼴 정보가 너무 길어 이름 표에 담을 수 없습니다. 설명을 줄여 주세요.',
+      )
+      dispose()
+    })
+  })
+
   it('취소는 오류로 보지 않습니다', async () => {
     const build = vi.fn((_p: unknown, _r: unknown, options: { signal?: AbortSignal }) => {
       return new Promise<BuildResult>((_resolve, reject) => {

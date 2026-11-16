@@ -149,6 +149,45 @@ describe('글꼴 파일 규격 (fontbakery·OTS 기준)', () => {
   })
 })
 
+describe('이름 표 쓰기', () => {
+  const record = (nameID: number, value: string, languageID = 0x0409) => ({
+    platformID: 3,
+    encodingID: 1,
+    languageID,
+    nameID,
+    value,
+  })
+
+  it('같은 문자열은 한 번만 담고 위치를 함께 씁니다', () => {
+    const records = [record(5, 'Version 1.000'), record(5, 'Version 1.000', 0x0412)]
+    const table = buildNameTable(records)
+    // 머리말 6 + 레코드 2 × 12 + 문자열 한 벌(13자 × 2바이트)
+    expect(table.length).toBe(6 + 2 * 12 + 26)
+    expect(parseNameTable(table)).toEqual(records)
+  })
+
+  it('문자열 위치가 16비트를 넘으면 값이 돌아 다른 이름을 가리키지 않도록 거부합니다', () => {
+    // 2만 자 문자열 둘 다음의 위치는 80,000바이트라 16비트(65,535)에 담기지 않습니다.
+    const records = [
+      record(10, 'a'.repeat(20_000)),
+      record(13, 'b'.repeat(20_000)),
+      record(16, 'Family'),
+    ]
+    expect(() => buildNameTable(records)).toThrow(RangeError)
+    // 같은 값이면 한 번만 담으므로 담깁니다.
+    const same = [
+      record(10, 'a'.repeat(20_000)),
+      record(13, 'a'.repeat(20_000)),
+      record(16, 'Family'),
+    ]
+    expect(parseNameTable(buildNameTable(same))).toEqual(same)
+  })
+
+  it('문자열 하나의 길이가 16비트를 넘어도 거부합니다', () => {
+    expect(() => buildNameTable([record(13, 'c'.repeat(40_000))])).toThrow(RangeError)
+  })
+})
+
 describe('WOFF 감싸기', () => {
   it('머리말과 표를 규격대로 쓰고, 압축을 풀면 원래 표와 같습니다', async () => {
     const otf = build()

@@ -128,7 +128,14 @@ export function parseNameTable(data: Uint8Array): NameRecord[] {
   return records
 }
 
-/** 이름 표(형식 0)를 씁니다. 레코드는 플랫폼·인코딩·언어·이름 번호 순서로 정렬합니다. */
+/** 이름 표의 위치·길이 칸(16비트)에 담을 수 있는 가장 큰 값 */
+const NAME_FIELD_MAX = 0xffff
+
+/**
+ * 이름 표(형식 0)를 씁니다. 레코드는 플랫폼·인코딩·언어·이름 번호 순서로 정렬하고,
+ * 같은 문자열은 한 번만 담아 위치를 함께 씁니다(영문·한국어 레코드의 값이 같은 경우 등).
+ * 문자열 위치·길이는 16비트 칸이라, 넘으면 값이 돌아 다른 이름을 가리키지 않도록 쓰지 않고 거부합니다.
+ */
 export function buildNameTable(input: readonly NameRecord[]): Uint8Array {
   const records = [...input].sort(
     (a, b) =>
@@ -137,27 +144,41 @@ export function buildNameTable(input: readonly NameRecord[]): Uint8Array {
       a.languageID - b.languageID ||
       a.nameID - b.nameID,
   )
-  const strings = records.map((r) => encodeUtf16(r.value))
+  const pool = new Map<string, { offset: number; bytes: Uint8Array }>()
+  let poolSize = 0
+  const placed = records.map((record) => {
+    let entry = pool.get(record.value)
+    if (!entry) {
+      entry = { offset: poolSize, bytes: encodeUtf16(record.value) }
+      pool.set(record.value, entry)
+      poolSize += entry.bytes.length
+    }
+    if (entry.offset > NAME_FIELD_MAX || entry.bytes.length > NAME_FIELD_MAX) {
+      throw new RangeError(
+        '글꼴 정보가 너무 길어 이름 표에 담을 수 없습니다. 설명·사용 허락 같은 긴 글을 줄여 주세요.',
+      )
+    }
+    return { record, entry }
+  })
   const storage = 6 + records.length * 12
-  const size = strings.reduce((sum, s) => sum + s.length, storage)
-  const out = new Uint8Array(size)
+  if (storage > NAME_FIELD_MAX) {
+    throw new RangeError('이름 레코드가 너무 많아 이름 표에 담을 수 없습니다.')
+  }
+  const out = new Uint8Array(storage + poolSize)
   const view = new DataView(out.buffer)
   view.setUint16(0, 0)
   view.setUint16(2, records.length)
   view.setUint16(4, storage)
-  let offset = 0
-  records.forEach((record, i) => {
+  placed.forEach(({ record, entry }, i) => {
     const at = 6 + i * 12
-    const text = strings[i]!
     view.setUint16(at, record.platformID)
     view.setUint16(at + 2, record.encodingID)
     view.setUint16(at + 4, record.languageID)
     view.setUint16(at + 6, record.nameID)
-    view.setUint16(at + 8, text.length)
-    view.setUint16(at + 10, offset)
-    out.set(text, storage + offset)
-    offset += text.length
+    view.setUint16(at + 8, entry.bytes.length)
+    view.setUint16(at + 10, entry.offset)
   })
+  for (const entry of pool.values()) out.set(entry.bytes, storage + entry.offset)
   return out
 }
 

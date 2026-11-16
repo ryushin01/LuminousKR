@@ -12,7 +12,7 @@ export type RpcRequest = { id: number; method: string; payload: unknown }
 export type RpcResponse =
   | { id: number; kind: 'progress'; data: unknown }
   | { id: number; kind: 'result'; data: unknown }
-  | { id: number; kind: 'error'; message: string }
+  | { id: number; kind: 'error'; message: string; name?: string }
 
 /** 워커 전역 객체 중 필요한 부분 (DOM·WebWorker 타입 정의가 겹치지 않게 직접 적음) */
 export type WorkerScopeLike = {
@@ -52,8 +52,10 @@ export function serveRpc(scope: WorkerScopeLike, handlers: Handlers): void {
       })
       scope.postMessage({ id, kind: 'result', data } satisfies RpcResponse, transfer)
     } catch (error) {
+      // 오류 종류(name)도 넘겨, 받는 쪽이 입력 문제(RangeError 등)와 일시적인 실패를 가려 안내할 수 있게 합니다.
       const message = error instanceof Error ? error.message : String(error)
-      scope.postMessage({ id, kind: 'error', message } satisfies RpcResponse)
+      const name = error instanceof Error ? error.name : undefined
+      scope.postMessage({ id, kind: 'error', message, name } satisfies RpcResponse)
     }
   })
 }
@@ -121,7 +123,11 @@ export class RpcClient<Methods extends Record<string, MethodSpec>> {
       }
       this.pending.delete(response.id)
       if (response.kind === 'result') entry.resolve(response.data)
-      else entry.reject(new Error(response.message))
+      else {
+        const error = new Error(response.message)
+        if (response.name) error.name = response.name
+        entry.reject(error)
+      }
     })
     worker.addEventListener('error', (event) => {
       event.preventDefault()
