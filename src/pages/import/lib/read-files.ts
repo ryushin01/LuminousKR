@@ -1,4 +1,5 @@
 /** 올린 파일을 그림(ImageBitmap)으로 바꿉니다. PDF는 쪽마다 한 장씩. */
+import { isAssetLoadError, reportAssetLoadFailure } from '@/shared/lib/app-update'
 
 export class ImportFileError extends Error {
   constructor(message: string) {
@@ -76,7 +77,14 @@ export async function readPageSources(file: File): Promise<ReadResult> {
   if (isPdf(file)) {
     try {
       return await renderPdf(file)
-    } catch {
+    } catch (error) {
+      if (isAssetLoadError(error)) {
+        // PDF 도구(pdf.js)는 PDF를 올릴 때 받으므로, 배포 뒤 열린 탭이면 여기서 처음 실패합니다.
+        reportAssetLoadFailure()
+        throw new ImportFileError(
+          `${file.name}: PDF를 여는 도구를 불러오지 못했습니다(새 버전이 나왔거나 연결이 끊겼을 수 있음). 화면 아래의 새로 고침을 눌러 주세요.`,
+        )
+      }
       throw new ImportFileError(
         `${file.name}: PDF를 열지 못했습니다. 암호가 걸렸거나 손상되지 않았는지 확인해 주세요.`,
       )

@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { RpcClient, serveRpc, type WorkerScopeLike } from './rpc.ts'
+import { describe, expect, it, vi } from 'vitest'
+import { RpcClient, WorkerLoadError, serveRpc, type WorkerScopeLike } from './rpc.ts'
 
 type Methods = {
   double: { payload: number; result: number }
@@ -74,5 +74,42 @@ describe('워커 RPC', () => {
     controller.abort()
     await expect(pending).rejects.toMatchObject({ name: 'AbortError' })
     expect(pair.terminated()).toBe(1)
+  })
+
+  it('끝난 요청의 취소 처리기는 떼어, 오래 쓰는 신호에 처리기가 쌓이지 않습니다', async () => {
+    const { worker } = createPair()
+    const client = new RpcClient<Methods>(() => worker)
+    const controller = new AbortController()
+    const added = vi.spyOn(controller.signal, 'addEventListener')
+    const removed = vi.spyOn(controller.signal, 'removeEventListener')
+    await client.call('double', 1, { signal: controller.signal })
+    await expect(client.call('fail', null, { signal: controller.signal })).rejects.toThrow()
+    expect(added).toHaveBeenCalledTimes(2)
+    expect(removed).toHaveBeenCalledTimes(2)
+  })
+
+  it('워커 스크립트를 받지 못하면(문구 없는 오류) WorkerLoadError로 실패하고 알립니다', async () => {
+    const listeners: ((event: Event) => void)[] = []
+    let created = 0
+    const worker = {
+      addEventListener: (type: string, listener: (event: Event) => void) => {
+        if (type === 'error') listeners.push(listener)
+      },
+      postMessage: () => queueMicrotask(() => listeners.forEach((l) => l(new Event('error')))),
+      terminate: () => {},
+    } as unknown as Worker
+    const onWorkerError = vi.fn()
+    const client = new RpcClient<Methods>(
+      () => {
+        created += 1
+        return worker
+      },
+      { onWorkerError },
+    )
+    await expect(client.call('double', 1)).rejects.toBeInstanceOf(WorkerLoadError)
+    expect(onWorkerError).toHaveBeenCalledWith(expect.any(WorkerLoadError))
+    // 다음 요청 때 새 워커를 띄워 다시 시도합니다.
+    await expect(client.call('double', 1)).rejects.toBeInstanceOf(WorkerLoadError)
+    expect(created).toBe(2)
   })
 })

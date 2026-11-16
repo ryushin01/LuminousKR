@@ -1,7 +1,7 @@
 import { For, Show } from 'solid-js'
 import { Button } from '@/shared/ui/button'
 import { Icon } from '@/shared/ui/icon'
-import styles from './AutosaveNotice.module.css'
+import { NoticeActions, NoticeCard, NoticeMessage } from '@/shared/ui/notice-card'
 
 export type SaveFailure = 'quota' | 'unavailable'
 
@@ -50,8 +50,7 @@ const SYNCED_TEXT =
   '다른 탭에서 바뀐 작업을 불러왔습니다. 이 탭의 되돌리기 기록은 여기서 새로 시작합니다.'
 
 /**
- * 자동 저장 알림. 화면 아래쪽에 떠서 내용을 밀어내지 않습니다.
- * 상태(불러옴)와 경고(저장 실패, 멈춤, 읽지 못한 작업) 영역은 처음부터 DOM에 두고 글자만 바꿉니다.
+ * 자동 저장 알림. 상태(불러옴)와 경고(저장 실패, 멈춤, 읽지 못한 작업) 영역은 처음부터 DOM에 두고 글자만 바꿉니다.
  * 원문은 하나씩 받습니다(한 번에 여러 파일을 받으면 브라우저가 막을 수 있음).
  */
 export function AutosaveNotice(props: AutosaveNoticeProps) {
@@ -64,60 +63,51 @@ export function AutosaveNotice(props: AutosaveNoticeProps) {
     ]
       .filter(Boolean)
       .join(' ')
-  const active = () => props.synced || alertText() !== ''
   const keptLabel = (index: number) =>
     props.keptCount > 1 ? `보관한 작업 ${index + 1} 받기` : '보관한 작업 받기'
 
   return (
-    <div class={styles.root}>
-      <div class={styles.card} classList={{ [styles.active!]: active() }}>
-        <p role="status" class={styles.text}>
-          {props.synced ? SYNCED_TEXT : ''}
-        </p>
-        <p role="alert" class={`${styles.text} ${styles.danger}`}>
-          {alertText()}
-        </p>
-        <Show when={props.pausedByOtherTab}>
-          <div class={styles.actions}>
-            <Button size="small" variant="primary" onClick={() => props.onReload()}>
-              <Icon name="reset" size={16} />
-              새로 고침
-            </Button>
-          </div>
-        </Show>
-        <Show when={props.inPlace}>
-          <div class={styles.actions}>
-            <Button size="small" variant="secondary" onClick={() => props.onDownloadInPlace()}>
-              <Icon name="download" size={16} />
-              원래 작업 받기
-            </Button>
-            <Button size="small" variant="ghost" onClick={() => props.onDiscardInPlace()}>
-              <Icon name="trash" size={16} />
-              원래 작업 버리기
-            </Button>
-          </div>
-        </Show>
-        <Show when={props.keptCount > 0}>
-          <div class={styles.actions}>
-            <For each={Array.from({ length: props.keptCount }, (_, i) => i)}>
-              {(index) => (
-                <Button
-                  size="small"
-                  variant="secondary"
-                  onClick={() => props.onDownloadKept(index)}
-                >
-                  <Icon name="download" size={16} />
-                  {keptLabel(index)}
-                </Button>
-              )}
-            </For>
-            <Button size="small" variant="ghost" onClick={() => props.onDiscardKept()}>
-              <Icon name="trash" size={16} />
-              보관한 작업 지우기
-            </Button>
-          </div>
-        </Show>
-      </div>
-    </div>
+    <NoticeCard active={props.synced || alertText() !== ''}>
+      <NoticeMessage role="status">{props.synced ? SYNCED_TEXT : ''}</NoticeMessage>
+      <NoticeMessage role="alert" tone="danger">
+        {alertText()}
+      </NoticeMessage>
+      <Show when={props.pausedByOtherTab}>
+        <NoticeActions>
+          <Button size="small" variant="primary" onClick={() => props.onReload()}>
+            <Icon name="reset" size={16} />
+            새로 고침
+          </Button>
+        </NoticeActions>
+      </Show>
+      <Show when={props.inPlace}>
+        <NoticeActions>
+          <Button size="small" variant="secondary" onClick={() => props.onDownloadInPlace()}>
+            <Icon name="download" size={16} />
+            원래 작업 받기
+          </Button>
+          <Button size="small" variant="ghost" onClick={() => props.onDiscardInPlace()}>
+            <Icon name="trash" size={16} />
+            원래 작업 버리기
+          </Button>
+        </NoticeActions>
+      </Show>
+      <Show when={props.keptCount > 0}>
+        <NoticeActions>
+          <For each={Array.from({ length: props.keptCount }, (_, i) => i)}>
+            {(index) => (
+              <Button size="small" variant="secondary" onClick={() => props.onDownloadKept(index)}>
+                <Icon name="download" size={16} />
+                {keptLabel(index)}
+              </Button>
+            )}
+          </For>
+          <Button size="small" variant="ghost" onClick={() => props.onDiscardKept()}>
+            <Icon name="trash" size={16} />
+            보관한 작업 지우기
+          </Button>
+        </NoticeActions>
+      </Show>
+    </NoticeCard>
   )
 }

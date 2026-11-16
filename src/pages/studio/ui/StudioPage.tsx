@@ -1,4 +1,3 @@
-import { onCleanup, onMount } from 'solid-js'
 import { canRedo, canUndo, jamoLabel, redo, undo } from '@/entities/font'
 import { StylePanel } from '@/features/adjust-style'
 import { ProjectActions } from '@/features/manage-project'
@@ -15,29 +14,11 @@ import { JamoPalette } from './JamoPalette.tsx'
 import { LayoutPreview } from './LayoutPreview.tsx'
 import styles from './StudioPage.module.css'
 
-const isTyping = (target: EventTarget | null) =>
-  target instanceof HTMLElement &&
-  (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
-
 export function StudioPage() {
   usePageTitle('작업실')
   const editor = createEditor()
 
-  // 되돌리기 단축키: Ctrl·⌘ + Z, 다시하기: Ctrl·⌘ + Shift + Z 또는 Ctrl + Y (글자 입력 중에는 입력칸의 기본 동작)
-  const onKeyDown = (event: KeyboardEvent) => {
-    if (!(event.metaKey || event.ctrlKey) || isTyping(event.target)) return
-    const key = event.key.toLowerCase()
-    if (key === 'z') {
-      event.preventDefault()
-      if (event.shiftKey) redo()
-      else undo()
-    } else if (key === 'y') {
-      event.preventDefault()
-      redo()
-    }
-  }
-  onMount(() => document.addEventListener('keydown', onKeyDown))
-  onCleanup(() => document.removeEventListener('keydown', onKeyDown))
+  // 되돌리기 단축키(Ctrl·⌘ + Z 등)는 앱 공통(app/lib/undoShortcuts)에서 모든 화면에 겁니다.
 
   return (
     <div class={styles.page}>

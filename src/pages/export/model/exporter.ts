@@ -1,5 +1,6 @@
 import { createSignal } from 'solid-js'
 import { type BuildProgress, type BuildResult, buildFontFile, fontProject } from '@/entities/font'
+import { isAssetLoadError } from '@/shared/lib/app-update'
 
 export type ExportState = 'idle' | 'building' | 'done' | 'error'
 
@@ -42,7 +43,9 @@ export function createExporter(build = buildFontFile) {
       } else {
         setState('error')
         setError(
-          `글꼴 파일을 만들지 못했습니다(${cause instanceof Error ? cause.message : String(cause)}). 잠시 뒤 다시 눌러 주세요.`,
+          isAssetLoadError(cause)
+            ? '글꼴 파일을 만들지 못했습니다. 작업 스레드를 불러오지 못했습니다(새 버전이 나왔거나 연결이 끊겼을 수 있음). 화면 아래의 새로 고침을 눌러 주세요. 작업은 자동 저장되어 있습니다.'
+            : `글꼴 파일을 만들지 못했습니다(${cause instanceof Error ? cause.message : String(cause)}). 잠시 뒤 다시 눌러 주세요.`,
         )
       }
     } finally {

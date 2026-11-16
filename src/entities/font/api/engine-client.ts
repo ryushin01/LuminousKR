@@ -1,5 +1,6 @@
 import { unwrap } from 'solid-js/store'
-import { RpcClient } from '@/shared/lib/worker-rpc'
+import { isAssetLoadError, reportAssetLoadFailure } from '@/shared/lib/app-update'
+import { RpcClient, type RpcClientOptions } from '@/shared/lib/worker-rpc'
 import type { BuildProgress, BuildRequest, BuildResult } from '../lib/build-font.ts'
 import type { FontProject } from '../model/types.ts'
 import type { EngineMethods, RenderItem, RenderedGlyph } from './engine-protocol.ts'
@@ -15,8 +16,14 @@ const createWorker = () =>
  * - live: 편집하면서 보는 미리보기 (짧은 요청이 자주 옴)
  * - build: 11,172자 전체 글꼴 만들기 (몇 초 걸려도 미리보기를 막지 않게 따로)
  */
-const live = new RpcClient<EngineMethods>(createWorker)
-const builder = new RpcClient<EngineMethods>(createWorker)
+/** 워커 스크립트를 받지 못하면(배포 뒤 이전 파일 삭제, 연결 끊김) 앱 전체에 새로 고침을 안내합니다. */
+const options: RpcClientOptions = {
+  onWorkerError: (error) => {
+    if (isAssetLoadError(error)) reportAssetLoadFailure()
+  },
+}
+const live = new RpcClient<EngineMethods>(createWorker, options)
+const builder = new RpcClient<EngineMethods>(createWorker, options)
 
 /** Solid 스토어의 Proxy는 구조화 복제가 안 되므로 원본 객체를 보냅니다. */
 const plain = (project: FontProject): FontProject => unwrap(project)

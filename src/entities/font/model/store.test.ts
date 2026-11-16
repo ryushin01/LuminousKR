@@ -18,6 +18,7 @@ import {
   undo,
   discardInPlaceUnreadable,
   discardKeptUnreadable,
+  inPlaceUnreadableOnlyHere,
   inPlaceUnreadableState,
   inPlaceUnreadableText,
   keptUnreadableTexts,
@@ -129,6 +130,18 @@ describe('자동 저장과 탭 사이 맞추기', () => {
     window.dispatchEvent(new Event('pagehide'))
     expect(savedWeight(storage)).toBe(100)
     stop()
+  })
+
+  it('저장을 비우면 이 탭의 변경이 모두 저장소에 있는지 알려 줍니다(실패한 저장도 다시 써 봄)', () => {
+    const storage = memoryStorage(true)
+    resetProjectStoreForTest(createPresetProject(), { storage })
+    expect(flushProjectSave()).toBe(true) // 바꾼 것이 없음
+    editProject((d) => void (d.style.weight = 90))
+    expect(flushProjectSave()).toBe(false) // 저장 공간 초과
+    storage.full = false
+    // 새 편집 없이 다시 비워도 실패했던 변경을 씁니다.
+    expect(flushProjectSave()).toBe(true)
+    expect(savedWeight(storage)).toBe(90)
   })
 
   it('저장 공간이 모자라 실패하면 까닭을 알리고, 다음 저장이 성공하면 거둡니다', () => {
@@ -459,6 +472,75 @@ describe('자동 저장과 탭 사이 맞추기', () => {
     editProject((d) => void (d.style.weight = 125))
     flushProjectSave()
     expect(savedWeight(storage)).toBe(125)
+  })
+
+  it('보관하지 못한 원문을 다른 탭이 보관하면(같은 원문) 놓고, 멈춰 있던 자동 저장을 다시 켭니다', () => {
+    const storage = memoryStorage()
+    storage.setItem(STORAGE_KEY, '{원래 작업')
+    resetProjectStoreForTest(createPresetProject(), { storage, inPlace: '{원래 작업' })
+    const stop = startProjectSync()
+    editProject((d) => void (d.style.weight = 118))
+    flushProjectSave()
+    expect(storage.getItem(STORAGE_KEY)).toBe('{원래 작업')
+    // 다른 탭이 보관한 것은 다른 원문이면 그대로 붙잡습니다.
+    storage.setItem(`${STORAGE_KEY}:unreadable:1`, '{다른 작업')
+    window.dispatchEvent(new StorageEvent('storage', { key: `${STORAGE_KEY}:unreadable:1` }))
+    expect(inPlaceUnreadableState()).toBe('paused')
+    storage.setItem(`${STORAGE_KEY}:unreadable:2`, '{원래 작업')
+    window.dispatchEvent(new StorageEvent('storage', { key: `${STORAGE_KEY}:unreadable:2` }))
+    expect(inPlaceUnreadableState()).toBeNull()
+    expect(keptTexts()).toEqual(['{다른 작업', '{원래 작업'])
+    expect(savedWeight(storage)).toBe(118)
+    stop()
+  })
+
+  it('다른 탭이 같은 원문을 보관하고 새 작업까지 쓴 뒤 이벤트가 늦게 오면, 바뀐 것이 없는 이 탭은 덮지 않고 받아 맞춥니다', () => {
+    const storage = memoryStorage()
+    storage.setItem(STORAGE_KEY, '{원래 작업')
+    resetProjectStoreForTest(createPresetProject(), { storage, inPlace: '{원래 작업' })
+    const stop = startProjectSync()
+    const other = createPresetProject()
+    other.style.weight = 133
+    // 두 이벤트가 쌓인 사이 다른 탭은 보관과 저장을 모두 마침
+    storage.setItem(`${STORAGE_KEY}:unreadable:1`, '{원래 작업')
+    storage.setItem(STORAGE_KEY, JSON.stringify(other))
+    window.dispatchEvent(new StorageEvent('storage', { key: `${STORAGE_KEY}:unreadable:1` }))
+    expect(inPlaceUnreadableState()).toBeNull()
+    expect(savedWeight(storage)).toBe(133)
+    expect(fontProject.style.weight).toBe(133)
+    window.dispatchEvent(new StorageEvent('storage', { key: STORAGE_KEY }))
+    expect(savedWeight(storage)).toBe(133)
+    stop()
+  })
+
+  it('원래 작업을 버릴 때 다른 탭이 이미 원래 자리를 새 작업으로 바꿨으면(이벤트 전) 덮지 않고 받아 맞춥니다', () => {
+    const storage = memoryStorage()
+    storage.setItem(STORAGE_KEY, '{원래 작업')
+    resetProjectStoreForTest(createPresetProject(), { storage, inPlace: '{원래 작업' })
+    const other = createPresetProject()
+    other.style.weight = 144
+    storage.setItem(STORAGE_KEY, JSON.stringify(other)) // storage 이벤트는 아직 오지 않음
+    discardInPlaceUnreadable()
+    expect(savedWeight(storage)).toBe(144)
+    expect(fontProject.style.weight).toBe(144)
+    expect(inPlaceUnreadableText()).toBeNull()
+  })
+
+  it('이 탭에만 남은 원래 작업인지는 저장소를 바로 읽어 판단합니다(원래 자리·보관 열쇠에 있으면 아님)', () => {
+    const storage = memoryStorage()
+    storage.setItem(STORAGE_KEY, '{원래 작업')
+    resetProjectStoreForTest(createPresetProject(), { storage, inPlace: '{원래 작업' })
+    expect(inPlaceUnreadableOnlyHere()).toBe(false)
+    // 다른 탭이 원래 자리를 바꿨지만 이벤트는 아직 오지 않음: 이 탭은 아직 멈춤 상태
+    storage.setItem(STORAGE_KEY, JSON.stringify(createPresetProject()))
+    expect(inPlaceUnreadableState()).toBe('paused')
+    expect(inPlaceUnreadableOnlyHere()).toBe(true)
+    // 다른 탭이 같은 원문을 보관했으면 다시 열어도 남음
+    storage.setItem(`${STORAGE_KEY}:unreadable:1`, '{원래 작업')
+    expect(inPlaceUnreadableOnlyHere()).toBe(false)
+    storage.removeItem(`${STORAGE_KEY}:unreadable:1`)
+    discardInPlaceUnreadable()
+    expect(inPlaceUnreadableOnlyHere()).toBe(false)
   })
 
   it('다른 열쇠의 저장 이벤트는 무시합니다', () => {
