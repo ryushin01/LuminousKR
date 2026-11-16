@@ -227,12 +227,51 @@ describe('자동 저장과 탭 사이 맞추기', () => {
 
   it('보관한 원문은 지울 때까지 남고, 지우면 보관 열쇠까지 지웁니다', () => {
     const storage = memoryStorage()
+    storage.setItem(`${STORAGE_KEY}:unreadable`, JSON.stringify(['{보관']))
     resetProjectStoreForTest(createPresetProject(), { storage, kept: ['{보관'] })
     expect(keptUnreadableTexts()).toEqual(['{보관'])
-    const removed = vi.spyOn(storage, 'removeItem')
     discardKeptUnreadable()
     expect(keptUnreadableTexts()).toEqual([])
-    expect(removed).toHaveBeenCalledWith(`${STORAGE_KEY}:unreadable`)
+    expect(storage.getItem(`${STORAGE_KEY}:unreadable`)).toBeNull()
+  })
+
+  it('다른 탭이 원문을 더 보관하면 목록을 맞추고, 지울 때는 보여 준 것만 지웁니다', () => {
+    const storage = memoryStorage()
+    const key = `${STORAGE_KEY}:unreadable`
+    storage.setItem(key, JSON.stringify(['{A']))
+    resetProjectStoreForTest(createPresetProject(), { storage, kept: ['{A'] })
+    const stop = startProjectSync()
+    // 이 탭은 {A만 보여 주고 있는데, 다른 탭이 {B를 더 보관합니다(이벤트가 오기 전에 지우기).
+    storage.setItem(key, JSON.stringify(['{A', '{B']))
+    discardKeptUnreadable()
+    expect(JSON.parse(storage.getItem(key)!)).toEqual(['{B'])
+    expect(keptUnreadableTexts()).toEqual(['{B'])
+    // 이벤트로 목록을 맞춥니다.
+    storage.setItem(key, JSON.stringify(['{B', '{C']))
+    window.dispatchEvent(new StorageEvent('storage', { key }))
+    expect(keptUnreadableTexts()).toEqual(['{B', '{C'])
+    stop()
+  })
+
+  it('저장이 멈춘 동안 고친 것은, 다른 탭의 읽을 수 있는 저장을 받으면 멈춤을 풀고 먼저 씁니다', () => {
+    const storage = memoryStorage()
+    resetProjectStoreForTest(createPresetProject(), { storage })
+    const newer = JSON.stringify({ format: 'luminous-kr', version: 2 })
+    storage.setItem(STORAGE_KEY, newer)
+    adoptSavedProject(newer)
+    expect(projectSavePausedByOtherTab()).toBe(true)
+    editProject((d) => void (d.style.weight = 101))
+    flushProjectSave()
+    expect(storage.getItem(STORAGE_KEY)).toBe(newer)
+
+    const readable = createPresetProject()
+    readable.style.weight = 150
+    const text = JSON.stringify(readable)
+    storage.setItem(STORAGE_KEY, text)
+    receiveOtherTabSave(text)
+    expect(projectSavePausedByOtherTab()).toBe(false)
+    expect(fontProject.style.weight).toBe(101)
+    expect(savedWeight(storage)).toBe(101)
   })
 
   it('저장이 실패한 변경은 다른 탭의 저장을 받아도 덮어쓰지 않고, 다시 써 봅니다', () => {

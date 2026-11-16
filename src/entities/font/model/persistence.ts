@@ -123,11 +123,26 @@ export function writeSaved(storage: Storage | undefined, text: string): SaveOutc
   }
 }
 
-/** 보관해 둔 읽지 못한 원문을 모두 지웁니다. */
-export function removeUnreadable(storage: Storage | undefined): void {
+/** 지금 보관 열쇠에 있는 원문 목록 (다른 탭이 더했을 수 있으므로 쓸 때마다 다시 읽음) */
+export function readKept(storage: Storage | undefined): string[] {
   try {
-    storage?.removeItem(UNREADABLE_KEY)
+    return parseKept(storage?.getItem(UNREADABLE_KEY) ?? null)
+  } catch {
+    return []
+  }
+}
+
+/**
+ * 보관 목록에서 주어진 원문만 지우고 나머지는 남깁니다(목록이 비면 열쇠를 지움).
+ * 화면에 보여 준 것만 지워, 그사이 다른 탭이 더한 원문은 지우지 않습니다. 남은 목록을 돌려줍니다.
+ */
+export function removeKept(storage: Storage | undefined, texts: readonly string[]): string[] {
+  const remaining = readKept(storage).filter((text) => !texts.includes(text))
+  try {
+    if (remaining.length === 0) storage?.removeItem(UNREADABLE_KEY)
+    else storage?.setItem(UNREADABLE_KEY, JSON.stringify(remaining))
   } catch {
     // 지우지 못해도 화면에서는 닫습니다.
   }
+  return remaining
 }

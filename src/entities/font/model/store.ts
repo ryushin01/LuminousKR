@@ -3,11 +3,13 @@ import { createStore, produce, reconcile, unwrap } from 'solid-js/store'
 import {
   STORAGE_KEY,
   type SaveOutcome,
+  UNREADABLE_KEY,
   loadSaved,
   parseSaved,
   projectStorage,
+  readKept,
   readSavedText,
-  removeUnreadable,
+  removeKept,
   serializeProject,
   writeSaved,
 } from './persistence.ts'
@@ -157,10 +159,9 @@ export const keptUnreadableTexts = keptTexts
 /** 보관하지 못하고 이 탭에만 있는 읽지 못한 원문 */
 export const inPlaceUnreadableText = inPlaceText
 
-/** 보관해 둔 읽지 못한 원문을 모두 지웁니다. */
+/** 화면에 보여 준 보관 원문을 지웁니다. 그사이 다른 탭이 더한 원문은 남겨 다시 보여 줍니다. */
 export function discardKeptUnreadable(): void {
-  removeUnreadable(storage)
-  setKeptTexts([])
+  setKeptTexts(removeKept(storage, keptTexts()))
 }
 
 /**
@@ -274,17 +275,22 @@ export function storageChangeToAdopt(): string | null {
  */
 export function receiveOtherTabSave(text: string | null): void {
   if (text === null) return
-  if (dirty && !pause()) {
-    let readable = true
-    try {
-      parseSaved(text)
-    } catch {
-      readable = false
-    }
-    if (readable) {
-      saveNow()
-      return
-    }
+  let readable = true
+  try {
+    parseSaved(text)
+  } catch {
+    readable = false
+  }
+  if (!readable) {
+    adoptSavedProject(text)
+    return
+  }
+  // 다른 탭이 읽을 수 있는 작업을 썼으므로, 원래 자리(읽지 못한 원문이나 새 형식)를 지키려고 멈춰 둘 까닭이 없습니다.
+  // 멈춘 동안 고친 것도 아직 쓰지 못한 변경이므로 맞추기 전에 먼저 씁니다.
+  if (pause()) setPause(null)
+  if (dirty) {
+    saveNow()
+    return
   }
   adoptSavedProject(text)
 }
@@ -295,8 +301,10 @@ export function receiveOtherTabSave(text: string | null): void {
  */
 export function startProjectSync(): () => void {
   const onStorage = (event: StorageEvent) => {
-    if (event.key !== STORAGE_KEY || (event.storageArea && event.storageArea !== storage)) return
-    receiveOtherTabSave(storageChangeToAdopt())
+    if (event.storageArea && event.storageArea !== storage) return
+    // 다른 탭이 읽지 못한 원문을 보관하거나 지우면 이 탭의 목록도 맞춥니다.
+    if (event.key === UNREADABLE_KEY) setKeptTexts(readKept(storage))
+    if (event.key === STORAGE_KEY) receiveOtherTabSave(storageChangeToAdopt())
   }
   const onPageHide = () => flushProjectSave()
   const onVisibility = () => {

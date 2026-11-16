@@ -5,7 +5,8 @@ import {
   loadSaved,
   parseKept,
   readSavedText,
-  removeUnreadable,
+  readKept,
+  removeKept,
   serializeProject,
   writeSaved,
 } from './persistence.ts'
@@ -59,7 +60,8 @@ describe('자동 저장 읽기·쓰기', () => {
     const again = loadSaved(storage)
     expect(again.project).not.toBeNull()
     expect(again.kept).toEqual([text])
-    removeUnreadable(storage)
+    expect(removeKept(storage, [text])).toEqual([])
+    expect(storage.getItem(UNREADABLE_KEY)).toBeNull()
     expect(loadSaved(storage).kept).toEqual([])
   })
 
@@ -74,6 +76,12 @@ describe('자동 저장 읽기·쓰기', () => {
     storage.setItem(STORAGE_KEY, second)
     expect(loadSaved(storage).kept).toEqual([first, second])
     expect(parseKept(storage.getItem(UNREADABLE_KEY))).toEqual([first, second])
+  })
+
+  it('보관 목록에서 보여 준 원문만 지우고 그사이 더해진 원문은 남깁니다', () => {
+    const storage = memoryStorage({ [UNREADABLE_KEY]: JSON.stringify(['A', 'B']) })
+    expect(removeKept(storage, ['A'])).toEqual(['B'])
+    expect(readKept(storage)).toEqual(['B'])
   })
 
   it('보관 열쇠의 값이 목록이 아니면(이전 형식) 원문 하나로 읽습니다', () => {
