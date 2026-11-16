@@ -14,8 +14,13 @@ import {
  * 실행: pnpm build && pnpm screenshots
  */
 test.skip(!process.env.SCREENSHOTS, 'README 화면은 pnpm screenshots로만 찍습니다')
-// README 화면은 일식 배경이 보이도록 움직임을 켭니다.
-test.use({ reducedMotion: 'no-preference' })
+// README 화면은 일식 배경이 보이도록 움직임을 켜고, 배경(WebGL)을 GPU로 그립니다
+// (소프트웨어 렌더러에서는 앱이 CSS 배경으로 대신하므로 macOS의 Metal을 씀).
+test.use({
+  reducedMotion: 'no-preference',
+  channel: 'chromium',
+  launchOptions: { args: ['--use-angle=metal', '--ignore-gpu-blocklist', '--enable-gpu'] },
+})
 test.describe.configure({ mode: 'serial' })
 // 글꼴 파일 만들기(최대 2분)와 가져오기 인식까지 들어가도록 넉넉히 둡니다.
 test.setTimeout(240_000)
