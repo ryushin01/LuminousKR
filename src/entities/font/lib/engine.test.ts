@@ -247,6 +247,8 @@ describe('판을 넘어 이어 쓰는 윤곽 캐시', () => {
   const codes = [
     ...Array.from({ length: 19 }, (_, lead) => composeCode(lead, lead % 21, lead % 28)),
     ...Array.from({ length: 21 }, (_, vowel) => composeCode(vowel % 19, vowel, (vowel * 5) % 28)),
+    // 각: ㄱ의 D 배치(세로 모음 + 받침). 아래에서 바꾸는 L0 변형(벌)을 실제로 쓰는 음절
+    composeCode(0, 0, 1),
     0x3131,
     0x3134,
     0x314f,
