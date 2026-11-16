@@ -7,6 +7,18 @@ export type ExportState = 'idle' | 'building' | 'done' | 'error'
 /** 전체 글리프 수: 음절 11,172 + 호환 자모 51 */
 export const TOTAL_GLYPHS = 11_223
 
+/** 만들지 못한 까닭과 할 일. 입력이 글꼴 규격에 담기지 않으면(RangeError) 다시 눌러도 같으므로 고칠 것만 알립니다. */
+function buildErrorText(cause: unknown): string {
+  if (isAssetLoadError(cause)) {
+    return '글꼴 파일을 만들지 못했습니다. 작업 스레드를 불러오지 못했습니다(새 버전이 나왔거나 연결이 끊겼을 수 있음). 화면 아래의 새로 고침을 눌러 주세요. 작업은 자동 저장되어 있습니다.'
+  }
+  const message = cause instanceof Error ? cause.message : String(cause)
+  if (cause instanceof Error && cause.name === 'RangeError') {
+    return `글꼴 파일을 만들지 못했습니다. ${message}`
+  }
+  return `글꼴 파일을 만들지 못했습니다(${message}). 잠시 뒤 다시 눌러 주세요.`
+}
+
 /**
  * 글꼴 파일 만들기.
  * 버튼을 빠르게 두 번 눌러도 한 번만 돌도록 동기 잠금(locked)을 씁니다.
@@ -42,11 +54,7 @@ export function createExporter(build = buildFontFile) {
         setError('')
       } else {
         setState('error')
-        setError(
-          isAssetLoadError(cause)
-            ? '글꼴 파일을 만들지 못했습니다. 작업 스레드를 불러오지 못했습니다(새 버전이 나왔거나 연결이 끊겼을 수 있음). 화면 아래의 새로 고침을 눌러 주세요. 작업은 자동 저장되어 있습니다.'
-            : `글꼴 파일을 만들지 못했습니다(${cause instanceof Error ? cause.message : String(cause)}). 잠시 뒤 다시 눌러 주세요.`,
-        )
+        setError(buildErrorText(cause))
       }
     } finally {
       locked = false

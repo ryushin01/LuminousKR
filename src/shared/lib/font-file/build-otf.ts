@@ -1,9 +1,12 @@
 import { Font, Glyph, Path } from 'opentype.js/dist/opentype.mjs'
-import type { Contour } from '../geometry/index.ts'
+import { contoursBounds, type Contour } from '../geometry/index.ts'
+import { tidySfnt } from './sfnt.ts'
 
 export type GlyphSpec = {
   name: string
   unicode?: number
+  /** 같은 글리프를 쓰는 글자가 여럿일 때 (빈칸 U+0020과 줄바꿈 없는 빈칸 U+00A0 등) */
+  unicodes?: number[]
   advance: number
   contours: readonly Contour[]
 }
@@ -70,6 +73,21 @@ export function contoursToPath(contours: readonly Contour[]): Path {
 
 /** OS/2 ulCodePageRange1의 949 한국어(완성형) 비트 */
 const CODEPAGE_KOREAN_WANSUNG = 1 << 19
+/** OS/2 fsSelection 7번 비트: 줄 높이를 typo 값(sTypoAscender 등)으로 (OS/2 4판부터) */
+const USE_TYPO_METRICS = 1 << 7
+
+/** 모든 글리프 윤곽(조절점 포함)의 세로 범위 */
+function verticalExtent(glyphs: readonly GlyphSpec[]): { yMin: number; yMax: number } {
+  let yMin = 0
+  let yMax = 0
+  for (const glyph of glyphs) {
+    const bounds = contoursBounds(glyph.contours)
+    if (!bounds) continue
+    yMin = Math.min(yMin, bounds.y0)
+    yMax = Math.max(yMax, bounds.y1)
+  }
+  return { yMin, yMax }
+}
 
 /**
  * 글리프 목록으로 OpenType(CFF) 글꼴 파일을 만듭니다.
@@ -103,7 +121,8 @@ export function buildOtf(
       (spec) =>
         new Glyph({
           name: spec.name,
-          unicode: spec.unicode,
+          unicode: spec.unicode ?? spec.unicodes?.[0],
+          unicodes: spec.unicodes,
           advanceWidth: spec.advance,
           path: contoursToPath(spec.contours),
         }),
@@ -117,7 +136,14 @@ export function buildOtf(
   }
 
   const half = Math.round(metrics.unitsPerEm / 2)
+  const extent = verticalExtent(glyphs)
   Object.assign(font.tables.os2!, {
+    // 4판: USE_TYPO_METRICS를 켜 Windows·macOS·웹이 모두 typo 값(글자 몸 1em)으로 줄 높이를 정하게 함
+    version: 4,
+    fsSelection: ((font.tables.os2!.fsSelection as number) | USE_TYPO_METRICS) >>> 0,
+    // Windows의 잘림 기준은 글자 몸과 실제 글리프 범위 가운데 큰 쪽(기울인 글리프가 잘리지 않게)
+    usWinAscent: Math.max(metrics.ascender, Math.ceil(extent.yMax)),
+    usWinDescent: Math.max(-metrics.descender, Math.ceil(-extent.yMin)),
     achVendID: 'LMKR',
     fsType: 0, // 설치 가능한 글꼴 (사용 제한 없음)
     ulCodePageRange1: CODEPAGE_KOREAN_WANSUNG,
@@ -134,5 +160,6 @@ export function buildOtf(
     underlineThickness: Math.round(metrics.unitsPerEm * 0.05),
   }
 
-  return font.toArrayBuffer()
+  // 이름 표를 Windows(유니코드) 레코드만 빈 값 없이 다시 쓰고, Apple 전용 ltag 표를 뺍니다.
+  return tidySfnt(font.toArrayBuffer())
 }
