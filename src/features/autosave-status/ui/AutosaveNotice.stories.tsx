@@ -7,7 +7,7 @@ const meta = {
   args: {
     synced: false,
     failure: null,
-    unreadable: false,
+    unreadable: null,
     onDownloadUnreadable: () => {},
     onDiscardUnreadable: () => {},
   },
@@ -27,4 +27,7 @@ export const QuotaFailure: Story = { args: { failure: 'quota' } }
 export const Unavailable: Story = { args: { failure: 'unavailable' } }
 
 /** 저장된 작업을 읽지 못해 따로 보관했을 때 */
-export const Unreadable: Story = { args: { unreadable: true } }
+export const Unreadable: Story = { args: { unreadable: 'kept' } }
+
+/** 읽지 못한 작업을 보관할 공간이 없어 자동 저장을 멈췄을 때 */
+export const UnreadableUnsaved: Story = { args: { unreadable: 'unsaved' } }

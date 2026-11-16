@@ -16,6 +16,10 @@ import {
   resetProjectStoreForTest,
   startProjectSync,
   undo,
+  unreadableProjectDownloaded,
+  unreadableProjectKept,
+  unreadableProjectText,
+  discardUnreadableProject,
 } from './store.ts'
 import {
   MAX_POINTS_PER_STROKE,
@@ -152,17 +156,84 @@ describe('자동 저장과 탭 사이 맞추기', () => {
       closed: false,
       smooth: false,
     })
-    window.dispatchEvent(
-      new StorageEvent('storage', { key: STORAGE_KEY, newValue: JSON.stringify(other) }),
-    )
+    // 다른 탭이 저장소에 쓰고 이벤트가 옵니다.
+    const text = JSON.stringify(other)
+    storage.setItem(STORAGE_KEY, text)
+    const writes = vi.spyOn(storage, 'setItem')
+    window.dispatchEvent(new StorageEvent('storage', { key: STORAGE_KEY, newValue: text }))
     expect(fontProject.style.weight).toBe(76)
     expect(fontProject.jamo.L0!.base!.strokes.map((s) => s.id)).toContain('from-other-tab')
     expect(canUndo()).toBe(false)
     expect(projectRevision()).toBeGreaterThan(revision)
     expect(projectSyncedAt()).toBeGreaterThan(0)
     // 받은 작업을 이 탭이 다시 쓰지 않습니다(같은 값을 서로 주고받지 않게).
-    expect(storage.getItem(STORAGE_KEY)).toBeNull()
+    flushProjectSave()
+    expect(writes).not.toHaveBeenCalled()
     stop()
+  })
+
+  it('늦게 도착한 지난 이벤트는 이벤트 값이 아니라 지금 저장된 값으로 판단합니다', () => {
+    vi.useFakeTimers()
+    const storage = memoryStorage()
+    resetProjectStoreForTest(createPresetProject(), { storage })
+    const stop = startProjectSync()
+    const older = createPresetProject()
+    older.style.weight = 90
+    // 이 탭이 140을 저장한 뒤, 다른 탭이 그보다 먼저 저장했던 90의 이벤트가 늦게 옵니다.
+    editProject((d) => void (d.style.weight = 140))
+    flushProjectSave()
+    window.dispatchEvent(
+      new StorageEvent('storage', { key: STORAGE_KEY, newValue: JSON.stringify(older) }),
+    )
+    expect(fontProject.style.weight).toBe(140)
+    expect(projectSyncedAt()).toBe(0)
+
+    // 다른 탭이 두 번 저장했는데 첫 이벤트가 이제 오면, 지금 저장된(나중) 값으로 맞춥니다.
+    const newer = createPresetProject()
+    newer.style.weight = 160
+    storage.setItem(STORAGE_KEY, JSON.stringify(newer))
+    window.dispatchEvent(
+      new StorageEvent('storage', { key: STORAGE_KEY, newValue: JSON.stringify(older) }),
+    )
+    expect(fontProject.style.weight).toBe(160)
+    // 같은 값의 이벤트가 또 와도 다시 맞추지 않습니다.
+    const syncedAt = projectSyncedAt()
+    vi.advanceTimersByTime(10)
+    window.dispatchEvent(
+      new StorageEvent('storage', { key: STORAGE_KEY, newValue: JSON.stringify(newer) }),
+    )
+    expect(projectSyncedAt()).toBe(syncedAt)
+    stop()
+  })
+
+  it('읽지 못한 원문을 보관하지 못했으면, 받거나 버리기 전까지 자동 저장이 덮어쓰지 않습니다', () => {
+    const storage = memoryStorage()
+    storage.setItem(STORAGE_KEY, '{원래 작업')
+    resetProjectStoreForTest(createPresetProject(), {
+      storage,
+      unreadable: '{원래 작업',
+      kept: false,
+    })
+    expect(unreadableProjectKept()).toBe(false)
+    editProject((d) => void (d.style.weight = 90))
+    flushProjectSave()
+    expect(storage.getItem(STORAGE_KEY)).toBe('{원래 작업')
+
+    // 받으면 덮어써도 되므로, 멈춰 있던 변경을 바로 씁니다.
+    unreadableProjectDownloaded()
+    expect(unreadableProjectText()).toBeNull()
+    expect(savedWeight(storage)).toBe(90)
+  })
+
+  it('보관한 원문은 받아도 남아 있고, 버리면 보관 열쇠까지 지웁니다', () => {
+    const storage = memoryStorage()
+    resetProjectStoreForTest(createPresetProject(), { storage, unreadable: '{보관', kept: true })
+    unreadableProjectDownloaded()
+    expect(unreadableProjectText()).toBe('{보관')
+    const removed = vi.spyOn(storage, 'removeItem')
+    discardUnreadableProject()
+    expect(unreadableProjectText()).toBeNull()
+    expect(removed).toHaveBeenCalledWith(`${STORAGE_KEY}:unreadable`)
   })
 
   it('이 탭이 기다리던 저장은 다른 탭의 저장을 받으면 버립니다(받은 작업을 덮어쓰지 않게)', () => {

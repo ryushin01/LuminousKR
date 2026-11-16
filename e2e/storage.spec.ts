@@ -105,3 +105,40 @@ test('바꾸고 바로 탭을 닫아도 마지막 변경이 저장됩니다', as
   await openPage(next, '/studio')
   await expect(next.getByRole('slider', { name: '굵기' })).toHaveValue('133')
 })
+
+test('읽지 못한 저장을 보관할 공간이 없으면, 받기 전까지 자동 저장이 덮어쓰지 않습니다', async ({
+  page,
+}) => {
+  const broken = '{"format":"luminous-kr","version":99}'
+  await page.addInitScript(
+    ({ key, text }) => {
+      if (!sessionStorage.getItem('seeded')) {
+        localStorage.setItem(key, text)
+        sessionStorage.setItem('seeded', '1')
+      }
+      // 보관 열쇠에 쓸 공간이 없는 상황
+      const setItem = Storage.prototype.setItem
+      Storage.prototype.setItem = function (name: string, value: string) {
+        if (name === `${key}:unreadable`) throw new DOMException('가득 참', 'QuotaExceededError')
+        return setItem.call(this, name, value)
+      }
+    },
+    { key: PROJECT_KEY, text: broken },
+  )
+  await openPage(page, '/studio')
+  await expect(
+    page.getByRole('alert').filter({ hasText: '받거나 버리기 전까지 자동 저장을 멈춥니다' }),
+  ).toBeVisible()
+  await page.getByRole('slider', { name: '굵기' }).fill('120')
+  await page.waitForTimeout(700)
+  expect(await page.evaluate((key) => localStorage.getItem(key), PROJECT_KEY)).toBe(broken)
+
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: '원래 작업 받기' }).click(),
+  ])
+  expect(readFileSync((await download.path())!, 'utf8')).toBe(broken)
+  // 받은 뒤에는 멈춰 있던 변경을 바로 씁니다.
+  await expect.poll(() => saved(page)).toMatchObject({ weight: 120 })
+  await expect(page.getByRole('button', { name: '원래 작업 받기' })).toHaveCount(0)
+})

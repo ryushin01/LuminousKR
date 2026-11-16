@@ -62,6 +62,8 @@ export {
   replaceProject,
   startProjectSync,
   undo,
+  unreadableProjectDownloaded,
+  unreadableProjectKept,
   unreadableProjectText,
 } from './model/store.ts'
 export { createRenderedGlyphs, currentSource, sourceWithStyle } from './model/rendered.ts'

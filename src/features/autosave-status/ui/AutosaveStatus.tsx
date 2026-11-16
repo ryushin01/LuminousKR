@@ -3,6 +3,8 @@ import {
   discardUnreadableProject,
   projectSaveFailure,
   projectSyncedAt,
+  unreadableProjectDownloaded,
+  unreadableProjectKept,
   unreadableProjectText,
 } from '@/entities/font'
 import { downloadFile } from '@/shared/lib/download'
@@ -32,14 +34,20 @@ export function AutosaveStatus() {
 
   const download = () => {
     const text = unreadableProjectText()
-    if (text) downloadFile(text, 'luminous-kr-unreadable-project.json', 'application/json')
+    if (!text) return
+    downloadFile(text, 'luminous-kr-unreadable-project.json', 'application/json')
+    unreadableProjectDownloaded()
+  }
+  const unreadable = () => {
+    if (unreadableProjectText() === null) return null
+    return unreadableProjectKept() ? 'kept' : 'unsaved'
   }
 
   return (
     <AutosaveNotice
       synced={synced()}
       failure={projectSaveFailure()}
-      unreadable={unreadableProjectText() !== null}
+      unreadable={unreadable()}
       onDownloadUnreadable={download}
       onDiscardUnreadable={discardUnreadableProject}
     />

@@ -28,15 +28,35 @@ function isQuotaError(error: unknown): boolean {
   )
 }
 
+export function serializeProject(project: FontProject): string {
+  return JSON.stringify(project)
+}
+
 /** 저장 원문을 프로젝트로 읽습니다. 형식이 맞지 않으면 예외 */
 export function parseSaved(text: string): FontProject {
   return normalizeProject(JSON.parse(text))
 }
 
+/** 지금 저장되어 있는 원문 (없거나 저장소에 닿지 못하면 null) */
+export function readSavedText(storage: Storage | undefined): string | null {
+  try {
+    return storage?.getItem(STORAGE_KEY) ?? null
+  } catch {
+    return null
+  }
+}
+
 export type LoadResult = {
   project: FontProject | null
+  /** 읽은 프로젝트의 저장 원문 (이 탭이 저장소와 맞춰진 기준) */
+  text: string | null
   /** 읽지 못한 원문 (이번에 못 읽었거나, 전에 못 읽어 보관해 둔 것) */
   unreadable: string | null
+  /**
+   * 읽지 못한 원문을 보관 열쇠에 두었는지. false면 저장 공간이 모자라 옮기지 못해 원래 자리에만 있으므로,
+   * 사용자가 받거나 버리기 전까지 자동 저장이 덮어쓰면 안 됩니다.
+   */
+  kept: boolean
 }
 
 function readBoth(storage: Storage): { kept: string | null; text: string | null } | null {
@@ -49,31 +69,36 @@ function readBoth(storage: Storage): { kept: string | null; text: string | null 
 
 /**
  * 저장된 작업을 읽습니다.
- * 읽지 못하면 다음 자동 저장이 덮어쓰기 전에 원문을 보관 열쇠로 옮겨 둡니다(옮기지 못해도 원문은 돌려줌).
+ * 읽지 못하면 다음 자동 저장이 덮어쓰기 전에 원문을 보관 열쇠로 옮겨 둡니다(옮기지 못하면 kept: false).
  */
 export function loadSaved(storage: Storage | undefined): LoadResult {
   const read = storage ? readBoth(storage) : null
-  if (!storage || !read) return { project: null, unreadable: null }
+  if (!storage || !read) return { project: null, text: null, unreadable: null, kept: true }
   const { kept, text } = read
-  if (!text) return { project: null, unreadable: kept }
+  if (!text) return { project: null, text: null, unreadable: kept, kept: true }
   try {
-    return { project: parseSaved(text), unreadable: kept }
+    return { project: parseSaved(text), text, unreadable: kept, kept: true }
   } catch {
     try {
       storage.setItem(UNREADABLE_KEY, text)
+    } catch {
+      // 옮기지 못하면 원래 자리에 그대로 두고, 덮어쓰지 않도록 알립니다.
+      return { project: null, text: null, unreadable: text, kept: false }
+    }
+    try {
       storage.removeItem(STORAGE_KEY)
     } catch {
-      // 옮기지 못하면 원래 자리에 그대로 둡니다. 이번 방문에서는 화면에서 받을 수 있습니다.
+      // 보관은 했으므로 원래 자리는 다음 저장이 덮어써도 됩니다.
     }
-    return { project: null, unreadable: text }
+    return { project: null, text: null, unreadable: text, kept: true }
   }
 }
 
-/** 프로젝트를 저장합니다. 실패해도 예외를 던지지 않고 까닭을 돌려줍니다. */
-export function writeSaved(storage: Storage | undefined, project: FontProject): SaveOutcome {
+/** 저장 원문을 씁니다. 실패해도 예외를 던지지 않고 까닭을 돌려줍니다. */
+export function writeSaved(storage: Storage | undefined, text: string): SaveOutcome {
   if (!storage) return 'unavailable'
   try {
-    storage.setItem(STORAGE_KEY, JSON.stringify(project))
+    storage.setItem(STORAGE_KEY, text)
     return 'ok'
   } catch (error) {
     return isQuotaError(error) ? 'quota' : 'unavailable'

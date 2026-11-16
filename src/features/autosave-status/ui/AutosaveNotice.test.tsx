@@ -11,7 +11,7 @@ describe('AutosaveNotice', () => {
       <AutosaveNotice
         synced={false}
         failure={null}
-        unreadable={false}
+        unreadable={null}
         onDownloadUnreadable={() => {}}
         onDiscardUnreadable={() => {}}
       />
@@ -26,7 +26,7 @@ describe('AutosaveNotice', () => {
       <AutosaveNotice
         synced
         failure="quota"
-        unreadable={false}
+        unreadable={null}
         onDownloadUnreadable={() => {}}
         onDiscardUnreadable={() => {}}
       />
@@ -44,7 +44,7 @@ describe('AutosaveNotice', () => {
       <AutosaveNotice
         synced={false}
         failure={null}
-        unreadable
+        unreadable="kept"
         onDownloadUnreadable={onDownload}
         onDiscardUnreadable={onDiscard}
       />
@@ -54,5 +54,20 @@ describe('AutosaveNotice', () => {
     expect(onDownload).toHaveBeenCalledOnce()
     await user.click(screen.getByRole('button', { name: '보관한 작업 지우기' }))
     expect(onDiscard).toHaveBeenCalledOnce()
+  })
+
+  it('보관하지 못한 원문은 자동 저장을 멈췄다고 알리고 받거나 버리게 합니다', () => {
+    render(() => (
+      <AutosaveNotice
+        synced={false}
+        failure={null}
+        unreadable="unsaved"
+        onDownloadUnreadable={() => {}}
+        onDiscardUnreadable={() => {}}
+      />
+    ))
+    expect(screen.getByRole('alert')).toHaveTextContent('받거나 버리기 전까지 자동 저장을 멈춥니다')
+    expect(screen.getByRole('button', { name: '원래 작업 받기' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '원래 작업 버리기' })).toBeInTheDocument()
   })
 })

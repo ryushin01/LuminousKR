@@ -6,7 +6,9 @@ import {
   loadSaved,
   parseSaved,
   projectStorage,
+  readSavedText,
   removeUnreadable,
+  serializeProject,
   writeSaved,
 } from './persistence.ts'
 import { createPresetProject } from './preset.ts'
@@ -28,11 +30,19 @@ const [futureSize, setFutureSize] = createSignal(0)
 const [saveFailure, setSaveFailure] = createSignal<Exclude<SaveOutcome, 'ok'> | null>(null)
 const [syncedAt, setSyncedAt] = createSignal(0)
 const [unreadable, setUnreadable] = createSignal<string | null>(loaded.unreadable)
+const [unreadableKept, setUnreadableKept] = createSignal(loaded.kept)
 
 const past: FontProject[] = []
 const future: FontProject[] = []
 let lastCoalesce: { key: string; at: number } | null = null
 let saveTimer: ReturnType<typeof setTimeout> | undefined
+/** 이 탭이 마지막으로 쓰거나 받아 맞춘 저장 원문 (다른 탭의 지난 이벤트를 거르는 기준) */
+let lastSeen: string | null = loaded.text
+/**
+ * 읽지 못한 원문을 보관하지 못해 원래 자리에만 있을 때는, 사용자가 받거나 버리기 전까지 저장하지 않습니다
+ * (작은 새 작업이 원래 작업을 덮어써 되찾을 수 없게 되는 것을 막음).
+ */
+let saveBlocked = loaded.unreadable !== null && !loaded.kept
 
 // 되돌리기용 복사본은 추적하지 않고 그 순간의 값을 뜹니다.
 const snapshot = (): FontProject => structuredClone(unwrap(project))
@@ -40,7 +50,10 @@ const snapshot = (): FontProject => structuredClone(unwrap(project))
 function saveNow(): void {
   clearTimeout(saveTimer)
   saveTimer = undefined
-  const outcome = writeSaved(storage, unwrap(project))
+  if (saveBlocked) return
+  const text = serializeProject(unwrap(project))
+  const outcome = writeSaved(storage, text)
+  if (outcome === 'ok') lastSeen = text
   setSaveFailure(outcome === 'ok' ? null : outcome)
 }
 
@@ -100,13 +113,33 @@ export const projectSaveFailure = saveFailure
 /** 다른 탭에서 저장한 작업을 이 탭에 마지막으로 맞춘 시각 (없으면 0) */
 export const projectSyncedAt = syncedAt
 
-/** 읽지 못해 보관해 둔 저장 원문 (없으면 null) */
+/** 읽지 못한 저장 원문 (없으면 null) */
 export const unreadableProjectText = unreadable
 
-/** 보관해 둔 읽지 못한 원문을 지웁니다. */
+/**
+ * 읽지 못한 원문을 보관 열쇠에 두었는지. false면 원래 자리에만 있어 받거나 버리기 전까지 자동 저장을 멈춥니다.
+ */
+export const unreadableProjectKept = unreadableKept
+
+function releaseUnreadable(): void {
+  setUnreadable(null)
+  setUnreadableKept(true)
+  if (saveBlocked) {
+    saveBlocked = false
+    // 멈춰 있던 동안의 변경을 바로 씁니다.
+    saveNow()
+  }
+}
+
+/** 읽지 못한 원문을 받았을 때. 보관하지 못한 원문이면 이제 덮어써도 되므로 자동 저장을 다시 켭니다. */
+export function unreadableProjectDownloaded(): void {
+  if (!unreadableKept()) releaseUnreadable()
+}
+
+/** 읽지 못한 원문을 버립니다 (보관 열쇠도 지움). */
 export function discardUnreadableProject(): void {
   removeUnreadable(storage)
-  setUnreadable(null)
+  releaseUnreadable()
 }
 
 /**
@@ -175,6 +208,9 @@ export function adoptSavedProject(text: string | null): boolean {
   batch(() => {
     clearTimeout(saveTimer)
     saveTimer = undefined
+    lastSeen = text
+    // 다른 탭이 이미 원래 자리를 덮어썼으므로 이 탭이 저장을 멈춰 둘 까닭이 없습니다(원문은 화면에서 계속 받을 수 있음).
+    saveBlocked = false
     setProject(reconcile(next))
     clearHistory()
     setRevision((r) => r + 1)
@@ -185,13 +221,23 @@ export function adoptSavedProject(text: string | null): boolean {
 }
 
 /**
+ * 다른 탭의 저장 이벤트를 받았을 때 맞출 원문.
+ * 이벤트는 쌓여 있다가 오므로 이벤트의 값이 아니라 지금 저장된 값을 봅니다(두 탭이 거의 함께 저장하면 지난 값이
+ * 늦게 도착할 수 있음). 지금 값이 이 탭이 마지막으로 쓰거나 맞춘 것이면 맞출 것이 없습니다.
+ */
+export function storageChangeToAdopt(): string | null {
+  const current = readSavedText(storage)
+  return current === null || current === lastSeen ? null : current
+}
+
+/**
  * 탭 사이 맞추기와 닫기 직전 저장을 켭니다. 앱을 시작할 때 한 번 부르고, 끌 함수를 돌려줍니다.
- * storage 이벤트는 저장한 탭이 아닌 다른 탭에만 오므로 자기 저장은 따로 거르지 않습니다.
+ * storage 이벤트는 저장한 탭이 아닌 다른 탭에만 옵니다.
  */
 export function startProjectSync(): () => void {
   const onStorage = (event: StorageEvent) => {
     if (event.key !== STORAGE_KEY || (event.storageArea && event.storageArea !== storage)) return
-    adoptSavedProject(event.newValue)
+    adoptSavedProject(storageChangeToAdopt())
   }
   const onPageHide = () => flushProjectSave()
   const onVisibility = () => {
@@ -210,14 +256,17 @@ export function startProjectSync(): () => void {
 /** 테스트용: 저장소를 기본 프리셋으로 되돌리고 기록·알림을 비웁니다. */
 export function resetProjectStoreForTest(
   next: FontProject = createPresetProject(),
-  options: { storage?: Storage; unreadable?: string | null } = {},
+  options: { storage?: Storage; unreadable?: string | null; kept?: boolean } = {},
 ): void {
   clearTimeout(saveTimer)
   saveTimer = undefined
   storage = options.storage ?? projectStorage()
+  lastSeen = null
   setProject(reconcile(structuredClone(next)))
   clearHistory()
   setSaveFailure(null)
   setSyncedAt(0)
   setUnreadable(options.unreadable ?? null)
+  setUnreadableKept(options.kept ?? true)
+  saveBlocked = (options.unreadable ?? null) !== null && options.kept === false
 }
