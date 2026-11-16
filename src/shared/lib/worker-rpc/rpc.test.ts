@@ -5,6 +5,7 @@ type Methods = {
   double: { payload: number; result: number }
   count: { payload: number; result: string; progress: number }
   fail: { payload: null; result: never }
+  tooLong: { payload: null; result: never }
   hang: { payload: null; result: never }
 }
 
@@ -38,6 +39,9 @@ function createPair() {
     fail: () => {
       throw new Error('터짐')
     },
+    tooLong: () => {
+      throw new RangeError('너무 깁니다')
+    },
     hang: () => new Promise(() => {}),
   })
   return { worker, terminated: () => terminated }
@@ -64,6 +68,14 @@ describe('워커 RPC', () => {
     const { worker } = createPair()
     const client = new RpcClient<Methods>(() => worker)
     await expect(client.call('fail', null)).rejects.toThrow('터짐')
+  })
+
+  it('워커 쪽 오류의 종류(name)도 넘겨, 입력 문제와 일시적인 실패를 가릴 수 있습니다', async () => {
+    const client = new RpcClient<Methods>(() => createPair().worker)
+    const failure = await client.call('tooLong', null).catch((error: unknown) => error)
+    expect(failure).toBeInstanceOf(Error)
+    expect((failure as Error).name).toBe('RangeError')
+    expect((failure as Error).message).toBe('너무 깁니다')
   })
 
   it('취소하면 워커를 끝내고 AbortError로 실패합니다', async () => {

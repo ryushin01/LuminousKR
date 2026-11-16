@@ -137,7 +137,8 @@ export async function buildFont(
   const total = codes.length
   const glyphs: GlyphSpec[] = [
     notdef(advance),
-    { name: 'space', unicode: 32, advance: Math.round(advance * 0.28), contours: [] },
+    // 빈칸과 줄바꿈 없는 빈칸(U+00A0, 웹의 &nbsp;)이 같은 글리프를 씀
+    { name: 'space', unicodes: [32, 0xa0], advance: Math.round(advance * 0.28), contours: [] },
   ]
   let syllableCount = 0
   codes.forEach((code, i) => {
