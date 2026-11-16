@@ -1,7 +1,7 @@
 # LuminousKR - 한글 모듈 글꼴 조합기
 
 [![CI](https://github.com/ryushin01/LuminousKR/actions/workflows/ci.yml/badge.svg)](https://github.com/ryushin01/LuminousKR/actions/workflows/ci.yml)
-![version](https://img.shields.io/badge/version-0.3.3-ff6a1a)
+![version](https://img.shields.io/badge/version-0.4.0-ff6a1a)
 ![Storybook](https://img.shields.io/badge/Storybook-10-FF4785?logo=storybook&logoColor=white)
 
 초·중·종성 획의 뼈대만 그리면 한글 11,172자를 조합해 OTF·WOFF 글꼴 파일로 내보내는 웹 도구입니다. 자모 24자만 그려도 겹자음·겹받침·섞임 모음과 모든 음절이 만들어지고, 손으로 쓴 양식의 사진·스캔 PDF를 올려 획을 인식해 가져올 수도 있습니다.
@@ -39,7 +39,7 @@
 | 가져오기 | 인쇄용 손글씨 양식 PDF(3종), 사진·스캔·PDF 인식(표식으로 원근 바로잡기, 세선화·뼈대 추적, ㅇ 타원 판정), 펜 굵기 가져오기, 양식 없이 그림 한 장 |
 | 미리보기 | 입력한 글자만 담은 실제 글꼴 파일(FontFace)로 글 그리기, 초성별 588자 표로 11,172자 확인 |
 | 내보내기 | 영문·한국어 글꼴 이름, 사용 허락, OTF(CFF)·WOFF 만들기, 11,172칸이 빛나는 진행 그림, 만든 글꼴로 써 보기 |
-| 공통 | 브라우저 자동 저장, 프로젝트 파일(.json) 저장·열기, WebGL 우주 배경과 움직임 멈춤, 번호 붙은 전체 메뉴 |
+| 공통 | 브라우저 자동 저장(여러 탭 맞추기, 저장 실패 알림, 읽지 못한 저장 보관), 프로젝트 파일(.json) 저장·열기, WebGL 우주 배경과 움직임 멈춤, 번호 붙은 전체 메뉴 |
 
 조합 엔진은 뼈대에 두께를 입혀(Clipper2) 겹친 획을 합치고, 둥근 부분을 베지어 곡선으로 다시 맞춘 뒤 opentype.js로 파일을 씁니다. 조합·글꼴 만들기와 이미지 인식은 모두 Web Worker에서 돌아 화면이 멈추지 않습니다(11,225글리프 약 1.2초).
 
@@ -89,7 +89,7 @@ src/
 ├─ app/        진입점, 라우터, 공통 레이아웃, 전역 스타일·웹 폰트
 ├─ pages/      홈, 작업실(그리기 판), 가져오기(양식·인식 워커), 미리보기, 내보내기, 안내
 ├─ widgets/    머리글·전체 메뉴, WebGL 우주 배경
-├─ features/   획 스타일 조절, 프로젝트 저장·열기
+├─ features/   획 스타일 조절, 프로젝트 저장·열기, 자동 저장 알림
 ├─ entities/
 │  └─ font/    자모 모델·배치·파생 규칙, 조합 엔진, 조합 워커, 글리프 표시
 └─ shared/     한글 표, 기하·곡선 맞춤, OTF·WOFF·PDF 쓰기, 이미지 처리, 워커 RPC, 공용 UI

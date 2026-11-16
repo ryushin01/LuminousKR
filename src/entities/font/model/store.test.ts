@@ -1,13 +1,20 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { STORAGE_KEY } from './persistence.ts'
 import { createPresetProject } from './preset.ts'
 import {
+  adoptSavedProject,
   canRedo,
   canUndo,
   editProject,
+  flushProjectSave,
   fontProject,
+  projectRevision,
+  projectSaveFailure,
+  projectSyncedAt,
   redo,
   replaceProject,
   resetProjectStoreForTest,
+  startProjectSync,
   undo,
 } from './store.ts'
 import {
@@ -66,6 +73,132 @@ describe('프로젝트 저장소와 되돌리기', () => {
     expect(fontProject.name).toBe('다른 글꼴')
     undo()
     expect(fontProject.name).toBe('루미너스 기본')
+  })
+})
+
+/** 쓰기를 기록하는 메모리 저장소. full이면 쓰기마다 저장 공간 초과 예외를 던집니다. */
+function memoryStorage(full = false) {
+  const data = new Map<string, string>()
+  const storage = {
+    get length() {
+      return data.size
+    },
+    clear: () => data.clear(),
+    getItem: (key: string) => data.get(key) ?? null,
+    key: (index: number) => [...data.keys()][index] ?? null,
+    removeItem: (key: string) => void data.delete(key),
+    setItem: (key: string, value: string) => {
+      if (storage.full) throw new DOMException('저장 공간 초과', 'QuotaExceededError')
+      data.set(key, value)
+    },
+    full,
+  }
+  return storage
+}
+
+const savedWeight = (storage: Storage) =>
+  (JSON.parse(storage.getItem(STORAGE_KEY) ?? 'null') as { style: { weight: number } } | null)
+    ?.style.weight
+
+describe('자동 저장과 탭 사이 맞추기', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+    resetProjectStoreForTest()
+  })
+
+  it('바뀐 뒤 0.4초 동안 더 바뀌지 않으면 저장하고, 탭을 닫기 직전에는 기다리지 않고 저장합니다', () => {
+    vi.useFakeTimers()
+    const storage = memoryStorage()
+    resetProjectStoreForTest(createPresetProject(), { storage })
+    const stop = startProjectSync()
+    editProject((d) => void (d.style.weight = 90))
+    expect(storage.getItem(STORAGE_KEY)).toBeNull()
+    vi.advanceTimersByTime(400)
+    expect(savedWeight(storage)).toBe(90)
+
+    editProject((d) => void (d.style.weight = 100))
+    window.dispatchEvent(new Event('pagehide'))
+    expect(savedWeight(storage)).toBe(100)
+    stop()
+  })
+
+  it('저장 공간이 모자라 실패하면 까닭을 알리고, 다음 저장이 성공하면 거둡니다', () => {
+    vi.useFakeTimers()
+    const storage = memoryStorage(true)
+    resetProjectStoreForTest(createPresetProject(), { storage })
+    editProject((d) => void (d.style.weight = 90))
+    flushProjectSave()
+    expect(projectSaveFailure()).toBe('quota')
+    storage.full = false
+    editProject((d) => void (d.style.weight = 95))
+    flushProjectSave()
+    expect(projectSaveFailure()).toBeNull()
+    expect(savedWeight(storage)).toBe(95)
+  })
+
+  it('다른 탭이 저장하면 이 탭을 그 작업으로 맞추고 되돌리기 기록을 비웁니다', () => {
+    const storage = memoryStorage()
+    resetProjectStoreForTest(createPresetProject(), { storage })
+    const stop = startProjectSync()
+    editProject((d) => void (d.style.weight = 90))
+    expect(canUndo()).toBe(true)
+    const revision = projectRevision()
+
+    const other = createPresetProject()
+    other.jamo.L0!.base!.strokes.push({
+      id: 'from-other-tab',
+      kind: 'path',
+      points: [{ x: 0.2, y: 0.2 }],
+      closed: false,
+      smooth: false,
+    })
+    window.dispatchEvent(
+      new StorageEvent('storage', { key: STORAGE_KEY, newValue: JSON.stringify(other) }),
+    )
+    expect(fontProject.style.weight).toBe(76)
+    expect(fontProject.jamo.L0!.base!.strokes.map((s) => s.id)).toContain('from-other-tab')
+    expect(canUndo()).toBe(false)
+    expect(projectRevision()).toBeGreaterThan(revision)
+    expect(projectSyncedAt()).toBeGreaterThan(0)
+    // 받은 작업을 이 탭이 다시 쓰지 않습니다(같은 값을 서로 주고받지 않게).
+    expect(storage.getItem(STORAGE_KEY)).toBeNull()
+    stop()
+  })
+
+  it('이 탭이 기다리던 저장은 다른 탭의 저장을 받으면 버립니다(받은 작업을 덮어쓰지 않게)', () => {
+    vi.useFakeTimers()
+    const storage = memoryStorage()
+    resetProjectStoreForTest(createPresetProject(), { storage })
+    editProject((d) => void (d.style.weight = 90))
+    const other = createPresetProject()
+    other.style.weight = 140
+    adoptSavedProject(JSON.stringify(other))
+    vi.advanceTimersByTime(1000)
+    expect(storage.getItem(STORAGE_KEY)).toBeNull()
+    expect(fontProject.style.weight).toBe(140)
+  })
+
+  it('읽지 못하는 저장(나중 판 형식, 지운 것)은 맞추지 않고 이 탭의 작업을 그대로 둡니다', () => {
+    resetProjectStoreForTest(createPresetProject(), { storage: memoryStorage() })
+    editProject((d) => void (d.style.weight = 90))
+    expect(adoptSavedProject(JSON.stringify({ format: 'luminous-kr', version: 2 }))).toBe(false)
+    expect(adoptSavedProject('{깨짐')).toBe(false)
+    expect(adoptSavedProject(null)).toBe(false)
+    expect(fontProject.style.weight).toBe(90)
+    expect(canUndo()).toBe(true)
+    expect(projectSyncedAt()).toBe(0)
+  })
+
+  it('다른 열쇠의 저장 이벤트는 무시합니다', () => {
+    resetProjectStoreForTest(createPresetProject(), { storage: memoryStorage() })
+    const stop = startProjectSync()
+    const other = createPresetProject()
+    other.style.weight = 150
+    window.dispatchEvent(
+      new StorageEvent('storage', { key: 'other-app:key', newValue: JSON.stringify(other) }),
+    )
+    expect(fontProject.style.weight).toBe(76)
+    stop()
   })
 })
 
