@@ -85,6 +85,17 @@
   font-weight: 600;
 }
 
+.weights {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 0 var(--space-3);
+}
+
+.hint {
+  font-size: 13px;
+  color: var(--c-text-faint);
+}
+
 .check {
   display: flex;
   align-items: center;
