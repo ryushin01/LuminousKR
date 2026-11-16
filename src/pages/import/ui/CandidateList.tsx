@@ -1,6 +1,13 @@
 import { A } from '@solidjs/router'
 import { For, Index, Show, createSignal } from 'solid-js'
-import { bodyFrame, fontProject, frameBox, homeLayout, jamoLabel } from '@/entities/font'
+import {
+  type JamoKey,
+  bodyFrame,
+  fontProject,
+  frameBox,
+  homeLayout,
+  jamoLabel,
+} from '@/entities/font'
 import { Button } from '@/shared/ui/button'
 import { Icon } from '@/shared/ui/icon'
 import type { RecognizedStroke } from '../lib/recognize.ts'
@@ -27,7 +34,7 @@ function describe(candidate: Candidate): string {
 /** 3단계: 인식 결과를 칸 그림과 나란히 보고 적용할 자모를 고릅니다. */
 export function CandidateList(props: { importer: Importer }) {
   const [usePen, setUsePen] = createSignal(false)
-  const [applied, setApplied] = createSignal(0)
+  const [applied, setApplied] = createSignal<JamoKey[]>([])
   const hasRepeats = () => {
     const keys = props.importer.candidates.map((c) => c.key)
     return new Set(keys).size < keys.length
@@ -128,11 +135,13 @@ export function CandidateList(props: { importer: Importer }) {
             <Icon name="check" size={18} />
             고른 자모 {props.importer.selectedCount()}자 적용
           </Button>
-          <Show when={applied() > 0}>
-            <A href="/studio" class={styles.studioLink}>
-              작업실에서 다듬기
-              <Icon name="arrowRight" size={16} />
-            </A>
+          <Show when={applied()[0]}>
+            {(first) => (
+              <A href={`/studio?jamo=${first()}`} class={styles.studioLink}>
+                작업실에서 다듬기
+                <Icon name="arrowRight" size={16} />
+              </A>
+            )}
           </Show>
         </div>
       </div>

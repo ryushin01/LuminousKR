@@ -5,8 +5,10 @@
  *
  * 화면마다 그 화면 조각(JS·CSS)의 미리 받기를 넣어, 진입 JS를 받은 뒤에야 화면 조각을 요청하던
  * 한 번의 왕복을 없앱니다(빌드 매니페스트로 찾고, 다 쓴 매니페스트는 지움).
+ * 모든 화면의 첫 화면에 쓰는 글꼴(제목 700·본문 400·머리글 600 한글, 영문 Syne)도 미리 받습니다.
+ * CSS를 읽은 뒤에야 요청하면 첫 그리기 뒤에 도착해, 대체 글꼴로 그린 제목의 줄 수가 바뀌며 아래가 밀립니다(CLS).
  */
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -50,10 +52,28 @@ function chunkFiles(key, js = new Set(), css = new Set(), seen = new Set()) {
   return { js, css }
 }
 
+/** 모든 화면의 첫 화면에 쓰는 글꼴 파일 (해시가 붙은 빌드 이름으로 찾음) */
+const FIRST_VIEW_FONTS = [
+  /^luminous-sans-400-ui-[\w-]+\.woff2$/,
+  /^luminous-sans-600-ui-[\w-]+\.woff2$/,
+  /^luminous-sans-700-ui-[\w-]+\.woff2$/,
+  /^syne-latin-wght-normal-[\w-]+\.woff2$/,
+]
+const assetNames = readdirSync(join(dist, 'assets'))
+const fontFiles = FIRST_VIEW_FONTS.map((pattern) => {
+  const name = assetNames.find((file) => pattern.test(file))
+  if (!name) throw new Error(`첫 화면 글꼴(${pattern})을 빌드 결과에서 찾지 못했습니다.`)
+  return `assets/${name}`
+})
+
 /** 화면 조각을 미리 받는 태그 (Vite가 조각을 불러올 때 같은 주소의 태그가 있으면 다시 넣지 않음) */
 function preloadTags(module) {
   const { js, css } = chunkFiles(module)
   return [
+    ...fontFiles.map(
+      (file) =>
+        `<link rel="preload" as="font" type="font/woff2" crossorigin href="${base}${file}">`,
+    ),
     ...[...css].map((file) => `<link rel="stylesheet" crossorigin href="${base}${file}">`),
     ...[...js].map((file) => `<link rel="modulepreload" crossorigin href="${base}${file}">`),
   ].join('\n    ')
@@ -93,5 +113,5 @@ for (const route of ROUTES) {
 writeFileSync(join(dist, '404.html'), pageHtml(NOT_FOUND))
 rmSync(join(dist, '.vite'), { recursive: true, force: true })
 console.log(
-  `화면 ${ROUTES.length - 1}개의 HTML 사본과 404.html을 만들고, 화면마다 조각 미리 받기를 넣었습니다.`,
+  `화면 ${ROUTES.length - 1}개의 HTML 사본과 404.html을 만들고, 화면마다 조각·첫 화면 글꼴 ${fontFiles.length}개 미리 받기를 넣었습니다.`,
 )
