@@ -157,15 +157,17 @@ describe('굵기 여러 벌을 한 가족으로', () => {
       editProject((draft) => void (draft.meta.familyName = 'Changed Family'))
       return { ...fakeResult, durationMs: project.meta.familyName.length }
     })
+    const zipped: string[] = []
     const zip = vi.fn(async (entries: { name: string }[]) => {
-      expect(entries.every((entry) => entry.name.startsWith(original.replace(/ /g, '')))).toBe(true)
+      zipped.push(...entries.map((entry) => entry.name))
       return new ArrayBuffer(16)
     })
     await createRoot(async (dispose) => {
       const exporter = createExporter(build as never, zip as never)
       await exporter.start({ woff: false, weights: [300, 700] })
+      expect(exporter.state()).toBe('done')
       expect(build.mock.calls.map((call) => call[0].meta.familyName)).toEqual([original, original])
-      expect(zip).toHaveBeenCalledOnce()
+      expect(zipped).toEqual(['LuminousModular-Light.otf', 'LuminousModular-Bold.otf'])
       dispose()
     })
   })
