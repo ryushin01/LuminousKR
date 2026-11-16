@@ -105,6 +105,16 @@ export const ALL_JAMO_KEYS: readonly JamoKey[] = [
   ...Array.from({ length: TAIL_COUNT - 1 }, (_, i) => jamoKey('T', i + 1)),
 ]
 
+/** 주소 등 밖에서 온 값이 자모 키인지 */
+export function isJamoKey(value: string): value is JamoKey {
+  return (ALL_JAMO_KEYS as readonly string[]).includes(value)
+}
+
+/** 주소 등 밖에서 온 값이 배치 이름인지 */
+export function isLayoutId(value: string): value is LayoutId {
+  return (LAYOUT_IDS as readonly string[]).includes(value)
+}
+
 export const ROLE_LABEL: Record<Role, string> = { L: '초성', V: '중성', T: '종성' }
 
 export function jamoChar(key: JamoKey): string {

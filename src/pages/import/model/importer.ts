@@ -287,10 +287,10 @@ export function createImporter(deps: Deps = DEFAULT_DEPS) {
   const chosen = () => candidates.filter((c) => c.selected)
   const selectedCount = () => chosen().length
 
-  /** 고른 자모를 기본 그림으로 적용합니다. 펜 굵기를 함께 쓰면 글꼴 굵기도 바꿉니다. */
-  function apply(usePenWidth: boolean): number {
+  /** 고른 자모를 기본 그림으로 적용하고 적용한 자모를 돌려줍니다. 펜 굵기를 함께 쓰면 글꼴 굵기도 바꿉니다. */
+  function apply(usePenWidth: boolean): JamoKey[] {
     const list = chosen()
-    if (list.length === 0) return 0
+    if (list.length === 0) return []
     const stamp = Date.now().toString(36)
     editProject((draft) => {
       for (const candidate of list) {
@@ -311,7 +311,7 @@ export function createImporter(deps: Deps = DEFAULT_DEPS) {
     setAnnouncement(
       `${list.length}자를 작업 중인 글꼴에 적용했습니다. 작업실의 되돌리기로 취소할 수 있습니다.`,
     )
-    return list.length
+    return list.map((c) => c.key)
   }
 
   return {

@@ -85,6 +85,34 @@ export function resolveJamo(
   )
 }
 
+/** 자모를 해석할 때 비어 있어 획이 빠지는 그림: 그 자모의 기본 획(base) 또는 그 배치의 변형(벌) */
+export type MissingDrawing = { key: JamoKey; drawing: 'base' | LayoutId }
+
+/**
+ * 자모를 배치에 놓을 때(resolveJamo와 같은 순서: 변형 → 기본 획 → 파생 규칙) 비어 있어 획이 빠지는 그림을 찾습니다.
+ * 파생 자모는 부분마다 따라가므로, ㄺ처럼 ㄹ은 있고 ㄱ만 빈 경우도 ㄱ의 그림을 찾습니다.
+ * 변형을 물려받지 않는 파생(받침 ㄱ ← 초성 ㄱ 등)은 기본 획을 보므로, 변형이 기본 획을 가려도 빈 기본 획을 찾습니다.
+ */
+export function missingDrawings(
+  project: FontProject,
+  key: JamoKey,
+  layout: LayoutId,
+  useVariants = true,
+  depth = 0,
+): MissingDrawing[] {
+  const entry = project.jamo[key]
+  const variant = useVariants ? entry?.variants?.[layout] : undefined
+  if (variant) return variant.strokes.length === 0 ? [{ key, drawing: layout }] : []
+  if (entry?.base) return entry.base.strokes.length === 0 ? [{ key, drawing: 'base' }] : []
+  if (depth > 4) return []
+  // 그림도 파생 규칙도 없으면 이 자모의 기본 획을 그려야 합니다(간격은 빈 부분 찾기와 무관).
+  const parts = derivationOf(key, layout, project.layouts, 0)
+  if (!parts) return [{ key, drawing: 'base' }]
+  return parts.flatMap((part) =>
+    missingDrawings(project, part.key, layout, useVariants && part.inherit, depth + 1),
+  )
+}
+
 /** 직접 그린 획이 있는지(기본 또는 그 배치의 변형) */
 export function hasOwnDrawing(project: FontProject, key: JamoKey, layout?: LayoutId): boolean {
   const entry = project.jamo[key]

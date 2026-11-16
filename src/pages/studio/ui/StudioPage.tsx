@@ -1,4 +1,18 @@
-import { canRedo, canUndo, jamoLabel, redo, undo } from '@/entities/font'
+import { useSearchParams } from '@solidjs/router'
+import { createEffect, on } from 'solid-js'
+import {
+  type JamoKey,
+  type LayoutId,
+  canRedo,
+  canUndo,
+  homeLayout,
+  isJamoKey,
+  isLayoutId,
+  jamoLabel,
+  layoutsOf,
+  redo,
+  undo,
+} from '@/entities/font'
 import { StylePanel } from '@/features/adjust-style'
 import { ProjectActions } from '@/features/manage-project'
 import { usePageTitle } from '@/shared/lib/page'
@@ -14,9 +28,51 @@ import { JamoPalette } from './JamoPalette.tsx'
 import { LayoutPreview } from './LayoutPreview.tsx'
 import styles from './StudioPage.module.css'
 
+type StudioParams = { jamo?: string; layout?: string }
+
+/** 주소의 자모·배치 (잘못된 값이면 ㄱ 초성·기본 배치) */
+function targetOf(params: Partial<StudioParams>): { key: JamoKey; layout: LayoutId } {
+  const key = params.jamo && isJamoKey(params.jamo) ? params.jamo : 'L0'
+  const layout =
+    params.layout && isLayoutId(params.layout) && layoutsOf(key).includes(params.layout)
+      ? params.layout
+      : homeLayout(key)
+  return { key, layout }
+}
+
 export function StudioPage() {
   usePageTitle('작업실')
-  const editor = createEditor()
+  // 작업실 주소(/studio?jamo=L5&layout=D)로 특정 자모·배치를 열고, 고르면 주소도 바꿔 새로 고쳐도 이어지게 합니다.
+  const [params, setParams] = useSearchParams<StudioParams>()
+  const initial = targetOf(params)
+  const editor = createEditor(initial.key, initial.layout)
+
+  // 주소가 바뀌면(다른 화면의 링크, 뒤로 가기) 그 자모·배치를 엽니다.
+  createEffect(
+    on(
+      () => targetOf(params),
+      (target) => {
+        if (target.key !== editor.key()) editor.selectJamo(target.key)
+        if (target.layout !== editor.layout()) editor.selectLayout(target.layout)
+      },
+      { defer: true },
+    ),
+  )
+  // 고르면 주소를 바꿉니다(방문 기록은 쌓지 않음). 기본 배치면 layout은 생략합니다.
+  createEffect(
+    on(
+      [editor.key, editor.layout],
+      ([key, layout]) => {
+        const current = targetOf(params)
+        if (current.key === key && current.layout === layout) return
+        setParams(
+          { jamo: key, layout: layout === homeLayout(key) ? undefined : layout },
+          { replace: true },
+        )
+      },
+      { defer: true },
+    ),
+  )
 
   // 되돌리기 단축키(Ctrl·⌘ + Z 등)는 앱 공통(app/lib/undoShortcuts)에서 모든 화면에 겁니다.
 

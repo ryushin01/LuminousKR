@@ -54,5 +54,18 @@ test('화면 주소로 바로 들어오면 그 화면 조각을 HTML에서 미�
   ] as const) {
     const html = await (await request.get(path)).text()
     expect(html, path).toMatch(new RegExp(`<link rel="modulepreload"[^>]*assets/${chunk}`))
+    // 첫 화면 글꼴(제목·본문·머리글 한글, 영문)도 CSS를 기다리지 않고 바로 받습니다.
+    for (const font of [
+      'luminous-sans-400-ui-',
+      'luminous-sans-600-ui-',
+      'luminous-sans-700-ui-',
+      'syne-latin-wght-normal-',
+    ]) {
+      expect(html, `${path} ${font}`).toMatch(
+        new RegExp(
+          `<link rel="preload" as="font" type="font/woff2" crossorigin href="[^"]*assets/${font}`,
+        ),
+      )
+    }
   }
 })
