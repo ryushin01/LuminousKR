@@ -178,6 +178,15 @@ function releaseInPlace(): void {
   }
 }
 
+/**
+ * 이 탭이 보관하지 못해 붙잡고 있던 원문을 다른 탭이 보관했으면(같은 원문) 놓습니다.
+ * 원문은 보관 열쇠에 남으므로, 원래 자리를 지키려던 멈춤도 풀고 새로 고침을 막지 않습니다.
+ */
+function releaseInPlaceIfKept(): void {
+  const text = inPlaceText()
+  if (text !== null && keptTexts().some((entry) => entry.text === text)) releaseInPlace()
+}
+
 /** 보관 열쇠에 둔 읽지 못한 원문들 (보관한 차례대로) */
 export const keptUnreadableTexts = keptTexts
 
@@ -341,8 +350,10 @@ export function startProjectSync(): () => void {
   const onStorage = (event: StorageEvent) => {
     if (event.storageArea && event.storageArea !== storage) return
     // 다른 탭이 읽지 못한 원문을 보관하거나 지우면 이 탭의 목록도 맞춥니다(clear()면 key가 null).
-    if (event.key === null || event.key.startsWith(UNREADABLE_PREFIX))
+    if (event.key === null || event.key.startsWith(UNREADABLE_PREFIX)) {
       setKeptTexts(readKept(storage))
+      releaseInPlaceIfKept()
+    }
     if (event.key === STORAGE_KEY) receiveOtherTabSave(storageChangeToAdopt())
   }
   const onPageHide = () => flushProjectSave()

@@ -4,16 +4,22 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { assetLoadFailed, resetAssetLoadFailureForTest } from '@/shared/lib/app-update'
 import { RouteError } from './RouteError.tsx'
 
-const flushProjectSave = vi.hoisted(() => vi.fn(() => true))
+const font = vi.hoisted(() => ({
+  flushProjectSave: vi.fn(() => true),
+  inPlaceUnreadableState: vi.fn((): 'paused' | 'memory' | null => null),
+}))
 vi.mock('@/entities/font', async (original) => ({
   ...(await original<Record<string, unknown>>()),
-  flushProjectSave,
+  ...font,
 }))
 
 describe('RouteError', () => {
   afterEach(() => {
     resetAssetLoadFailureForTest()
     vi.restoreAllMocks()
+    vi.unstubAllGlobals()
+    font.flushProjectSave.mockReturnValue(true)
+    font.inPlaceUnreadableState.mockReturnValue(null)
   })
 
   it('화면 조각을 받지 못했으면 새로 고침만 안내하고 앱 전체에 알립니다', () => {
@@ -52,7 +58,7 @@ describe('RouteError', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
     const reload = vi.fn()
     vi.stubGlobal('location', { ...location, reload })
-    flushProjectSave.mockReturnValue(false)
+    font.flushProjectSave.mockReturnValue(false)
     render(() => <RouteError error={new Error('x')} reset={() => {}} />)
     expect(screen.getByRole('alert')).toBeEmptyDOMElement()
     await user.click(screen.getByRole('button', { name: '새로 고침' }))
@@ -60,6 +66,21 @@ describe('RouteError', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('자동 저장하지 못한 변경이 있어')
     await user.click(screen.getByRole('button', { name: '변경을 버리고 새로 고침' }))
     expect(reload).toHaveBeenCalledOnce()
-    vi.unstubAllGlobals()
+  })
+
+  it('이 탭에만 남은 원래 작업이 있으면 새로 고치지 않고 받아 두라고 알립니다', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const reload = vi.fn()
+    vi.stubGlobal('location', { ...location, reload })
+    font.inPlaceUnreadableState.mockReturnValue('memory')
+    render(() => <RouteError error={new Error('x')} reset={() => {}} />)
+    await user.click(screen.getByRole('button', { name: '새로 고침' }))
+    expect(reload).not.toHaveBeenCalled()
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      "이 탭에만 남은 원래 작업(열지 못하고 보관하지도 못한 저장)이 있어 새로 고치지 않았습니다. 화면 아래 안내의 '원래 작업 받기'로",
+    )
+    await user.click(screen.getByRole('button', { name: '원래 작업을 버리고 새로 고침' }))
+    expect(reload).toHaveBeenCalledOnce()
   })
 })

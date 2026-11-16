@@ -473,6 +473,26 @@ describe('자동 저장과 탭 사이 맞추기', () => {
     expect(savedWeight(storage)).toBe(125)
   })
 
+  it('보관하지 못한 원문을 다른 탭이 보관하면(같은 원문) 놓고, 멈춰 있던 자동 저장을 다시 켭니다', () => {
+    const storage = memoryStorage()
+    storage.setItem(STORAGE_KEY, '{원래 작업')
+    resetProjectStoreForTest(createPresetProject(), { storage, inPlace: '{원래 작업' })
+    const stop = startProjectSync()
+    editProject((d) => void (d.style.weight = 118))
+    flushProjectSave()
+    expect(storage.getItem(STORAGE_KEY)).toBe('{원래 작업')
+    // 다른 탭이 보관한 것은 다른 원문이면 그대로 붙잡습니다.
+    storage.setItem(`${STORAGE_KEY}:unreadable:1`, '{다른 작업')
+    window.dispatchEvent(new StorageEvent('storage', { key: `${STORAGE_KEY}:unreadable:1` }))
+    expect(inPlaceUnreadableState()).toBe('paused')
+    storage.setItem(`${STORAGE_KEY}:unreadable:2`, '{원래 작업')
+    window.dispatchEvent(new StorageEvent('storage', { key: `${STORAGE_KEY}:unreadable:2` }))
+    expect(inPlaceUnreadableState()).toBeNull()
+    expect(keptTexts()).toEqual(['{다른 작업', '{원래 작업'])
+    expect(savedWeight(storage)).toBe(118)
+    stop()
+  })
+
   it('다른 열쇠의 저장 이벤트는 무시합니다', () => {
     resetProjectStoreForTest(createPresetProject(), { storage: memoryStorage() })
     const stop = startProjectSync()

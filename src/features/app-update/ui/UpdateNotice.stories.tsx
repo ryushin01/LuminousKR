@@ -4,7 +4,7 @@ import { UpdateNoticeView } from './UpdateNotice.tsx'
 const meta = {
   title: 'features/app-update/UpdateNotice',
   component: UpdateNoticeView,
-  args: { failed: true, blocked: false, onReload: () => {}, onForceReload: () => {} },
+  args: { failed: true, blocked: null, onReload: () => {}, onForceReload: () => {} },
 } satisfies Meta<typeof UpdateNoticeView>
 
 export default meta
@@ -14,4 +14,7 @@ type Story = StoryObj<typeof meta>
 export const Failed: Story = {}
 
 /** 저장하지 못한 변경이 있어 새로 고치지 않았을 때 */
-export const Blocked: Story = { args: { blocked: true } }
+export const Blocked: Story = { args: { blocked: 'changes' } }
+
+/** 이 탭에만 남은 원래 작업(열지 못하고 보관하지도 못한 저장)이 있어 새로 고치지 않았을 때 */
+export const BlockedUnreadable: Story = { args: { blocked: 'unreadable' } }

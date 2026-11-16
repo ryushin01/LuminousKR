@@ -1,5 +1,10 @@
 import { Show, createSignal, onMount } from 'solid-js'
-import { RELOAD_BLOCKED_TEXT, reloadApp } from '@/features/app-update'
+import {
+  type ReloadBlock,
+  reloadApp,
+  reloadBlockedText,
+  reloadDiscardLabel,
+} from '@/features/app-update'
 import { isAssetLoadError, reportAssetLoadFailure } from '@/shared/lib/app-update'
 import { Button } from '@/shared/ui/button'
 import { Icon } from '@/shared/ui/icon'
@@ -19,7 +24,11 @@ export function RouteError(props: RouteErrorProps) {
   // 오류마다 대체 화면을 새로 그리므로 처음 값만 봅니다.
   // eslint-disable-next-line solid/reactivity
   const asset = isAssetLoadError(props.error)
-  const [blocked, setBlocked] = createSignal(false)
+  const [blocked, setBlocked] = createSignal<ReloadBlock | null>(null)
+  const blockedText = () => {
+    const block = blocked()
+    return block ? reloadBlockedText(block) : ''
+  }
   onMount(() => {
     if (asset) reportAssetLoadFailure()
     // 원인을 개발자 도구에서 볼 수 있게 남깁니다(서버가 없어 따로 모으지 않음).
@@ -37,24 +46,26 @@ export function RouteError(props: RouteErrorProps) {
             : '작업은 자동 저장되어 있습니다. 다시 시도해 보고, 계속되면 새로 고쳐 주세요.'
         }
       >
-        {/* 저장하지 못한 변경이 있어 새로 고치지 않았을 때 (영역은 처음부터 두고 글자만 바꿈) */}
+        {/* 새로 고치면 잃는 것이 있어 새로 고치지 않았을 때 (영역은 처음부터 두고 글자만 바꿈) */}
         <p role="alert" class={styles.errorAlert}>
-          {blocked() ? RELOAD_BLOCKED_TEXT : ''}
+          {blockedText()}
         </p>
         <div class={styles.errorActions}>
           <Show
             when={blocked()}
             fallback={
-              <Button variant="primary" onClick={() => setBlocked(!reloadApp())}>
+              <Button variant="primary" onClick={() => setBlocked(reloadApp())}>
                 <Icon name="reset" size={18} />
                 새로 고침
               </Button>
             }
           >
-            <Button variant="danger" onClick={() => reloadApp(true)}>
-              <Icon name="reset" size={18} />
-              변경을 버리고 새로 고침
-            </Button>
+            {(block) => (
+              <Button variant="danger" onClick={() => reloadApp(true)}>
+                <Icon name="reset" size={18} />
+                {reloadDiscardLabel(block())}
+              </Button>
+            )}
           </Show>
           <Show when={!asset}>
             <Button variant="secondary" onClick={() => props.reset()}>
