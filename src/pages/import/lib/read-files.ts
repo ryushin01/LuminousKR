@@ -57,14 +57,17 @@ async function renderPdf(file: File): Promise<ReadResult> {
       const size = pageCanvasSize(natural.width, natural.height)
       const viewport = page.getViewport({ scale: size.scale })
       const canvas = document.createElement('canvas')
-      canvas.width = size.width
-      canvas.height = size.height
-      await page.render({ canvas, viewport }).promise
-      pages.push({ label: `${file.name} ${i}쪽`, bitmap: await createImageBitmap(canvas) })
-      // 다 쓴 캔버스(쪽당 수십 MB)를 바로 돌려줍니다. iOS Safari는 캔버스 메모리 전체 한도가 있어,
-      // 가비지 수집을 기다리면 큰 PDF에서 다음 쪽을 그리지 못할 수 있습니다.
-      canvas.width = 0
-      canvas.height = 0
+      try {
+        canvas.width = size.width
+        canvas.height = size.height
+        await page.render({ canvas, viewport }).promise
+        pages.push({ label: `${file.name} ${i}쪽`, bitmap: await createImageBitmap(canvas) })
+      } finally {
+        // 다 쓴 캔버스(쪽당 수십 MB)를 바로 돌려줍니다(그리다 실패해도). iOS Safari는 캔버스 메모리 전체 한도가 있어,
+        // 가비지 수집을 기다리면 큰 PDF에서 다음 쪽을 그리지 못할 수 있습니다.
+        canvas.width = 0
+        canvas.height = 0
+      }
       page.cleanup()
     }
     return { pages, skippedPages: document_.numPages - count }
