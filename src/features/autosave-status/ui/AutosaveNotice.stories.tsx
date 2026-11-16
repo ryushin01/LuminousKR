@@ -16,7 +16,6 @@ const meta = {
     onDiscardInPlace: () => {},
     onReload: () => {},
   },
-  parameters: { layout: 'fullscreen' },
 } satisfies Meta<typeof AutosaveNotice>
 
 export default meta

@@ -72,11 +72,27 @@ type Pending = {
   onProgress?: (progress: unknown) => void
 }
 
+/**
+ * 워커 스크립트를 받지 못했거나 시작하지 못했을 때.
+ * 배포 뒤 이전 파일이 지워졌거나(GitHub Pages) 연결이 끊긴 경우로, 새로 고치면 풀립니다.
+ */
+export class WorkerLoadError extends Error {
+  constructor(message = '작업 스레드를 불러오지 못했습니다.') {
+    super(message)
+    this.name = 'WorkerLoadError'
+  }
+}
+
 export class RpcAbortError extends Error {
   constructor() {
     super('작업을 취소했습니다.')
     this.name = 'AbortError'
   }
+}
+
+export type RpcClientOptions = {
+  /** 워커를 띄우지 못했거나 워커가 죽었을 때 (앱 전체 알림 등) */
+  onWorkerError?: (error: Error) => void
 }
 
 /** 메인 스레드 쪽: 워커를 필요할 때 띄우고 요청을 보냅니다. */
@@ -85,9 +101,11 @@ export class RpcClient<Methods extends Record<string, MethodSpec>> {
   private nextId = 1
   private readonly pending = new Map<number, Pending>()
   private readonly createWorker: () => Worker
+  private readonly options: RpcClientOptions
 
-  constructor(createWorker: () => Worker) {
+  constructor(createWorker: () => Worker, options: RpcClientOptions = {}) {
     this.createWorker = createWorker
+    this.options = options
   }
 
   private ensureWorker(): Worker {
@@ -107,9 +125,12 @@ export class RpcClient<Methods extends Record<string, MethodSpec>> {
     })
     worker.addEventListener('error', (event) => {
       event.preventDefault()
-      this.failAll(new Error(event.message || '작업 스레드를 시작하지 못했습니다.'))
+      // 스크립트를 받지 못한 경우(배포 뒤 404, 연결 끊김)에는 문구가 없는 오류 이벤트가 옵니다.
+      const error = event.message ? new Error(event.message) : new WorkerLoadError()
+      this.failAll(error)
       this.worker?.terminate()
       this.worker = null
+      this.options.onWorkerError?.(error)
     })
     this.worker = worker
     return worker
@@ -129,20 +150,26 @@ export class RpcClient<Methods extends Record<string, MethodSpec>> {
     const worker = this.ensureWorker()
     const id = this.nextId++
     return new Promise((resolve, reject) => {
+      const { signal } = options
+      const onAbort = () => {
+        if (!this.pending.has(id)) return
+        // 동기 계산 중인 워커는 메시지를 못 받으므로 끝내고 새로 띄웁니다.
+        this.terminate(new RpcAbortError())
+      }
+      // 끝난 요청의 취소 처리기는 떼어, 오래 쓰는 신호에 처리기가 쌓이지 않게 합니다.
+      const settle = () => signal?.removeEventListener('abort', onAbort)
       this.pending.set(id, {
-        resolve: resolve as (value: unknown) => void,
-        reject,
+        resolve: (value) => {
+          settle()
+          resolve(value as Methods[K]['result'])
+        },
+        reject: (reason) => {
+          settle()
+          reject(reason)
+        },
         onProgress: options.onProgress as ((progress: unknown) => void) | undefined,
       })
-      options.signal?.addEventListener(
-        'abort',
-        () => {
-          if (!this.pending.has(id)) return
-          // 동기 계산 중인 워커는 메시지를 못 받으므로 끝내고 새로 띄웁니다.
-          this.terminate(new RpcAbortError())
-        },
-        { once: true },
-      )
+      signal?.addEventListener('abort', onAbort, { once: true })
       worker.postMessage({ id, method, payload } satisfies RpcRequest, options.transfer ?? [])
     })
   }

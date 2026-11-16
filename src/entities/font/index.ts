@@ -55,6 +55,7 @@ export {
   editProject,
   flushProjectSave,
   fontProject,
+  inPlaceUnreadableOnlyHere,
   inPlaceUnreadableState,
   inPlaceUnreadableText,
   keptUnreadableTexts,

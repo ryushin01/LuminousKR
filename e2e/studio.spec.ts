@@ -57,3 +57,30 @@ test('작업은 브라우저에 저장되어 새로 고쳐도 남습니다', asy
   await page.reload()
   await expect(page.getByText('직선, 점 2개')).toBeVisible()
 })
+
+test('포인터로 점을 찍으면 판에 초점이 가서, 이어서 Enter로 획을 마칩니다', async ({ page }) => {
+  const canvas = page.getByRole('application', { name: 'ㄱ 초성 그리기 판' })
+  const svg = canvas.locator('svg')
+  await svg.scrollIntoViewIfNeeded()
+  const box = (await svg.boundingBox())!
+  await page.mouse.click(box.x + box.width * 0.2, box.y + box.height * 0.3)
+  await page.mouse.click(box.x + box.width * 0.6, box.y + box.height * 0.3)
+  await expect(canvas).toBeFocused()
+  await page.keyboard.press('Enter')
+  await expect(page.getByText('직선, 점 2개')).toBeVisible()
+})
+
+test('도구·격자 같은 입력에 초점이 있어도 Ctrl+Z로 되돌립니다', async ({ page }) => {
+  const canvas = page.getByRole('application', { name: 'ㄱ 초성 그리기 판' })
+  await canvas.focus()
+  for (const key of ['Space', 'ArrowRight', 'Space', 'Enter']) await page.keyboard.press(key)
+  await expect(page.getByText('직선, 점 2개')).toBeVisible()
+  // 도구를 고르면 초점이 라디오에 남습니다.
+  await page.getByRole('radio', { name: '곡선' }).check()
+  await expect(page.getByRole('radio', { name: '곡선' })).toBeFocused()
+  await page.keyboard.press('ControlOrMeta+z')
+  await expect(page.getByText('직접 그린 획이 없습니다.')).toBeVisible()
+  await page.getByRole('checkbox', { name: '격자에 맞추기' }).focus()
+  await page.keyboard.press('ControlOrMeta+Shift+z')
+  await expect(page.getByText('직선, 점 2개')).toBeVisible()
+})

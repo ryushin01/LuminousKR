@@ -11,6 +11,7 @@ import {
   jamoLabel,
   strokeFromSyllable,
 } from '@/entities/font'
+import { isAssetLoadError } from '@/shared/lib/app-update'
 import type { RecognizeOptions, RecognizedStroke } from '../lib/recognize.ts'
 import {
   ImportFileError,
@@ -47,10 +48,16 @@ type Deps = {
 
 const DEFAULT_DEPS: Deps = { readPageSources, recognizeTemplatePage, recognizeSingleImage }
 
+/** 인식 워커를 받지 못했을 때 (배포 뒤 열린 탭, 연결 끊김) */
+const WORKER_LOAD_TEXT =
+  '인식 작업 스레드를 불러오지 못했습니다(새 버전이 나왔거나 연결이 끊겼을 수 있음). 화면 아래의 새로 고침을 눌러 주세요.'
+
 const errorText = (error: unknown) =>
   error instanceof ImportFileError
     ? error.message
-    : '파일을 처리하지 못했습니다. 다른 파일로 다시 시도해 주세요.'
+    : isAssetLoadError(error)
+      ? WORKER_LOAD_TEXT
+      : '파일을 처리하지 못했습니다. 다른 파일로 다시 시도해 주세요.'
 
 /** 워커로 넘기지 않은 그림은 바로 닫아 메모리를 돌려줍니다. */
 const closePages = (pages: readonly PageSource[]) => {
@@ -130,11 +137,13 @@ export function createImporter(deps: Deps = DEFAULT_DEPS) {
       let result
       try {
         result = await deps.recognizeTemplatePage(page.bitmap, templateGeometry(), options())
-      } catch {
+      } catch (error) {
         // 한 쪽이 실패해도 나머지 쪽과 다음 파일은 계속 읽습니다.
         page.bitmap.close()
         notes.push(
-          `${page.label}: 인식하다 멈췄습니다. 그림이 너무 크거나 메모리가 모자랄 수 있으니 해상도를 줄여 다시 올려 주세요.`,
+          isAssetLoadError(error)
+            ? `${page.label}: ${WORKER_LOAD_TEXT}`
+            : `${page.label}: 인식하다 멈췄습니다. 그림이 너무 크거나 메모리가 모자랄 수 있으니 해상도를 줄여 다시 올려 주세요.`,
         )
         continue
       }
