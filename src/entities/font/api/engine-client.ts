@@ -57,10 +57,13 @@ export function buildPreviewFont(
   )
 }
 
-/** 만든 파일들을 ZIP 하나로 묶습니다(글꼴을 만든 작업 스레드에서, 화면을 막지 않게). */
+/**
+ * 만든 파일들을 ZIP 하나로 묶습니다(글꼴을 만든 작업 스레드에서, 화면을 막지 않게).
+ * 넘긴 버퍼는 작업 스레드로 옮겨(복사하지 않음) 이 쪽에서는 비므로, 계속 쓸 파일은 복사본을 넘기세요.
+ */
 export function zipFiles(
   entries: { name: string; data: ArrayBuffer }[],
   signal?: AbortSignal,
 ): Promise<ArrayBuffer> {
-  return builder.call('zip', { entries }, { signal })
+  return builder.call('zip', { entries }, { signal, transfer: entries.map((entry) => entry.data) })
 }

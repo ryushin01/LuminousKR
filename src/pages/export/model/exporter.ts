@@ -76,12 +76,14 @@ export function createExporter(build = buildFontFile, zip = zipFiles) {
     woff: boolean,
     signal: AbortSignal,
   ): Promise<void> {
+    // 만드는 동안 글꼴 정보·획을 고쳐도 모든 벌이 같은 가족이 되도록, 시작할 때의 프로젝트 하나로 만듭니다.
+    const snapshot = structuredClone(unwrap(fontProject))
     const members: FamilyResult['members'] = []
     for (const [index, weightClass] of weights.entries()) {
       if (signal.aborted) throw new AbortedError()
       setMember({ index, total: weights.length, weightClass })
       setProgress({ phase: 'compose', done: 0, total: TOTAL_GLYPHS })
-      const project = memberProject(fontProject, weightClass)
+      const project = memberProject(snapshot, weightClass)
       const built = await build(
         project,
         { woff, member: { weightClass } },
@@ -96,7 +98,7 @@ export function createExporter(build = buildFontFile, zip = zipFiles) {
       ...(m.result.woff ? [{ name: `${m.fileBase}.woff`, data: m.result.woff.slice(0) }] : []),
     ])
     const packed = await zip(entries, signal)
-    const current = weightClassOf(fontProject.style.weight)
+    const current = weightClassOf(snapshot.style.weight)
     setFamily({ zip: packed, members })
     setResult((members.find((m) => m.weightClass === current) ?? members[0]!).result)
   }

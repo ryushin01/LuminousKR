@@ -153,23 +153,30 @@ export function fontNamesOf(project: FontProject): FontNames {
  * 굵기 여러 벌을 한 가족으로 묶을 때 그 벌의 이름.
  * Regular·Bold는 같은 가족 이름(이름 ID 1)에 스타일 이름만 다르고(스타일 연결), 그 밖의 굵기는
  * '가족 이름 굵기'를 이름 ID 1로, 원래 가족 이름과 굵기를 typographic family·subfamily(ID 16·17)로 둡니다.
+ * 기울기가 있으면(이탤릭 비트·각도를 쓰는 벌) 이름에도 Italic을 넣어 똑바른 벌과 구별합니다
+ * (Italic·Bold Italic·Light Italic, PostScript 이름 -Italic·-BoldItalic·-LightItalic).
  */
 export function familyMemberNames(project: FontProject, weightClass: number): FontNames {
   const base = fontNamesOf(project)
   const weightName = WEIGHT_NAMES[weightClass] ?? 'Regular'
   const linked = weightClass === 400 || weightClass === 700
+  const italic = project.style.slant !== 0
+  /** 가족 안에서 이 벌을 부르는 이름 (typographic subfamily) */
+  const subfamily = italic ? (weightClass === 400 ? 'Italic' : `${weightName} Italic`) : weightName
+  /** 이름 ID 1 가족 안의 스타일 이름 (스타일 연결: Regular·Italic·Bold·Bold Italic) */
+  const styleName = linked ? subfamily : italic ? 'Italic' : 'Regular'
   const ko = base.familyNameKo
   return {
     ...base,
     familyName: linked ? base.familyName : `${base.familyName} ${weightName}`,
     familyNameKo: ko && !linked ? `${ko} ${weightName}` : ko,
-    styleName: linked ? weightName : 'Regular',
-    fullName: `${base.familyName} ${weightName}`,
-    fullNameKo: ko ? `${ko} ${weightName}` : undefined,
-    postScriptName: postScriptName(base.familyName, weightName),
+    styleName,
+    fullName: `${base.familyName} ${subfamily}`,
+    fullNameKo: ko ? `${ko} ${subfamily}` : undefined,
+    postScriptName: postScriptName(base.familyName, subfamily),
     typographicFamily: base.familyName,
     typographicFamilyKo: ko,
-    typographicSubfamily: weightName,
+    typographicSubfamily: subfamily,
   }
 }
 

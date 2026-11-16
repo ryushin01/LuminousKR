@@ -1,6 +1,12 @@
 import { createRoot } from 'solid-js'
-import { describe, expect, it, vi } from 'vitest'
-import { createPresetProject, type BuildResult } from '@/entities/font'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import {
+  createPresetProject,
+  editProject,
+  fontProject,
+  replaceProject,
+  type BuildResult,
+} from '@/entities/font'
 import { createExporter, memberProject } from './exporter.ts'
 import { validateMeta } from './validation.ts'
 
@@ -99,6 +105,9 @@ describe('글꼴 정보 검사', () => {
 })
 
 describe('굵기 여러 벌을 한 가족으로', () => {
+  // 시험 중 고친 저장소(기본 프리셋으로 시작)를 되돌립니다.
+  afterEach(() => replaceProject(createPresetProject()))
+
   it('고른 굵기를 차례로 만들고 OTF·WOFF를 ZIP 하나로 묶으며, 화면에는 지금 굵기의 벌을 씁니다', async () => {
     const results = new Map<number, BuildResult>()
     const build = vi.fn(
@@ -137,6 +146,26 @@ describe('굵기 여러 벌을 한 가족으로', () => {
       expect(exporter.family()?.members.map((m) => m.weightClass)).toEqual([300, 400, 700])
       expect(exporter.result()).toBe(results.get(400))
       expect(exporter.state()).toBe('done')
+      dispose()
+    })
+  })
+
+  it('만드는 동안 글꼴 정보를 고쳐도 모든 벌을 시작할 때의 프로젝트로 만들어 한 가족을 지킵니다', async () => {
+    const original = fontProject.meta.familyName
+    const build = vi.fn(async (project: { meta: { familyName: string } }) => {
+      // 첫 벌을 만드는 사이에 가족 이름을 고침
+      editProject((draft) => void (draft.meta.familyName = 'Changed Family'))
+      return { ...fakeResult, durationMs: project.meta.familyName.length }
+    })
+    const zip = vi.fn(async (entries: { name: string }[]) => {
+      expect(entries.every((entry) => entry.name.startsWith(original.replace(/ /g, '')))).toBe(true)
+      return new ArrayBuffer(16)
+    })
+    await createRoot(async (dispose) => {
+      const exporter = createExporter(build as never, zip as never)
+      await exporter.start({ woff: false, weights: [300, 700] })
+      expect(build.mock.calls.map((call) => call[0].meta.familyName)).toEqual([original, original])
+      expect(zip).toHaveBeenCalledOnce()
       dispose()
     })
   })

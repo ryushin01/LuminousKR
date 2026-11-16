@@ -328,8 +328,9 @@ describe('굵기 여러 벌(한 가족)의 이름과 스타일 연결', () => {
   const nameOf = (font: ReturnType<typeof parse>, id: string, lang = 'en') =>
     (font.names.windows as Record<string, Record<string, string>>)[id]?.[lang]
 
-  async function member(weightClass: number) {
+  async function member(weightClass: number, slant = 0) {
     const project = createPresetProject()
+    project.style.slant = slant
     const { otf } = await buildFont(project, { chars: '가', woff: false, member: { weightClass } })
     return parse(otf)
   }
@@ -348,6 +349,37 @@ describe('굵기 여러 벌(한 가족)의 이름과 스타일 연결', () => {
     expect(os2.usWeightClass).toBe(300)
     expect(os2.fsSelection! & (1 << 6)).toBeTruthy() // REGULAR
     expect(os2.fsSelection! & (1 << 5)).toBe(0) // BOLD 아님
+  })
+
+  it('기울기가 있으면 벌 이름에도 Italic을 넣어 똑바른 벌과 구별하고, 이탤릭 비트와 맞춥니다', async () => {
+    const os2 = (font: ReturnType<typeof parse>) => font.tables.os2 as Record<string, number>
+    const head = (font: ReturnType<typeof parse>) => font.tables.head as Record<string, number>
+
+    const regular = await member(400, 10)
+    expect(nameOf(regular, 'fontFamily')).toBe('Luminous Modular')
+    expect(nameOf(regular, 'fontSubfamily')).toBe('Italic')
+    expect(nameOf(regular, 'preferredSubfamily')).toBe('Italic')
+    expect(nameOf(regular, 'fullName')).toBe('Luminous Modular Italic')
+    expect(nameOf(regular, 'postScriptName')).toBe('LuminousModular-Italic')
+    expect(os2(regular).fsSelection! & 1).toBe(1) // ITALIC
+    expect(os2(regular).fsSelection! & (1 << 6)).toBe(0) // REGULAR 아님
+    expect(head(regular).macStyle! & 2).toBe(2)
+
+    const bold = await member(700, 10)
+    expect(nameOf(bold, 'fontSubfamily')).toBe('Bold Italic')
+    expect(nameOf(bold, 'postScriptName')).toBe('LuminousModular-BoldItalic')
+    expect(os2(bold).fsSelection! & ((1 << 5) | 1)).toBe((1 << 5) | 1) // BOLD + ITALIC
+
+    const light = await member(300, 10)
+    expect(nameOf(light, 'fontFamily')).toBe('Luminous Modular Light')
+    expect(nameOf(light, 'fontSubfamily')).toBe('Italic')
+    expect(nameOf(light, 'preferredSubfamily')).toBe('Light Italic')
+    expect(nameOf(light, 'fullName')).toBe('Luminous Modular Light Italic')
+    expect(nameOf(light, 'postScriptName')).toBe('LuminousModular-LightItalic')
+    expect(nameOf(light, 'fullName', 'ko')).toBe('루미너스 모듈 Light Italic')
+
+    // 똑바른 벌의 이름은 그대로입니다.
+    expect(nameOf(await member(300), 'postScriptName')).toBe('LuminousModular-Light')
   })
 
   it('Bold는 같은 가족의 굵은 짝(BOLD 비트·macStyle)이고, Black은 굵은 짝이 아닙니다', async () => {
