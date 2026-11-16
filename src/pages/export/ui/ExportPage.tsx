@@ -1,5 +1,11 @@
-import { Show, createEffect, createSignal, onCleanup } from 'solid-js'
-import { editProject, fontProject } from '@/entities/font'
+import { For, Show, createEffect, createSignal, onCleanup } from 'solid-js'
+import {
+  WEIGHT_CLASSES,
+  WEIGHT_NAMES,
+  editProject,
+  fontProject,
+  weightClassOf,
+} from '@/entities/font'
 import { ProjectActions } from '@/features/manage-project'
 import { downloadFile, safeFileName } from '@/shared/lib/download'
 import { formatBytes, formatNumber, formatSeconds } from '@/shared/lib/format'
@@ -30,6 +36,16 @@ export function ExportPage() {
   const exporter = createExporter()
   const [submitted, setSubmitted] = createSignal(false)
   const [woff, setWoff] = createSignal(true)
+  /** 지금 굵기와 함께 만들 굵기 등급 (한 가족) */
+  const [extraWeights, setExtraWeights] = createSignal<ReadonlySet<number>>(new Set())
+  const currentWeightClass = () => weightClassOf(fontProject.style.weight)
+  const weights = () => [...new Set([currentWeightClass(), ...extraWeights()])]
+  const toggleWeight = (weightClass: number, on: boolean) => {
+    const next = new Set(extraWeights())
+    if (on) next.add(weightClass)
+    else next.delete(weightClass)
+    setExtraWeights(next)
+  }
   const [resultFamily, setResultFamily] = createSignal<string>()
   let form!: HTMLFormElement
   let resultFace: FontFace | undefined
@@ -49,7 +65,7 @@ export function ExportPage() {
       queueMicrotask(() => form.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus())
       return
     }
-    void exporter.start({ woff: woff() })
+    void exporter.start({ woff: woff(), weights: weights() })
   }
 
   // 다 만든 글꼴 파일을 그대로 등록해 이 화면에서 써 봅니다.
@@ -78,14 +94,23 @@ export function ExportPage() {
     safeFileName(
       `${meta().familyName.trim() || 'Luminous'}-${meta().styleName.trim() || 'Regular'}`,
     )
+  const familyBase = () => safeFileName(meta().familyName.trim() || 'Luminous')
   const progressText = () => {
     const p = exporter.progress()
     if (exporter.state() !== 'building' || !p) return ''
-    return `${PHASE_LABEL[p.phase]}: ${formatNumber(Math.min(p.done, TOTAL_GLYPHS))} / ${formatNumber(TOTAL_GLYPHS)}자`
+    const m = exporter.member()
+    const which = m ? `${WEIGHT_NAMES[m.weightClass]} (${m.index + 1}/${m.total}) · ` : ''
+    return `${which}${PHASE_LABEL[p.phase]}: ${formatNumber(Math.min(p.done, TOTAL_GLYPHS))} / ${formatNumber(TOTAL_GLYPHS)}자`
   }
   const doneText = () => {
     const r = exporter.result()
     if (exporter.state() !== 'done' || !r) return ''
+    const f = exporter.family()
+    if (f) {
+      const names = f.members.map((m) => WEIGHT_NAMES[m.weightClass]).join('·')
+      const seconds = f.members.reduce((sum, m) => sum + m.result.durationMs, 0)
+      return `${names} ${f.members.length}벌(벌마다 글리프 ${formatNumber(r.glyphCount)}개)을 ${formatSeconds(seconds)} 만에 만들었습니다.`
+    }
     return `글리프 ${formatNumber(r.glyphCount)}개(음절 ${formatNumber(r.syllableCount)}자)를 ${formatSeconds(r.durationMs)} 만에 만들었습니다.`
   }
 
@@ -182,6 +207,37 @@ export function ExportPage() {
               </label>
             </fieldset>
 
+            <fieldset class={styles.formats} aria-describedby="weights-hint">
+              <legend>굵기 (한 가족으로 함께 만들기)</legend>
+              <p id="weights-hint" class={styles.hint}>
+                뼈대는 그대로 두고 굵기만 바꿔 여러 벌을 만들어 ZIP 하나로 받습니다. Regular·Bold는
+                같은 가족의 스타일로, 그 밖의 굵기는 '가족 이름 굵기'로 묶입니다.
+              </p>
+              <div class={styles.weights}>
+                <For each={WEIGHT_CLASSES}>
+                  {(weightClass) => {
+                    const current = () => weightClass === currentWeightClass()
+                    return (
+                      <label class={styles.check}>
+                        <input
+                          type="checkbox"
+                          checked={current() || extraWeights().has(weightClass)}
+                          disabled={current()}
+                          onChange={(e) => toggleWeight(weightClass, e.currentTarget.checked)}
+                        />
+                        <span>
+                          <span class="numeric">{weightClass}</span> {WEIGHT_NAMES[weightClass]}
+                          <Show when={current()}>
+                            <span class={styles.hint}> (지금 굵기)</span>
+                          </Show>
+                        </span>
+                      </label>
+                    )
+                  }}
+                </For>
+              </div>
+            </fieldset>
+
             <div class={styles.submit}>
               {/* 만드는 동안 disabled로 바꾸면 버튼의 키보드 초점이 사라지므로 aria-disabled로 알리고 눌림을 무시합니다. */}
               <Button
@@ -237,26 +293,49 @@ export function ExportPage() {
           <Show when={exporter.state() === 'done' && exporter.result()}>
             {(result) => (
               <div class={styles.result}>
-                <div class={styles.downloads}>
-                  <Button
-                    variant="primary"
-                    onClick={() => downloadFile(result().otf, `${fileBase()}.otf`, 'font/otf')}
-                  >
-                    <Icon name="download" size={18} />
-                    OTF 받기 <span class={styles.size}>{formatBytes(result().otf.byteLength)}</span>
-                  </Button>
-                  <Show when={result().woff}>
-                    {(file) => (
+                <Show when={exporter.family()}>
+                  {(family) => (
+                    <div class={styles.downloads}>
                       <Button
-                        variant="secondary"
-                        onClick={() => downloadFile(file(), `${fileBase()}.woff`, 'font/woff')}
+                        variant="primary"
+                        onClick={() =>
+                          downloadFile(
+                            family().zip,
+                            `${familyBase()}-family.zip`,
+                            'application/zip',
+                          )
+                        }
                       >
-                        <Icon name="download" size={18} />
-                        WOFF 받기 <span class={styles.size}>{formatBytes(file().byteLength)}</span>
+                        <Icon name="download" size={18} />한 가족 ZIP 받기{' '}
+                        <span class={styles.size}>{formatBytes(family().zip.byteLength)}</span>
                       </Button>
-                    )}
-                  </Show>
-                </div>
+                    </div>
+                  )}
+                </Show>
+                <Show when={!exporter.family()}>
+                  <div class={styles.downloads}>
+                    <Button
+                      variant="primary"
+                      onClick={() => downloadFile(result().otf, `${fileBase()}.otf`, 'font/otf')}
+                    >
+                      <Icon name="download" size={18} />
+                      OTF 받기{' '}
+                      <span class={styles.size}>{formatBytes(result().otf.byteLength)}</span>
+                    </Button>
+                    <Show when={result().woff}>
+                      {(file) => (
+                        <Button
+                          variant="secondary"
+                          onClick={() => downloadFile(file(), `${fileBase()}.woff`, 'font/woff')}
+                        >
+                          <Icon name="download" size={18} />
+                          WOFF 받기{' '}
+                          <span class={styles.size}>{formatBytes(file().byteLength)}</span>
+                        </Button>
+                      )}
+                    </Show>
+                  </div>
+                </Show>
                 <Show when={resultFamily()}>
                   <figure class={styles.trial}>
                     <p

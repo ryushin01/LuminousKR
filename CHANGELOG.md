@@ -1,5 +1,15 @@
 # 변경 기록
 
+## 0.11.0 - 2026-11-16
+
+v1.0.0 고도화 8단계: 굵기 여러 벌을 한 가족으로.
+
+- 내보내기에서 지금 굵기와 함께 만들 굵기 등급(100 Thin ~ 900 Black)을 고르면, 뼈대는 그대로 두고 그 등급의 획 굵기로 벌마다 차례로 만들어 **ZIP 하나**로 받음(벌마다 OTF·WOFF). 실측: Light·Regular·Bold·Black 4벌 9.3초, ZIP 2.0 MB(파일 17 MB를 deflate)
+- 이름 규칙: Regular·Bold는 같은 가족 이름(ID 1)에 스타일 이름만 다르고(스타일 연결), 그 밖의 굵기는 ID 1이 '가족 이름 굵기'이고 typographic family·subfamily(ID 16·17)로 한 가족에 묶임. 한국어 이름도 같은 규칙. BOLD 비트·macStyle은 Bold에만(opentype.js는 굵기 600 이상이면 macStyle을 켜므로 고침)
+- ZIP은 외부 라이브러리 없이 씀(CRC-32, `CompressionStream('deflate-raw')`, UTF-8 이름). 글꼴을 만든 작업 스레드에서 묶음
+- 진행 문구에 지금 만드는 벌(예: Bold 3/4)
+- 검사: 4벌 8개 파일 OTS 통과, fontbakery universal 가족 검사 FAIL 0. 시험: ZIP(CRC·deflate·UTF-8 이름), 가족 이름·스타일 연결 비트, 가족 만들기 순서·획 굵기·ZIP 항목, E2E(Light·Bold를 더해 ZIP 받기)
+
 ## 0.10.0 - 2026-11-16
 
 v1.0.0 고도화 7단계: 내보내기 전 점검과 작업실 주소.

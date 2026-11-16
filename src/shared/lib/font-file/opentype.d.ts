@@ -42,6 +42,7 @@ declare module 'opentype.js/dist/opentype.mjs' {
   export type FontOptions = {
     familyName: string
     styleName: string
+    fullName?: string
     postScriptName?: string
     unitsPerEm: number
     ascender: number

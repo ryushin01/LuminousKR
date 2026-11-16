@@ -56,3 +56,11 @@ export function buildPreviewFont(
     { signal },
   )
 }
+
+/** 만든 파일들을 ZIP 하나로 묶습니다(글꼴을 만든 작업 스레드에서, 화면을 막지 않게). */
+export function zipFiles(
+  entries: { name: string; data: ArrayBuffer }[],
+  signal?: AbortSignal,
+): Promise<ArrayBuffer> {
+  return builder.call('zip', { entries }, { signal })
+}

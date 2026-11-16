@@ -190,8 +190,9 @@ export function keepWindowsNames(records: readonly NameRecord[]): NameRecord[] {
 /**
  * opentype.js가 쓴 글꼴을 정리합니다.
  * 이름 표는 Windows(유니코드) 레코드만 빈 값 없이 다시 쓰고, Apple 전용 ltag 표를 뺍니다.
+ * @param patch.macStyle head.macStyle을 이 값으로 (스타일 연결과 맞춤)
  */
-export function tidySfnt(sfnt: ArrayBuffer): ArrayBuffer {
+export function tidySfnt(sfnt: ArrayBuffer, patch: { macStyle?: number } = {}): ArrayBuffer {
   const { flavor, tables } = readSfntTables(sfnt)
   const next: SfntTable[] = []
   for (const table of tables) {
@@ -201,6 +202,10 @@ export function tidySfnt(sfnt: ArrayBuffer): ArrayBuffer {
         tag: TAG_NAME,
         data: buildNameTable(keepWindowsNames(parseNameTable(table.data))),
       })
+    } else if (table.tag === TAG_HEAD && patch.macStyle !== undefined) {
+      const data = table.data.slice()
+      new DataView(data.buffer).setUint16(44, patch.macStyle)
+      next.push({ tag: TAG_HEAD, data })
     } else {
       next.push({ tag: table.tag, data: table.data })
     }

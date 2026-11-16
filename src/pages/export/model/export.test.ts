@@ -1,7 +1,7 @@
 import { createRoot } from 'solid-js'
 import { describe, expect, it, vi } from 'vitest'
 import { createPresetProject, type BuildResult } from '@/entities/font'
-import { createExporter } from './exporter.ts'
+import { createExporter, memberProject } from './exporter.ts'
 import { validateMeta } from './validation.ts'
 
 const fakeResult: BuildResult = {
@@ -95,5 +95,70 @@ describe('글꼴 정보 검사', () => {
   it('영문 이름에 한글이 있으면 고치는 방법을 알려 줍니다', () => {
     expect(validateMeta({ ...meta, familyName: '루미너스' }, false).familyName).toContain('예:')
     expect(validateMeta({ ...meta, version: 'v1' }, false).version).toContain('1.000')
+  })
+})
+
+describe('굵기 여러 벌을 한 가족으로', () => {
+  it('고른 굵기를 차례로 만들고 OTF·WOFF를 ZIP 하나로 묶으며, 화면에는 지금 굵기의 벌을 씁니다', async () => {
+    const results = new Map<number, BuildResult>()
+    const build = vi.fn(
+      async (
+        project: { style: { weight: number } },
+        request: { member?: { weightClass: number } },
+      ) => {
+        const result = { ...fakeResult, woff: new ArrayBuffer(4), durationMs: project.style.weight }
+        results.set(request.member!.weightClass, result)
+        return result
+      },
+    )
+    const zip = vi.fn(async (entries: { name: string }[]) => {
+      expect(entries.map((e) => e.name)).toEqual([
+        'LuminousModular-Light.otf',
+        'LuminousModular-Light.woff',
+        'LuminousModular-Regular.otf',
+        'LuminousModular-Regular.woff',
+        'LuminousModular-Bold.otf',
+        'LuminousModular-Bold.woff',
+      ])
+      return new ArrayBuffer(16)
+    })
+    await createRoot(async (dispose) => {
+      const exporter = createExporter(build as never, zip as never)
+      await exporter.start({ woff: true, weights: [400, 700, 300, 400] })
+      expect(
+        build.mock.calls.map(
+          (call) => (call[1] as { member: { weightClass: number } }).member.weightClass,
+        ),
+      ).toEqual([300, 400, 700])
+      // 지금 굵기(76)가 아닌 벌은 그 등급의 획 굵기로 만듭니다.
+      expect(
+        build.mock.calls.map((call) => (call[0] as { style: { weight: number } }).style.weight),
+      ).toEqual([60, 76, 130])
+      expect(exporter.family()?.members.map((m) => m.weightClass)).toEqual([300, 400, 700])
+      expect(exporter.result()).toBe(results.get(400))
+      expect(exporter.state()).toBe('done')
+      dispose()
+    })
+  })
+
+  it('굵기가 하나면 지금처럼 한 벌만 만듭니다', async () => {
+    const build = vi.fn(async () => fakeResult)
+    const zip = vi.fn()
+    await createRoot(async (dispose) => {
+      const exporter = createExporter(build as never, zip as never)
+      await exporter.start({ woff: false, weights: [400] })
+      expect(build).toHaveBeenCalledTimes(1)
+      expect(zip).not.toHaveBeenCalled()
+      expect(exporter.family()).toBeNull()
+      dispose()
+    })
+  })
+
+  it('지금 굵기의 벌은 프로젝트 굵기를 그대로 쓰고, 다른 벌은 그 등급의 획 굵기를 씁니다', () => {
+    const project = createPresetProject()
+    project.style.weight = 80 // 등급 400
+    expect(memberProject(project, 400).style.weight).toBe(80)
+    expect(memberProject(project, 700).style.weight).toBe(130)
+    expect(project.style.weight).toBe(80)
   })
 })

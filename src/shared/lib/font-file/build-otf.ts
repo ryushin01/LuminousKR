@@ -17,8 +17,18 @@ export type FontNames = {
   /** 한국어 글꼴 이름. Windows 이름 레코드(언어 0x0412)에 함께 넣습니다. */
   familyNameKo?: string
   styleName: string
+  /** 전체 이름(이름 ID 4). 없으면 '가족 이름 스타일 이름' */
+  fullName?: string
+  fullNameKo?: string
   /** 공백 없는 ASCII 이름 (예: LuminousModular-Regular) */
   postScriptName: string
+  /**
+   * 굵기 여러 벌을 한 가족으로 묶을 때의 typographic family·subfamily(이름 ID 16·17).
+   * Regular·Bold 밖의 굵기는 이름 ID 1이 '가족 이름 굵기'가 되므로, 앱이 한 가족으로 보게 합니다.
+   */
+  typographicFamily?: string
+  typographicFamilyKo?: string
+  typographicSubfamily?: string
   version: string
   designer?: string
   description?: string
@@ -73,8 +83,35 @@ export function contoursToPath(contours: readonly Contour[]): Path {
 
 /** OS/2 ulCodePageRange1의 949 한국어(완성형) 비트 */
 const CODEPAGE_KOREAN_WANSUNG = 1 << 19
-/** OS/2 fsSelection 7번 비트: 줄 높이를 typo 값(sTypoAscender 등)으로 (OS/2 4판부터) */
+/** OS/2 fsSelection 비트 */
+const FS_ITALIC = 1 << 0
+const FS_BOLD = 1 << 5
+const FS_REGULAR = 1 << 6
+/** 줄 높이를 typo 값(sTypoAscender 등)으로 (OS/2 4판부터) */
 const USE_TYPO_METRICS = 1 << 7
+/** head.macStyle 비트 */
+const MAC_BOLD = 1 << 0
+const MAC_ITALIC = 1 << 1
+
+/**
+ * 스타일 연결(RIBBI) 비트. BOLD는 스타일 이름이 Bold인 벌에만 켭니다(굵기 등급만 보고 켜면
+ * SemiBold·Black도 Regular의 굵은 짝으로 묶여 가족 안에서 겹침).
+ */
+export function styleBits(
+  styleName: string,
+  italicAngle: number,
+): { fsSelection: number; macStyle: number } {
+  const lower = styleName.trim().toLowerCase()
+  const bold = lower === 'bold' || lower === 'bold italic'
+  const italic = italicAngle !== 0
+  const fsSelection =
+    (italic ? FS_ITALIC : 0) |
+    (bold ? FS_BOLD : 0) |
+    (!bold && !italic ? FS_REGULAR : 0) |
+    USE_TYPO_METRICS
+  const macStyle = (bold ? MAC_BOLD : 0) | (italic ? MAC_ITALIC : 0)
+  return { fsSelection, macStyle }
+}
 
 /** 모든 글리프 윤곽(조절점 포함)의 세로 범위 */
 function verticalExtent(glyphs: readonly GlyphSpec[]): { yMin: number; yMax: number } {
@@ -103,6 +140,7 @@ export function buildOtf(
   const font = new Font({
     familyName: names.familyName,
     styleName: names.styleName,
+    fullName: names.fullName,
     postScriptName: names.postScriptName,
     unitsPerEm: metrics.unitsPerEm,
     ascender: metrics.ascender,
@@ -129,18 +167,29 @@ export function buildOtf(
     ),
   })
 
+  const windows = font.names.windows
   if (names.familyNameKo) {
-    const windows = font.names.windows
     windows.fontFamily = { ...windows.fontFamily, ko: names.familyNameKo }
-    windows.fullName = { ...windows.fullName, ko: `${names.familyNameKo} ${names.styleName}` }
+    windows.fullName = {
+      ...windows.fullName,
+      ko: names.fullNameKo ?? `${names.familyNameKo} ${names.styleName}`,
+    }
   }
+  if (names.typographicFamily) {
+    windows.preferredFamily = {
+      en: names.typographicFamily,
+      ...(names.typographicFamilyKo ? { ko: names.typographicFamilyKo } : {}),
+    }
+  }
+  if (names.typographicSubfamily) windows.preferredSubfamily = { en: names.typographicSubfamily }
 
   const half = Math.round(metrics.unitsPerEm / 2)
   const extent = verticalExtent(glyphs)
+  const style = styleBits(names.styleName, metrics.italicAngle)
   Object.assign(font.tables.os2!, {
     // 4판: USE_TYPO_METRICS를 켜 Windows·macOS·웹이 모두 typo 값(글자 몸 1em)으로 줄 높이를 정하게 함
     version: 4,
-    fsSelection: ((font.tables.os2!.fsSelection as number) | USE_TYPO_METRICS) >>> 0,
+    fsSelection: style.fsSelection,
     // Windows의 잘림 기준은 글자 몸과 실제 글리프 범위 가운데 큰 쪽(기울인 글리프가 잘리지 않게)
     usWinAscent: Math.max(metrics.ascender, Math.ceil(extent.yMax)),
     usWinDescent: Math.max(-metrics.descender, Math.ceil(-extent.yMin)),
@@ -161,5 +210,6 @@ export function buildOtf(
   }
 
   // 이름 표를 Windows(유니코드) 레코드만 빈 값 없이 다시 쓰고, Apple 전용 ltag 표를 뺍니다.
-  return tidySfnt(font.toArrayBuffer())
+  // opentype.js는 굵기 등급 600 이상이면 macStyle에 굵게를 켜므로 스타일 연결 비트에 맞춰 고칩니다.
+  return tidySfnt(font.toArrayBuffer(), { macStyle: style.macStyle })
 }

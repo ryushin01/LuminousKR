@@ -75,10 +75,18 @@ export { createRenderedGlyphs, currentSource, sourceWithStyle } from './model/re
 export type { RenderSource } from './model/rendered.ts'
 export { composableChars, createPreviewFont } from './model/preview-font.ts'
 export type { PreviewFontState } from './model/preview-font.ts'
-export { buildFontFile, renderGlyphs } from './api/engine-client.ts'
+export { buildFontFile, renderGlyphs, zipFiles } from './api/engine-client.ts'
 export type { RenderItem, RenderedGlyph } from './api/engine-protocol.ts'
 export type { BuildProgress, BuildResult } from './lib/build-font.ts'
-export { fontNamesOf, sanitizeLatinName } from './lib/build-font.ts'
+export {
+  WEIGHT_CLASSES,
+  WEIGHT_NAMES,
+  familyMemberNames,
+  fontNamesOf,
+  sanitizeLatinName,
+  strokeWeightFor,
+  weightClassOf,
+} from './lib/build-font.ts'
 export { ASCENDER, UNITS_PER_EM, bodyFrame, strokeWidths } from './lib/outline.ts'
 export type { BodyFrame } from './lib/outline.ts'
 export { hasOwnDrawing, missingDrawings, resolveJamo } from './lib/resolve.ts'

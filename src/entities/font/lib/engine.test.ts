@@ -323,3 +323,44 @@ describe('판을 넘어 이어 쓰는 윤곽 캐시', () => {
     expect(rebuilt.sort()).toEqual(['L2@A', 'T4@D', 'T5@D', 'T6@D'].sort())
   })
 })
+
+describe('굵기 여러 벌(한 가족)의 이름과 스타일 연결', () => {
+  const nameOf = (font: ReturnType<typeof parse>, id: string, lang = 'en') =>
+    (font.names.windows as Record<string, Record<string, string>>)[id]?.[lang]
+
+  async function member(weightClass: number) {
+    const project = createPresetProject()
+    const { otf } = await buildFont(project, { chars: '가', woff: false, member: { weightClass } })
+    return parse(otf)
+  }
+
+  it('Regular·Bold 밖의 굵기는 이름 ID 1이 "가족 이름 굵기", 16·17이 가족과 굵기입니다', async () => {
+    const font = await member(300)
+    expect(nameOf(font, 'fontFamily')).toBe('Luminous Modular Light')
+    expect(nameOf(font, 'fontSubfamily')).toBe('Regular')
+    expect(nameOf(font, 'preferredFamily')).toBe('Luminous Modular')
+    expect(nameOf(font, 'preferredSubfamily')).toBe('Light')
+    expect(nameOf(font, 'fullName')).toBe('Luminous Modular Light')
+    expect(nameOf(font, 'postScriptName')).toBe('LuminousModular-Light')
+    expect(nameOf(font, 'fontFamily', 'ko')).toBe('루미너스 모듈 Light')
+    expect(nameOf(font, 'preferredFamily', 'ko')).toBe('루미너스 모듈')
+    const os2 = font.tables.os2 as Record<string, number>
+    expect(os2.usWeightClass).toBe(300)
+    expect(os2.fsSelection! & (1 << 6)).toBeTruthy() // REGULAR
+    expect(os2.fsSelection! & (1 << 5)).toBe(0) // BOLD 아님
+  })
+
+  it('Bold는 같은 가족의 굵은 짝(BOLD 비트·macStyle)이고, Black은 굵은 짝이 아닙니다', async () => {
+    const bold = await member(700)
+    expect(nameOf(bold, 'fontFamily')).toBe('Luminous Modular')
+    expect(nameOf(bold, 'fontSubfamily')).toBe('Bold')
+    expect((bold.tables.os2 as Record<string, number>).fsSelection! & (1 << 5)).toBeTruthy()
+    expect((bold.tables.head as Record<string, number>).macStyle! & 1).toBe(1)
+
+    const black = await member(900)
+    expect(nameOf(black, 'fontFamily')).toBe('Luminous Modular Black')
+    expect((black.tables.os2 as Record<string, number>).fsSelection! & (1 << 5)).toBe(0)
+    // opentype.js는 굵기 600 이상이면 macStyle에 굵게를 켜므로 고쳐 둡니다.
+    expect((black.tables.head as Record<string, number>).macStyle! & 1).toBe(0)
+  })
+})
