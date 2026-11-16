@@ -1,5 +1,6 @@
 import type { BodyFrame, Box, PlacedStroke, Point } from '@/entities/font'
 import { ASCENDER } from '@/entities/font'
+import { distanceToSegment } from '@/shared/lib/geometry'
 
 /** 음절 좌표(0~1, y 아래로) ↔ SVG 좌표(1em = 1000, 위가 0) */
 export function toSvg(frame: BodyFrame, p: Point): Point {
@@ -39,14 +40,6 @@ export function clampPoint(p: Point, margin = 0.15): Point {
 
 export const samePoint = (a: Point, b: Point, epsilon = 1e-6) =>
   Math.abs(a.x - b.x) < epsilon && Math.abs(a.y - b.y) < epsilon
-
-function distanceToSegment(p: Point, a: Point, b: Point): number {
-  const dx = b.x - a.x
-  const dy = b.y - a.y
-  const len2 = dx * dx + dy * dy
-  const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2))
-  return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy))
-}
 
 /** 획을 꺾은선으로 펼칩니다 (맞히기 판정·화면 표시용). */
 export function strokePolyline(stroke: PlacedStroke): Point[] {

@@ -29,6 +29,33 @@ type Component = {
   bounds: Rect[]
 }
 
+/** 음절 하나의 합친 윤곽과, 그때 쓴 조각들(조각이 같으면 다시 씀) */
+type MergedSyllable = { pieces: Component[]; contours: Contour[] }
+
+/** 음절 캐시가 이보다 커지면 비웁니다 (미리보기 화면에서 보는 음절은 수백 자). */
+const MAX_CACHED_SYLLABLES = 4000
+
+/**
+ * 판(revision)이 바뀌어도 이어 쓰는 윤곽 캐시.
+ * 자모×배치 윤곽은 입력(배치한 획·획 스타일·글자 틀)이 같으면 다시 계산하지 않고,
+ * 음절은 조각이 모두 같으면 합친 윤곽을 다시 씁니다. 점 하나를 옮기면 그 자모가 들어간 것만 다시 만듭니다.
+ */
+export class ComponentCache {
+  readonly components = new Map<string, { input: string; component: Component }>()
+  readonly syllables = new Map<number, MergedSyllable>()
+  /** 음절도 담을지 (편집 미리보기용). 글꼴 전체를 한 번 만들 때는 담아 둘 까닭이 없습니다. */
+  readonly keepSyllables: boolean
+
+  constructor(options: { syllables?: boolean } = {}) {
+    this.keepSyllables = options.syllables ?? false
+  }
+
+  clear(): void {
+    this.components.clear()
+    this.syllables.clear()
+  }
+}
+
 /** 호환 자모(낱자)를 놓을 틀 */
 const STANDALONE: Record<'consonant' | 'cluster' | 'vertical' | 'horizontal' | 'mixed', Box> = {
   consonant: { x0: 0.16, y0: 0.12, x1: 0.84, y1: 0.88 },
@@ -47,12 +74,19 @@ export class Composer {
   readonly project: FontProject
   readonly frame: BodyFrame
   private readonly resolveOptions: ResolveOptions
-  private readonly components = new Map<string, Component>()
+  private readonly cache: ComponentCache
+  /** 윤곽 모양을 정하는 획 스타일·글자 틀 (캐시 입력의 앞부분) */
+  private readonly styleKey: string
+  /** 이 조합기(한 판의 프로젝트)에서 이미 찾은 조각 — 같은 판에서는 획을 다시 배치하지도 않음 */
+  private readonly local = new Map<string, Component>()
 
-  constructor(project: FontProject) {
+  /** @param cache 판이 바뀌어도 이어 쓸 캐시 (없으면 이 조합기만 씀) */
+  constructor(project: FontProject, cache: ComponentCache = new ComponentCache()) {
     this.project = project
     this.frame = bodyFrame(project.metrics, project.style)
     this.resolveOptions = resolveOptionsFor(project)
+    this.cache = cache
+    this.styleKey = JSON.stringify([project.style, this.frame])
   }
 
   private build(strokes: PlacedStroke[]): Component {
@@ -66,12 +100,24 @@ export class Composer {
     return { paths, contours: pathsToContours(paths, style), bounds }
   }
 
+  /**
+   * 배치한 획이 같으면(같은 스타일·글자 틀에서) 전에 만든 윤곽을 다시 씁니다.
+   * 획을 배치하는 것은 가볍고, 두께 입히기·합치기·곡선 맞춤이 무겁습니다.
+   */
   private cached(id: string, make: () => PlacedStroke[]): Component {
-    let component = this.components.get(id)
-    if (!component) {
-      component = this.build(make())
-      this.components.set(id, component)
+    const known = this.local.get(id)
+    if (known) return known
+    const strokes = make()
+    const input = `${this.styleKey}${JSON.stringify(strokes)}`
+    const hit = this.cache.components.get(id)
+    let component: Component
+    if (hit && hit.input === input) {
+      component = hit.component
+    } else {
+      component = this.build(strokes)
+      this.cache.components.set(id, { input, component })
     }
+    this.local.set(id, component)
     return component
   }
 
@@ -100,7 +146,15 @@ export class Composer {
       this.component(`V${parts.vowel}`, layout),
     ]
     if (parts.tail > 0) pieces.push(this.component(`T${parts.tail}`, layout))
-    return this.merge(pieces)
+    if (!this.cache.keepSyllables) return this.merge(pieces)
+    const hit = this.cache.syllables.get(code)
+    if (hit && hit.pieces.length === pieces.length && hit.pieces.every((p, i) => p === pieces[i])) {
+      return hit.contours
+    }
+    const contours = this.merge(pieces)
+    if (this.cache.syllables.size >= MAX_CACHED_SYLLABLES) this.cache.syllables.clear()
+    this.cache.syllables.set(code, { pieces, contours })
+    return contours
   }
 
   private merge(pieces: Component[]): Contour[] {
