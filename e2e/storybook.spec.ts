@@ -28,3 +28,21 @@ test('Storybook의 모든 스토리가 오류 없이 그려지고 axe 위반이 
   }
   expect(problems).toEqual([])
 })
+
+test('Storybook 미리보기에는 앱 전용 CSP가 붙지 않아 설정 스크립트가 돕니다(문서 언어 ko)', async ({
+  page,
+  request,
+}) => {
+  const index = (await (await request.get('/storybook/index.json')).json()) as StoryIndex
+  const story = Object.values(index.entries).find((entry) => entry.type === 'story')!
+  const blocked: string[] = []
+  page.on('console', (message) => {
+    if (message.type() === 'error' && message.text().includes('Content Security Policy'))
+      blocked.push(message.text())
+  })
+  await page.goto(`/storybook/iframe.html?id=${story.id}&viewMode=story`)
+  await page.locator('#storybook-root > *').first().waitFor({ state: 'attached' })
+  await expect(page.locator('meta[http-equiv="Content-Security-Policy"]')).toHaveCount(0)
+  await expect(page.locator('html')).toHaveAttribute('lang', 'ko')
+  expect(blocked).toEqual([])
+})
