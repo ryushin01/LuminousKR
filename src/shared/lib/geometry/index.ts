@@ -3,6 +3,7 @@ export {
   add,
   cross,
   distance,
+  distanceToSegment,
   dot,
   length,
   lerp,

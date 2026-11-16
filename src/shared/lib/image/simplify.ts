@@ -1,14 +1,4 @@
-import type { Point } from '../geometry/index.ts'
-
-/** 점에서 선분 a–b까지의 거리 (무한 직선이 아니라 선분이라, 되돌아가는 획의 끝을 잃지 않음) */
-function distanceToSegment(p: Point, a: Point, b: Point): number {
-  const dx = b.x - a.x
-  const dy = b.y - a.y
-  const len2 = dx * dx + dy * dy
-  if (len2 === 0) return Math.hypot(p.x - a.x, p.y - a.y)
-  const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2))
-  return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy))
-}
+import { type Point, distanceToSegment } from '../geometry/index.ts'
 
 function rdp(points: readonly Point[], epsilon: number): Point[] {
   if (points.length < 3) return [...points]
