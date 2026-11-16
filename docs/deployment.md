@@ -18,7 +18,7 @@ main에 push하면 `BASE_PATH=/LuminousKR/`로 빌드해 배포합니다.
 - 앱: https://ryushin01.github.io/LuminousKR/
 - Storybook: https://ryushin01.github.io/LuminousKR/storybook/
 
-정적 호스팅에서는 `/studio` 같은 주소로 바로 들어오면 파일이 없어 404가 납니다. `scripts/postbuild.mjs`가 화면마다 `index.html` 사본(문서 제목 포함)을 만들어 200으로 열리게 하고, 없는 주소는 `404.html`(같은 앱)이 받아 '없는 화면'을 보여 줍니다. 사본마다 그 화면 조각의 JS(`modulepreload`)·CSS를 넣어, 진입 JS를 받은 뒤 화면 조각을 다시 요청하는 왕복을 없앱니다(빌드 매니페스트 `dist/.vite/manifest.json`으로 찾고 다 쓰면 지움).
+정적 호스팅에서는 `/studio` 같은 주소로 바로 들어오면 파일이 없어 404가 납니다. `scripts/postbuild.mjs`가 화면마다 `index.html` 사본(문서 제목 포함)을 만들어 200으로 열리게 하고, 없는 주소는 `404.html`(같은 앱)이 받아 '없는 화면'을 보여 줍니다. 사본마다 그 화면 조각의 JS(`modulepreload`)·CSS를 넣어, 진입 JS를 받은 뒤 화면 조각을 다시 요청하는 왕복을 없앱니다(빌드 매니페스트 `dist/.vite/manifest.json`으로 찾고 다 쓰면 지움). 모든 화면의 첫 화면에 쓰는 글꼴(LuminousSans 화면 글자 400·600·700, Syne 영문)도 `<link rel="preload" as="font">`로 미리 받아, CSS를 읽은 뒤 늦게 도착한 글꼴로 제목 줄 수가 바뀌며 아래가 밀리지 않게 합니다.
 
 Web Worker(`engine.worker`)와 글꼴·이미지는 기준 경로를 따라 상대 경로로 묶이므로 하위 경로에서도 그대로 동작합니다.
 
