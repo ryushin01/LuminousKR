@@ -201,7 +201,8 @@ export function GuidePage() {
         <Panel title="만들어지는 글꼴 파일" number="6">
           <ul class={styles.list}>
             <li>
-              현대 한글 음절 11,172자(U+AC00–D7A3)와 낱자 51자(U+3131–3163), 빈칸이 들어갑니다.
+              현대 한글 음절 11,172자(U+AC00–D7A3)와 낱자 51자(U+3131–3163), 빈칸(줄바꿈 없는 빈칸
+              포함)이 들어갑니다.
             </li>
             <li>
               OTF는 CFF(PostScript) 윤곽으로, 1em = 1000 단위이고 위 880·아래 −120을 기준으로
@@ -213,7 +214,7 @@ export function GuidePage() {
             </li>
             <li>
               영문 이름과 한국어 이름을 함께 기록합니다(한국어 이름은 Windows 이름 레코드, 언어
-              0x0412).
+              0x0412). 줄 높이 값을 맞춰 Windows·macOS·웹에서 줄 간격이 같습니다.
             </li>
             <li>
               영문·숫자·문장부호는 들어 있지 않으므로, 쓰는 곳에서 다른 글꼴과 함께 지정하세요.

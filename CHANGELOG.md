@@ -1,5 +1,14 @@
 # 변경 기록
 
+## 0.7.0 - 2026-11-16
+
+v1.0.0 고도화 4단계: 만든 글꼴 파일의 규격. 내보낸 OTF로 fontbakery universal 검사 FAIL 5 → 0(PASS 58 → 64), OTS(브라우저 검사기)는 OTF·WOFF 모두 통과.
+
+- 이름 표: opentype.js가 비운 이름(저작권·상표·디자이너 주소 등 18개 레코드)을 공백 한 칸으로 채우고 유니코드·Mac 플랫폼 이름과 Apple 전용 `ltag` 표를 넣던 것을, 글꼴을 쓴 뒤 Windows(유니코드) 레코드만 빈 값 없이 다시 쓰고 `ltag`를 빼서 다시 묶음(표 체크섬과 checkSumAdjustment 다시 계산, `shared/lib/font-file/sfnt.ts`)
+- 줄 높이: Windows 값(usWinAscent/Descent)이 글리프 경계(840/81)라 typo·hhea(880/−120)와 달라 Windows GDI 앱은 줄 높이 0.92em, macOS는 1.0em이던 것을, OS/2 4판 + USE_TYPO_METRICS로 맞춤. Windows 잘림 기준은 글자 몸과 실제 글리프 범위 가운데 큰 쪽(기울인 글리프가 잘리지 않게)
+- 줄바꿈 없는 빈칸(U+00A0, 웹의 `&nbsp;`)을 빈칸 글리프에 더함(다른 글꼴로 보이던 문제)
+- 시험: 이름 레코드(플랫폼·빈 값·한국어 이름), 표·전체 체크섬, U+00A0, OS/2 4판·win 값, 표 다시 묶기 왕복
+
 ## 0.6.0 - 2026-11-16
 
 v1.0.0 고도화 3단계: 첫 화면 성능.

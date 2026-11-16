@@ -64,11 +64,11 @@ LuminousKR이 자모 24자의 뼈대로 한글 11,172자를 만드는 과정입�
 
 | 항목 | 값 |
 |---|---|
-| 글리프 | `.notdef`, 빈칸, 호환 자모 51자(U+3131–3163), 한글 음절 11,172자(U+AC00–D7A3) |
+| 글리프 | `.notdef`, 빈칸(U+0020·줄바꿈 없는 빈칸 U+00A0), 호환 자모 51자(U+3131–3163), 한글 음절 11,172자(U+AC00–D7A3) |
 | 윤곽 | CFF(PostScript), opentype.js `Font.toArrayBuffer()` |
-| 세로 기준 | 1em = 1000, 위 880, 아래 −120, 글자 몸은 가운데 380 기준 |
-| 이름 | 영문 이름(모든 플랫폼) + 한국어 이름(Windows, 언어 0x0412), PostScript 이름 |
-| OS/2 | 굵기 등급(획 굵기에서 환산), 한국어 완성형 코드 페이지, fsType 0(설치 가능) |
+| 세로 기준 | 1em = 1000, 위 880, 아래 −120, 글자 몸은 가운데 380 기준. typo·hhea 값이 같고 OS/2 4판 USE_TYPO_METRICS를 켜 Windows·macOS·웹의 줄 높이가 같음(1em). Windows 잘림 기준(usWin)은 글자 몸과 실제 글리프 범위 가운데 큰 쪽 |
+| 이름 | Windows(유니코드) 레코드만: 영문 이름(0x0409) + 한국어 이름(0x0412), PostScript 이름, typographic family(16·17). 비운 값은 쓰지 않음. opentype.js가 넣는 유니코드·Mac 플랫폼 이름과 Apple 전용 `ltag` 표는 빼고 다시 묶음(`shared/lib/font-file/sfnt.ts`, 표 체크섬·checkSumAdjustment 다시 계산) |
+| OS/2 | 4판, 굵기 등급(획 굵기에서 환산), 한국어 완성형 코드 페이지, fsType 0(설치 가능) |
 | WOFF | 표마다 zlib(`CompressionStream('deflate')`)으로 압축, 줄지 않는 표는 그대로 (3.8MB → 약 210KB) |
 
 전체 빌드는 Web Worker(`api/engine.worker.ts`)에서 돌고, 진행 상황을 256글리프마다 보냅니다. 미리보기용 작은 글꼴(입력한 글자만)은 다른 워커에서 만들어 `FontFace`로 등록합니다. 취소하면 워커를 끝내고 다음 요청 때 새로 띄웁니다(`shared/lib/worker-rpc`).
