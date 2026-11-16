@@ -102,7 +102,7 @@ describe('가져오기', () => {
       expect(importer.selectedCount()).toBe(1)
 
       const before = fontProject.style.weight
-      expect(importer.apply(true)).toBe(1)
+      expect(importer.apply(true)).toHaveLength(1)
       expect(fontProject.jamo.L0!.base!.strokes).toHaveLength(1)
       // 펜 굵기(음절 너비의 10%)를 글꼴 굵기로
       expect(fontProject.style.weight).not.toBe(before)
@@ -160,7 +160,7 @@ describe('가져오기', () => {
       importer.toggle(l2!, true)
       expect(importer.selectedCount()).toBe(2)
       const body = bodyFrame(fontProject.metrics, fontProject.style)
-      expect(importer.apply(true)).toBe(2)
+      expect(importer.apply(true)).toHaveLength(2)
       // 풀린 후보(펜 굵기 0.3)는 평균에 들어가지 않습니다.
       expect(fontProject.style.weight).toBe(Math.round(0.1 * (body.x1 - body.x0)))
     })

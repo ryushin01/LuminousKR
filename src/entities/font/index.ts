@@ -26,6 +26,8 @@ export {
   ROLE_LABEL,
   frameBox,
   homeLayout,
+  isJamoKey,
+  isLayoutId,
   jamoChar,
   jamoKey,
   jamoLabel,

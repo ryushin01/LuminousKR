@@ -54,9 +54,17 @@ export type DrawingSource = 'own' | 'derived' | 'inherited' | 'empty'
 
 const GRID_STEP_LABEL = (n: number) => Math.round(n)
 
-export function createEditor(initialKey: JamoKey = 'L0') {
+/**
+ * @param initialKey 처음 열 자모 (작업실 주소의 ?jamo=)
+ * @param initialLayout 처음 열 배치 (작업실 주소의 ?layout=). 그 자모가 놓이지 않는 배치면 기본 배치
+ */
+export function createEditor(initialKey: JamoKey = 'L0', initialLayout?: LayoutId) {
   const [key, setKey] = createSignal<JamoKey>(initialKey)
-  const [layout, setLayout] = createSignal<LayoutId>(homeLayout(initialKey))
+  const [layout, setLayout] = createSignal<LayoutId>(
+    initialLayout && layoutsOf(initialKey).includes(initialLayout)
+      ? initialLayout
+      : homeLayout(initialKey),
+  )
   const [tool, setToolSignal] = createSignal<Tool>('line')
   const [pending, setPending] = createSignal<Point[]>([])
   const [selectedId, setSelectedId] = createSignal<string | null>(null)

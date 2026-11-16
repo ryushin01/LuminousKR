@@ -14,6 +14,7 @@ import { TextField } from '@/shared/ui/text-field'
 import { TOTAL_GLYPHS, createExporter } from '../model/exporter.ts'
 import { LICENSE_OPTIONS, validateMeta } from '../model/validation.ts'
 import { ConstellationProgress } from './ConstellationProgress.tsx'
+import { ExportCheck } from './ExportCheck.tsx'
 import styles from './ExportPage.module.css'
 
 const PHASE_LABEL = {
@@ -198,6 +199,13 @@ export function ExportPage() {
               </Show>
             </div>
           </form>
+        </Panel>
+
+        <Panel
+          title="만들기 전 확인"
+          description="획이 없는 자모가 있으면 그 자모가 들어간 음절에서 획이 빠집니다."
+        >
+          <ExportCheck />
         </Panel>
 
         <Panel title="만들기" class={styles.build} description="조합된 음절이 하나씩 빛납니다.">

@@ -84,3 +84,21 @@ test('도구·격자 같은 입력에 초점이 있어도 Ctrl+Z로 되돌립니
   await page.keyboard.press('ControlOrMeta+Shift+z')
   await expect(page.getByText('직선, 점 2개')).toBeVisible()
 })
+
+test('작업실 주소로 자모·배치를 열고, 고르면 주소가 바뀌어 새로 고쳐도 이어집니다', async ({
+  page,
+}) => {
+  await openPage(page, '/studio?jamo=V8')
+  await expect(page.getByRole('application', { name: 'ㅗ 중성 그리기 판' })).toBeVisible()
+  await page.getByRole('tab', { name: /초성/ }).click()
+  await page.getByRole('radio', { name: /^ㄴ/ }).check()
+  await expect(page).toHaveURL(/\/studio\?jamo=L2$/)
+  await page.getByRole('radio', { name: /각 모양/ }).check()
+  await expect(page).toHaveURL(/\/studio\?jamo=L2&layout=D$/)
+  await page.reload()
+  await expect(page.getByRole('application', { name: 'ㄴ 초성 그리기 판' })).toBeVisible()
+  await expect(page.getByRole('radio', { name: /각 모양/ })).toBeChecked()
+  // 잘못된 값은 ㄱ 초성·기본 배치로
+  await openPage(page, '/studio?jamo=Z9&layout=Q')
+  await expect(page.getByRole('application', { name: 'ㄱ 초성 그리기 판' })).toBeVisible()
+})

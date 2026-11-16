@@ -43,3 +43,19 @@ test('글꼴 이름을 비우고 만들면 원인을 알리고 그 칸으로 초
   await expect(family).toHaveAttribute('aria-invalid', 'true')
   await expect(family).toHaveAccessibleDescription(/입력해 주세요/)
 })
+
+test('만들기 전 확인: 빈 자모를 알리고 그 자모를 연 작업실로 보냅니다', async ({ page }) => {
+  await openPage(page, '/export')
+  await expect(page.getByText('빈 자모가 없습니다. 11,172자가 모두 그려집니다.')).toBeVisible()
+
+  await openPage(page, '/studio')
+  await page.getByRole('button', { name: '빈 글꼴로 시작' }).click()
+  await page
+    .getByRole('navigation', { name: '작업 단계' })
+    .getByRole('link', { name: '내보내기' })
+    .click()
+  await expect(page.getByText(/획이 없는 자모가 24개 있어 음절 11,172자에서/)).toBeVisible()
+  await page.getByRole('link', { name: /ㅗ 중성 그리기/ }).click()
+  await expect(page).toHaveURL(/\/studio\?jamo=V8$/)
+  await expect(page.getByRole('application', { name: 'ㅗ 중성 그리기 판' })).toBeVisible()
+})
