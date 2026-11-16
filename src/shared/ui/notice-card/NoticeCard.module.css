@@ -1,19 +1,4 @@
-/* 화면 아래쪽에 뜨는 알림 (내용을 밀어내지 않음) */
-.root {
-  position: fixed;
-  right: var(--gutter);
-  bottom: var(--space-4);
-  left: var(--gutter);
-  z-index: 50;
-  display: grid;
-  justify-items: start;
-  pointer-events: none;
-}
-
-/*
- * 알림이 없을 때도 영역은 DOM과 접근성 트리에 남겨(display: none 금지) 바뀐 글자를 화면 낭독기가 읽게 하고,
- * 화면에는 보이지 않게 합니다.
- */
+/* 알림이 없을 때: 화면에서만 숨김(접근성 트리에는 남김) */
 .card {
   position: absolute;
   width: 1px;

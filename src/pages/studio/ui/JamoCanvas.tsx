@@ -26,6 +26,7 @@ export function JamoCanvas(props: { editor: Editor }) {
   const editor = props.editor
   const helpId = createUniqueId()
   let svg!: SVGSVGElement
+  let surface!: HTMLDivElement
   const [focused, setFocused] = createSignal(false)
   const [hovering, setHovering] = createSignal(false)
   let drag: { id: string; index: number; pointer: number } | null = null
@@ -72,8 +73,10 @@ export function JamoCanvas(props: { editor: Editor }) {
 
   const onPointerDown = (event: PointerEvent) => {
     if (event.button !== 0) return
+    // 끌기·글자 고르기를 막느라 기본 동작을 막으면 초점도 옮겨지지 않으므로, 판에 직접 초점을 줍니다
+    // (그래야 이어서 Enter로 획을 마치고 Esc·Delete가 들음).
     event.preventDefault()
-    ;(event.currentTarget as HTMLElement).focus({ preventScroll: true })
+    surface.focus({ preventScroll: true })
     const p = toSyllable(event)
     if (editor.tool() === 'select' && editor.canDraw()) {
       const node = editor.nodeAt(p)
@@ -162,6 +165,7 @@ export function JamoCanvas(props: { editor: Editor }) {
       {/* 그리기 판은 키보드 조작을 직접 구현한 application 역할입니다(안내 문구를 aria-describedby로 연결). */}
       {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
       <div
+        ref={surface}
         class={styles.surface}
         classList={{
           [styles.readonly!]: !editor.canDraw(),

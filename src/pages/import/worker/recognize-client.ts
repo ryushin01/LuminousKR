@@ -1,3 +1,4 @@
+import { isAssetLoadError, reportAssetLoadFailure } from '@/shared/lib/app-update'
 import { RpcClient } from '@/shared/lib/worker-rpc'
 import type { TemplateGeometry } from '../lib/template-geometry.ts'
 import type { RecognizeOptions } from '../lib/recognize.ts'
@@ -9,6 +10,11 @@ const client = new RpcClient<RecognizeMethods>(
       type: 'module',
       name: 'luminous-recognize',
     }),
+  {
+    onWorkerError: (error) => {
+      if (isAssetLoadError(error)) reportAssetLoadFailure()
+    },
+  },
 )
 
 /** 양식 한 쪽을 인식합니다. 그림(ImageBitmap)은 복사 없이 워커로 넘깁니다. */

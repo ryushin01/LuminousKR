@@ -69,3 +69,30 @@
 .footerLink:hover {
   color: var(--c-text);
 }
+
+/* 화면 아래에 떠 있는 알림 자리 (내용을 밀어내지 않음) */
+.notices {
+  position: fixed;
+  right: var(--gutter);
+  bottom: var(--space-4);
+  left: var(--gutter);
+  z-index: 50;
+  display: grid;
+  justify-items: start;
+  gap: var(--space-2);
+  pointer-events: none;
+}
+
+/* 화면을 그리다 난 오류 (오류 경계) */
+.errorPage {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding-bottom: var(--space-8);
+}
+
+.errorActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
