@@ -58,6 +58,31 @@ export function bodyFrame(metrics: Metrics, style: StrokeStyle): BodyFrame {
   }
 }
 
+/** 영문 획 바깥의 위 끝(어센더)과 아래 끝(디센더). 기준선은 0입니다. */
+export const LATIN_ASCENT = 790
+export const LATIN_DESCENT = -145
+
+/**
+ * 영문 글자의 뼈대 틀. 위(0)·아래(1)는 어센더·디센더에서 가로획 굵기의 절반만큼 안쪽이라
+ * 한글 글자 몸처럼 굵기를 바꿔도 획 바깥이 그 높이를 지킵니다. 가로도 같은 단위(틀 높이)라 정사각 비율이고,
+ * 왼쪽은 좌우 여백 + 세로획 굵기의 절반에서 시작합니다.
+ */
+export function latinFrame(metrics: Metrics, style: StrokeStyle): BodyFrame {
+  const { vertical, horizontal } = strokeWidths(style)
+  const yTop = LATIN_ASCENT - horizontal / 2
+  const yBottom = LATIN_DESCENT + horizontal / 2
+  const x0 = metrics.sideBearing + vertical / 2
+  return { x0, x1: x0 + (yTop - yBottom), yTop, yBottom }
+}
+
+/** 영문 글자 너비: 뼈대 너비(틀 높이 = 1) × 틀 높이 + 세로획 굵기 + 좌우 여백 둘 */
+export function latinAdvance(metrics: Metrics, style: StrokeStyle, width: number): number {
+  const frame = latinFrame(metrics, style)
+  return Math.round(
+    width * (frame.yTop - frame.yBottom) + strokeWidths(style).vertical + 2 * metrics.sideBearing,
+  )
+}
+
 export function toFontUnits(frame: BodyFrame, p: Point): Point {
   return {
     x: frame.x0 + p.x * (frame.x1 - frame.x0),

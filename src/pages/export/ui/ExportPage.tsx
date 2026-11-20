@@ -17,7 +17,7 @@ import { Panel } from '@/shared/ui/panel'
 import { SelectField } from '@/shared/ui/select-field'
 import { StatusMessage } from '@/shared/ui/status-message'
 import { TextField } from '@/shared/ui/text-field'
-import { TOTAL_GLYPHS, createExporter } from '../model/exporter.ts'
+import { LATIN_GLYPHS, createExporter, totalGlyphs } from '../model/exporter.ts'
 import { LICENSE_OPTIONS, validateMeta } from '../model/validation.ts'
 import { ConstellationProgress } from './ConstellationProgress.tsx'
 import { ExportCheck } from './ExportCheck.tsx'
@@ -37,6 +37,8 @@ export function ExportPage() {
   const [submitted, setSubmitted] = createSignal(false)
   const [woff, setWoff] = createSignal(true)
   const [woff2, setWoff2] = createSignal(true)
+  /** 영문·숫자·문장부호도 넣을지 (다른 영문 글꼴과 짝지어 쓸 때 끔) */
+  const [latin, setLatin] = createSignal(true)
   /** 지금 굵기와 함께 만들 굵기 등급 (한 가족) */
   const [extraWeights, setExtraWeights] = createSignal<ReadonlySet<number>>(new Set())
   const currentWeightClass = () => weightClassOf(fontProject.style.weight)
@@ -66,7 +68,7 @@ export function ExportPage() {
       queueMicrotask(() => form.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus())
       return
     }
-    void exporter.start({ woff: woff(), woff2: woff2(), weights: weights() })
+    void exporter.start({ woff: woff(), woff2: woff2(), latin: latin(), weights: weights() })
   }
 
   // 다 만든 글꼴 파일을 그대로 등록해 이 화면에서 써 봅니다.
@@ -96,12 +98,13 @@ export function ExportPage() {
       `${meta().familyName.trim() || 'Luminous'}-${meta().styleName.trim() || 'Regular'}`,
     )
   const familyBase = () => safeFileName(meta().familyName.trim() || 'Luminous')
+  const progressTotal = () => exporter.progress()?.total ?? totalGlyphs(latin())
   const progressText = () => {
     const p = exporter.progress()
     if (exporter.state() !== 'building' || !p) return ''
     const m = exporter.member()
     const which = m ? `${WEIGHT_NAMES[m.weightClass]} (${m.index + 1}/${m.total}) · ` : ''
-    return `${which}${PHASE_LABEL[p.phase]}: ${formatNumber(Math.min(p.done, TOTAL_GLYPHS))} / ${formatNumber(TOTAL_GLYPHS)}자`
+    return `${which}${PHASE_LABEL[p.phase]}: ${formatNumber(Math.min(p.done, p.total))} / ${formatNumber(p.total)}자`
   }
   const doneText = () => {
     const r = exporter.result()
@@ -216,6 +219,26 @@ export function ExportPage() {
               </label>
             </fieldset>
 
+            <fieldset class={styles.formats} aria-describedby="latin-hint">
+              <legend>넣을 글자</legend>
+              <label class={styles.check}>
+                <input type="checkbox" checked disabled />
+                한글 음절 11,172자와 낱자 51자
+              </label>
+              <label class={styles.check}>
+                <input
+                  type="checkbox"
+                  checked={latin()}
+                  onChange={(e) => setLatin(e.currentTarget.checked)}
+                />
+                영문·숫자·문장부호 {LATIN_GLYPHS}자
+              </label>
+              <p id="latin-hint" class={styles.hint}>
+                다른 영문 글꼴과 짝지어 쓰려면 끄세요. 끄면 쓰는 곳에서 영문·숫자·문장부호가 다음
+                글꼴로 보입니다.
+              </p>
+            </fieldset>
+
             <fieldset class={styles.formats} aria-describedby="weights-hint">
               <legend>굵기 (한 가족으로 함께 만들기)</legend>
               <p id="weights-hint" class={styles.hint}>
@@ -285,11 +308,11 @@ export function ExportPage() {
             <progress
               id="export-progress"
               class={styles.progress}
-              max={TOTAL_GLYPHS}
+              max={progressTotal()}
               value={
                 exporter.state() === 'done'
-                  ? TOTAL_GLYPHS
-                  : Math.min(exporter.progress()?.done ?? 0, TOTAL_GLYPHS)
+                  ? progressTotal()
+                  : Math.min(exporter.progress()?.done ?? 0, progressTotal())
               }
             />
           </div>

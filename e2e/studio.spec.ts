@@ -105,3 +105,42 @@ test('작업실 주소로 자모·배치를 열고, 고르면 주소가 바뀌�
   await openPage(page, '/studio?jamo=Z9&layout=Q')
   await expect(page.getByRole('application', { name: 'ㄱ 초성 그리기 판' })).toBeVisible()
 })
+
+test('영문·숫자·기호 탭에서 글자를 골라 기본 뼈대를 고치고, 너비를 바꾸고, 되돌립니다', async ({
+  page,
+  consoleErrors,
+}) => {
+  await page.getByRole('tab', { name: /영문/ }).click()
+  await page.getByRole('radio', { name: /대문자 A/ }).check()
+  await expect(page).toHaveURL(/\/studio\?char=A$/)
+  await expect(page.getByRole('application', { name: '대문자 A 그리기 판' })).toBeVisible()
+  // 기본 뼈대는 바로 고칠 수 없고, '직접 고치기'로 가져온 뒤 고칩니다.
+  await page.getByRole('button', { name: '직접 고치기' }).click()
+  const list = page.locator('section', { hasText: '획 목록' })
+  await expect(list.getByText(/^직선, 점 /)).toHaveCount(2)
+  // 너비: 키보드로 한 칸 넓히면 그 글자의 너비(글꼴 단위)가 커집니다.
+  const width = page.getByRole('slider', { name: '이 글자의 너비' })
+  await expect(width).toHaveValue('64')
+  const before = Number((await width.getAttribute('aria-valuetext'))!.replace(/\D/g, ''))
+  await width.focus()
+  await page.keyboard.press('ArrowRight')
+  await expect(width).toHaveValue('65')
+  const after = Number((await width.getAttribute('aria-valuetext'))!.replace(/\D/g, ''))
+  expect(after).toBeGreaterThan(before)
+  await page.getByRole('button', { name: '기본 뼈대로 되돌리기' }).click()
+  await expect(page.getByRole('button', { name: '직접 고치기' })).toBeVisible()
+  // 주소로 기호를 엽니다(@ = %40). 그 글자가 든 탭이 골라져 있습니다.
+  await openPage(page, '/studio?char=%40')
+  await expect(page.getByRole('application', { name: '골뱅이 @ 그리기 판' })).toBeVisible()
+  await expect(page.getByRole('tab', { name: /숫자·기호/ })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  )
+  await expect(page.getByRole('radio', { name: /골뱅이 @/ })).toBeChecked()
+  // 자모를 고르면 자모 편집으로 돌아가고 주소도 바뀝니다.
+  await page.getByRole('tab', { name: /초성/ }).click()
+  await page.getByRole('radio', { name: /^ㄴ/ }).check()
+  await expect(page).toHaveURL(/\/studio\?jamo=L2$/)
+  await expect(page.getByRole('application', { name: 'ㄴ 초성 그리기 판' })).toBeVisible()
+  expect(consoleErrors).toEqual([])
+})

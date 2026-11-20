@@ -8,6 +8,7 @@ export type {
   JamoEntry,
   JamoKey,
   JoinStyle,
+  LatinEntry,
   LayoutBoxes,
   LayoutId,
   LayoutSet,
@@ -40,8 +41,21 @@ export {
   sampleSyllable,
 } from './model/layout.ts'
 export { derivationSources, isDerivable } from './model/derivation.ts'
+export {
+  LATIN_CHARS,
+  LATIN_GUIDES,
+  defaultLatinWidth,
+  isLatinChar,
+  isLatinCode,
+  latinDrawing,
+  latinGroup,
+  latinLabel,
+  latinWidth,
+} from './model/latin.ts'
+export type { LatinGroup } from './model/latin.ts'
 export { BASIC_JAMO_KEYS, createBlankProject, createPresetProject } from './model/preset.ts'
 export {
+  MAX_LATIN_WIDTH,
   MAX_POINTS_PER_STROKE,
   MAX_STROKES_PER_DRAWING,
   ProjectFormatError,
@@ -87,7 +101,16 @@ export {
   strokeWeightFor,
   weightClassOf,
 } from './lib/build-font.ts'
-export { ASCENDER, UNITS_PER_EM, bodyFrame, strokeWidths } from './lib/outline.ts'
+export {
+  ASCENDER,
+  LATIN_ASCENT,
+  LATIN_DESCENT,
+  UNITS_PER_EM,
+  bodyFrame,
+  latinAdvance,
+  latinFrame,
+  strokeWidths,
+} from './lib/outline.ts'
 export type { BodyFrame } from './lib/outline.ts'
 export { hasOwnDrawing, missingDrawings, resolveJamo } from './lib/resolve.ts'
 export { placedStrokesFor } from './lib/composer.ts'

@@ -36,6 +36,19 @@ describe('글꼴 파일 만들기', () => {
     })
   })
 
+  it('영문·숫자·문장부호는 기본으로 넣고, 끄면 한 벌·가족 모두 빼고 만들도록 요청합니다', async () => {
+    const build = vi.fn(async (_project: unknown, _request: { latin?: boolean }) => fakeResult)
+    const zip = vi.fn(async () => new ArrayBuffer(4))
+    await createRoot(async (dispose) => {
+      const exporter = createExporter(build as never, zip as never)
+      await exporter.start({ woff: false })
+      await exporter.start({ woff: false, latin: false })
+      await exporter.start({ woff: false, latin: false, weights: [400, 700] })
+      expect(build.mock.calls.map((call) => call[1].latin)).toEqual([true, false, false, false])
+      dispose()
+    })
+  })
+
   it('실패하면 원인과 다시 시도 방법을 알립니다', async () => {
     const build = vi.fn(() => Promise.reject(new Error('메모리 부족')))
     await createRoot(async (dispose) => {

@@ -171,7 +171,7 @@ test('다른 탭이 읽지 못하는 형식(더 새 버전)으로 저장하면, 
     { key: PROJECT_KEY, text: kept },
   )
   await openPage(page, '/studio')
-  const newer = '{"format":"luminous-kr","version":2,"note":"더 새 버전"}'
+  const newer = '{"format":"luminous-kr","version":3,"note":"더 새 버전"}'
   const other = await context.newPage()
   await other.goto('about:blank')
   await other.goto(page.url().replace(/\/studio.*$/, '/no-such-page'))

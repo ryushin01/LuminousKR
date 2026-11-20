@@ -146,9 +146,10 @@ export function createPresetJamo(): Partial<Record<JamoKey, JamoEntry>> {
 export function createPresetProject(): FontProject {
   return {
     format: 'luminous-kr',
-    version: 1,
+    version: 2,
     name: '루미너스 기본',
     jamo: createPresetJamo(),
+    latin: {},
     style: { weight: 76, contrast: 0.86, cap: 'round', join: 'round', slant: 0 },
     layouts: structuredClone(DEFAULT_LAYOUTS),
     metrics: { advance: 1000, height: 900, sideBearing: 50 },

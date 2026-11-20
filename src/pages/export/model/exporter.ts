@@ -15,8 +15,13 @@ import { isAssetLoadError } from '@/shared/lib/app-update'
 
 export type ExportState = 'idle' | 'building' | 'done' | 'error'
 
-/** 전체 글리프 수: 음절 11,172 + 호환 자모 51 */
-export const TOTAL_GLYPHS = 11_223
+/** 한글 글리프 수: 음절 11,172 + 호환 자모 51 */
+export const HANGUL_GLYPHS = 11_223
+/** 영문·숫자·문장부호 글리프 수 (ASCII 인쇄 글자) */
+export const LATIN_GLYPHS = 94
+
+/** 만들 글리프 수 (빈칸·.notdef 제외) */
+export const totalGlyphs = (latin: boolean) => HANGUL_GLYPHS + (latin ? LATIN_GLYPHS : 0)
 
 /** 만들지 못한 까닭과 할 일. 입력이 글꼴 규격에 담기지 않으면(RangeError) 다시 눌러도 같으므로 고칠 것만 알립니다. */
 function buildErrorText(cause: unknown): string {
@@ -66,8 +71,13 @@ export function memberProject(project: FontProject, weightClass: number): FontPr
  * (상태 신호는 다음 렌더에야 버튼을 막으므로 그 사이의 두 번째 클릭을 막지 못함)
  * 굵기를 여럿 고르면 벌마다 차례로 만들고(같은 작업 스레드), 모두 ZIP 하나로 묶습니다.
  */
-/** OTF와 함께 만들 웹 글꼴 형식 */
-type WebFormats = { woff: boolean; woff2?: boolean }
+/** OTF와 함께 만들 웹 글꼴 형식과 넣을 글자 범위 */
+type BuildOptions = {
+  woff: boolean
+  woff2?: boolean
+  /** 영문·숫자·문장부호도 넣을지 (기본 넣음) */
+  latin?: boolean
+}
 
 export function createExporter(build = buildFontFile, zip = zipFiles) {
   const [state, setState] = createSignal<ExportState>('idle')
@@ -81,7 +91,7 @@ export function createExporter(build = buildFontFile, zip = zipFiles) {
 
   async function buildFamily(
     weights: readonly number[],
-    formats: WebFormats,
+    formats: Required<BuildOptions>,
     signal: AbortSignal,
   ): Promise<void> {
     // 만드는 동안 글꼴 정보·획을 고쳐도 모든 벌이 같은 가족이 되도록, 시작할 때의 프로젝트 하나로 만듭니다.
@@ -90,7 +100,7 @@ export function createExporter(build = buildFontFile, zip = zipFiles) {
     for (const [index, weightClass] of weights.entries()) {
       if (signal.aborted) throw new AbortedError()
       setMember({ index, total: weights.length, weightClass })
-      setProgress({ phase: 'compose', done: 0, total: TOTAL_GLYPHS })
+      setProgress({ phase: 'compose', done: 0, total: totalGlyphs(formats.latin) })
       const project = memberProject(snapshot, weightClass)
       const built = await build(
         project,
@@ -113,7 +123,7 @@ export function createExporter(build = buildFontFile, zip = zipFiles) {
   }
 
   /** @param weights 함께 만들 굵기 등급. 둘 이상이면 한 가족으로 만들어 ZIP으로 묶음 */
-  async function start(options: WebFormats & { weights?: readonly number[] }): Promise<void> {
+  async function start(options: BuildOptions & { weights?: readonly number[] }): Promise<void> {
     if (locked) return
     locked = true
     controller = new AbortController()
@@ -123,18 +133,18 @@ export function createExporter(build = buildFontFile, zip = zipFiles) {
     setResult(null)
     setFamily(null)
     setMember(null)
-    setProgress({ phase: 'compose', done: 0, total: TOTAL_GLYPHS })
+    const formats = {
+      woff: options.woff,
+      woff2: options.woff2 ?? false,
+      latin: options.latin ?? true,
+    }
+    setProgress({ phase: 'compose', done: 0, total: totalGlyphs(formats.latin) })
     const weights = [...new Set(options.weights ?? [])].sort((a, b) => a - b)
     try {
       if (weights.length > 1) {
-        const formats = { woff: options.woff, woff2: options.woff2 ?? false }
         await buildFamily(weights, formats, signal)
       } else {
-        const built = await build(
-          fontProject,
-          { woff: options.woff, woff2: options.woff2 ?? false },
-          { onProgress: setProgress, signal },
-        )
+        const built = await build(fontProject, formats, { onProgress: setProgress, signal })
         setResult(built)
       }
       setState('done')

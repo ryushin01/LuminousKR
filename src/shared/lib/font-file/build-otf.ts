@@ -45,6 +45,10 @@ export type FontMetrics = {
   weightClass: number
   /** 기울기(도). 오른쪽으로 기울면 음수입니다(post.italicAngle 규칙). */
   italicAngle: number
+  /** 소문자 x의 높이(OS/2 sxHeight). 없으면 1em의 절반 */
+  xHeight?: number
+  /** 대문자 H의 높이(OS/2 sCapHeight). 없으면 어센더의 0.8 */
+  capHeight?: number
 }
 
 /** 윤곽선을 opentype.js Path로 옮깁니다. 마지막 직선이 시작점으로 돌아오면 생략합니다. */
@@ -196,8 +200,8 @@ export function buildOtf(
     achVendID: 'LMKR',
     fsType: 0, // 설치 가능한 글꼴 (사용 제한 없음)
     ulCodePageRange1: CODEPAGE_KOREAN_WANSUNG,
-    sxHeight: half,
-    sCapHeight: Math.round(metrics.ascender * 0.8),
+    sxHeight: metrics.xHeight ?? half,
+    sCapHeight: metrics.capHeight ?? Math.round(metrics.ascender * 0.8),
     usDefaultChar: 0,
     usBreakChar: 32,
     yStrikeoutSize: Math.round(metrics.unitsPerEm * 0.05),

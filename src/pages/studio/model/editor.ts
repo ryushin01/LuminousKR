@@ -1,6 +1,7 @@
 /* eslint-disable solid/reactivity -- 이 파일의 함수들은 화면의 이벤트 처리기에서만 불립니다. */
 import { batch, createMemo, createSignal } from 'solid-js'
 import {
+  type Box,
   type JamoKey,
   type LayoutId,
   MAX_POINTS_PER_STROKE,
@@ -15,6 +16,11 @@ import {
   homeLayout,
   isDerivable,
   jamoLabel,
+  latinAdvance,
+  latinDrawing,
+  latinFrame,
+  latinLabel,
+  latinWidth as latinWidthOf,
   layoutsOf,
   placedStrokesFor,
   strokeToSyllable,
@@ -22,6 +28,7 @@ import {
 import { LAYOUT_INFO } from '@/entities/font'
 import { clampPoint, hitNode, hitStroke, samePoint, snapPoint } from '../lib/canvas-geometry.ts'
 import {
+  type EditTarget,
   addStroke,
   adoptStrokes,
   clearDrawing,
@@ -31,6 +38,7 @@ import {
   moveStroke,
   removeDrawing,
   removeStroke,
+  setLatinWidth as storeLatinWidth,
   setStrokeSmooth,
 } from '../lib/drawing-ops.ts'
 
@@ -45,21 +53,32 @@ export const TOOL_LABEL: Record<Tool, string> = {
 
 /**
  * 그리는 그림이 어디서 왔는지
- * - own: 이 배치에서 직접 그린 그림 (고칠 수 있음)
+ * - own: 이 배치(영문은 이 글자)에서 직접 그린 그림 (고칠 수 있음)
  * - derived: 다른 자모로 자동으로 만든 그림 (ㄲ = ㄱ + ㄱ 등)
  * - inherited: 기본 배치의 그림을 이 배치 틀에 맞춘 것
+ * - preset: 영문·숫자·문장부호의 기본 뼈대
  * - empty: 아무것도 없음 (바로 그리면 직접 그린 그림이 됨)
  */
-export type DrawingSource = 'own' | 'derived' | 'inherited' | 'empty'
+export type DrawingSource = 'own' | 'derived' | 'inherited' | 'preset' | 'empty'
+
+/** 영문 글자는 그 글자의 뼈대 틀 전체가 그림 좌표입니다. */
+const WHOLE_BOX: Box = { x0: 0, y0: 0, x1: 1, y1: 1 }
 
 const GRID_STEP_LABEL = (n: number) => Math.round(n)
 
 /**
  * @param initialKey 처음 열 자모 (작업실 주소의 ?jamo=)
  * @param initialLayout 처음 열 배치 (작업실 주소의 ?layout=). 그 자모가 놓이지 않는 배치면 기본 배치
+ * @param initialLatin 처음 열 영문·숫자·문장부호 (작업실 주소의 ?char=). 있으면 자모 대신 이 글자를 엽니다.
  */
-export function createEditor(initialKey: JamoKey = 'L0', initialLayout?: LayoutId) {
+export function createEditor(
+  initialKey: JamoKey = 'L0',
+  initialLayout?: LayoutId,
+  initialLatin?: string,
+) {
   const [key, setKey] = createSignal<JamoKey>(initialKey)
+  /** 고르고 있는 영문 글자 (자모를 고치는 중이면 null) */
+  const [latin, setLatin] = createSignal<string | null>(initialLatin ?? null)
   const [layout, setLayout] = createSignal<LayoutId>(
     initialLayout && layoutsOf(initialKey).includes(initialLayout)
       ? initialLayout
@@ -73,26 +92,55 @@ export function createEditor(initialKey: JamoKey = 'L0', initialLayout?: LayoutI
   const [snap, setSnap] = createSignal(true)
   const [announcement, setAnnouncement] = createSignal('')
 
-  const target = () => ({ key: key(), layout: layout() })
-  const box = createMemo(() => frameBox(fontProject.layouts, key(), layout()))
-  const frame = createMemo(() => bodyFrame(fontProject.metrics, fontProject.style))
+  const isLatin = () => latin() !== null
+  const target = (): EditTarget => {
+    const char = latin()
+    return char === null ? { key: key(), layout: layout() } : { latin: char }
+  }
+  /** 고치는 대상의 이름 (예: 'ㄱ 초성', '대문자 A') */
+  const label = () => {
+    const char = latin()
+    return char === null ? jamoLabel(key()) : latinLabel(char)
+  }
+  const box = createMemo(() =>
+    isLatin() ? WHOLE_BOX : frameBox(fontProject.layouts, key(), layout()),
+  )
+  const frame = createMemo(() =>
+    isLatin()
+      ? latinFrame(fontProject.metrics, fontProject.style)
+      : bodyFrame(fontProject.metrics, fontProject.style),
+  )
   const ownDrawing = () => drawingOf(fontProject, target())
   const ownStrokes = createMemo(() =>
     (ownDrawing()?.strokes ?? []).map((s) => strokeToSyllable(s, box())),
   )
-  /** 이 배치에서 실제로 쓰이는 획 (직접 그린 것이 없을 때 참고로 보여 줌) */
-  const placedStrokes = createMemo(() => placedStrokesFor(fontProject, key(), layout()))
+  /** 실제로 쓰이는 획 (직접 그린 것이 없을 때 참고로 보여 줌). 영문은 직접 그린 것이 없으면 기본 뼈대 */
+  const placedStrokes = createMemo<PlacedStroke[]>(() => {
+    const char = latin()
+    return char === null
+      ? placedStrokesFor(fontProject, key(), layout())
+      : [...latinDrawing(fontProject, char).strokes]
+  })
 
   const source = createMemo<DrawingSource>(() => {
     if (ownDrawing()) return 'own'
     if (placedStrokes().length === 0) return 'empty'
+    if (isLatin()) return 'preset'
     return layout() === homeLayout(key()) && isDerivable(key()) && !fontProject.jamo[key()]?.base
       ? 'derived'
       : 'inherited'
   })
   /** 바로 그릴 수 있는지 (직접 그린 그림이 있거나 비어 있을 때) */
   const canDraw = () => source() === 'own' || source() === 'empty'
-  const isHome = () => layout() === homeLayout(key())
+  const isHome = () => isLatin() || layout() === homeLayout(key())
+
+  /** 영문 글자의 뼈대 너비 (틀 높이 = 1) */
+  const latinWidth = () => {
+    const char = latin()
+    return char === null ? 0 : latinWidthOf(fontProject, char)
+  }
+  /** 영문 글자의 너비(글꼴 단위): 뼈대 너비 + 세로획 굵기 + 좌우 여백 */
+  const latinAdvanceUnits = () => latinAdvance(fontProject.metrics, fontProject.style, latinWidth())
 
   const say = (message: string) => setAnnouncement(message)
   const gridLabel = (p: Point) =>
@@ -102,6 +150,7 @@ export function createEditor(initialKey: JamoKey = 'L0', initialLayout?: LayoutI
 
   function selectJamo(next: JamoKey) {
     batch(() => {
+      setLatin(null)
       setKey(next)
       setLayout(homeLayout(next))
       setPending([])
@@ -110,8 +159,25 @@ export function createEditor(initialKey: JamoKey = 'L0', initialLayout?: LayoutI
     say(`${jamoLabel(next)}을 골랐습니다. '${LAYOUT_INFO[homeLayout(next)].sample}' 모양 틀입니다.`)
   }
 
+  /** 영문·숫자·문장부호 한 글자를 고릅니다. */
+  function selectLatin(char: string) {
+    batch(() => {
+      setLatin(char)
+      setPending([])
+      setSelectedId(null)
+    })
+    say(`'${latinLabel(char)}' 글자를 골랐습니다.`)
+  }
+
+  /** 영문 글자의 뼈대 너비를 바꿉니다 (끄는 동안의 변경은 되돌리기 한 번으로 묶음). */
+  function setLatinWidth(width: number) {
+    const char = latin()
+    if (char === null) return
+    editProject((draft) => storeLatinWidth(draft, char, width), { coalesce: `latin-width-${char}` })
+  }
+
   function selectLayout(next: LayoutId) {
-    if (!layoutsOf(key()).includes(next)) return
+    if (isLatin() || !layoutsOf(key()).includes(next)) return
     batch(() => {
       setLayout(next)
       setPending([])
@@ -134,7 +200,7 @@ export function createEditor(initialKey: JamoKey = 'L0', initialLayout?: LayoutI
   function strokesFull(): boolean {
     if (ownStrokes().length < MAX_STROKES_PER_DRAWING) return false
     say(
-      `자모 하나에는 획을 ${MAX_STROKES_PER_DRAWING}개까지 넣을 수 있습니다. 쓰지 않는 획을 지운 뒤 그려 주세요.`,
+      `${isLatin() ? '글자' : '자모'} 하나에는 획을 ${MAX_STROKES_PER_DRAWING}개까지 넣을 수 있습니다. 쓰지 않는 획을 지운 뒤 그려 주세요.`,
     )
     return true
   }
@@ -157,7 +223,11 @@ export function createEditor(initialKey: JamoKey = 'L0', initialLayout?: LayoutI
   /** 지금 도구로 점 하나를 놓습니다 (포인터 누름·스페이스). */
   function place(raw: Point) {
     if (!canDraw() && tool() !== 'select') {
-      say('이 그림은 자동으로 만들어진 것입니다. 먼저 "직접 그리기"를 눌러 주세요.')
+      say(
+        isLatin()
+          ? '기본 뼈대입니다. 먼저 "직접 고치기"를 눌러 주세요.'
+          : '이 그림은 자동으로 만들어진 것입니다. 먼저 "직접 그리기"를 눌러 주세요.',
+      )
       return
     }
     const p = normalize(raw)
@@ -275,7 +345,7 @@ export function createEditor(initialKey: JamoKey = 'L0', initialLayout?: LayoutI
     return hitNode(p, ownStrokes(), 0.035)
   }
 
-  /** 자동·기본 획을 가져와 이 배치에서 직접 고칠 수 있게 합니다. */
+  /** 자동·기본 획(영문은 기본 뼈대)을 가져와 직접 고칠 수 있게 합니다. */
   function adopt() {
     const strokes = placedStrokes()
     const problem = drawingLimitError(strokes)
@@ -285,9 +355,11 @@ export function createEditor(initialKey: JamoKey = 'L0', initialLayout?: LayoutI
     }
     editProject((draft) => adoptStrokes(draft, target(), box(), strokes))
     say(
-      isHome()
-        ? '자동으로 만든 획을 가져왔습니다. 이제 직접 고칠 수 있습니다.'
-        : '이 배치만 따로 그립니다. 다른 배치는 그대로입니다.',
+      isLatin()
+        ? '기본 뼈대를 가져왔습니다. 이제 직접 고칠 수 있습니다.'
+        : isHome()
+          ? '자동으로 만든 획을 가져왔습니다. 이제 직접 고칠 수 있습니다.'
+          : '이 배치만 따로 그립니다. 다른 배치는 그대로입니다.',
     )
   }
 
@@ -295,18 +367,24 @@ export function createEditor(initialKey: JamoKey = 'L0', initialLayout?: LayoutI
     editProject((draft) => clearDrawing(draft, target()))
     setSelectedId(null)
     setPending([])
-    say('이 자모의 획을 모두 지웠습니다.')
+    say(
+      isLatin()
+        ? '이 글자의 획을 모두 지웠습니다. 획이 없는 글자는 글꼴에 넣지 않습니다.'
+        : '이 자모의 획을 모두 지웠습니다.',
+    )
   }
 
-  /** 직접 그린 것을 지우고 자동(파생) 또는 기본 그림으로 되돌립니다. */
+  /** 직접 그린 것을 지우고 자동(파생)·기본 그림(영문은 기본 뼈대)으로 되돌립니다. */
   function revert() {
     editProject((draft) => removeDrawing(draft, target()))
     setSelectedId(null)
     setPending([])
     say(
-      isHome()
-        ? '자동으로 만든 획으로 되돌렸습니다.'
-        : '이 배치의 따로 그린 획을 지우고 기본 획을 씁니다.',
+      isLatin()
+        ? '기본 뼈대로 되돌렸습니다.'
+        : isHome()
+          ? '자동으로 만든 획으로 되돌렸습니다.'
+          : '이 배치의 따로 그린 획을 지우고 기본 획을 씁니다.',
     )
   }
 
@@ -320,6 +398,11 @@ export function createEditor(initialKey: JamoKey = 'L0', initialLayout?: LayoutI
   return {
     key,
     layout,
+    latin,
+    isLatin,
+    label,
+    latinWidth,
+    latinAdvance: latinAdvanceUnits,
     tool,
     pending,
     selectedId,
@@ -338,6 +421,8 @@ export function createEditor(initialKey: JamoKey = 'L0', initialLayout?: LayoutI
     setDivisions,
     setSnap,
     selectJamo,
+    selectLatin,
+    setLatinWidth,
     selectLayout,
     setTool,
     place,

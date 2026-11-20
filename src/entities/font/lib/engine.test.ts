@@ -2,7 +2,7 @@
 import { brotliCompressSync } from 'node:zlib'
 import { parse } from 'opentype.js/dist/opentype.mjs'
 import { describe, expect, it } from 'vitest'
-import { type Contour, cubicPoint } from '@/shared/lib/geometry'
+import { type Contour, type Point, cubicPoint } from '@/shared/lib/geometry'
 import { SYLLABLE_BASE, composeCode } from '@/shared/lib/hangul'
 import { ALL_JAMO_KEYS, homeLayout } from '../model/layout.ts'
 import { createPresetProject } from '../model/preset.ts'
@@ -15,8 +15,9 @@ import {
   weightClassOf,
 } from './build-font.ts'
 import { ComponentCache, Composer, placedStrokesFor } from './composer.ts'
-import { bodyFrame, expandStrokes, pathsBounds, pathsToContours } from './outline.ts'
+import { bodyFrame, expandStrokes, pathsBounds, pathsToContours, toFontUnits } from './outline.ts'
 import type { PlacedStroke } from './resolve.ts'
+import { insideContours } from './test-helpers.ts'
 
 const line = (x0: number, y0: number, x1: number, y1: number): PlacedStroke => ({
   kind: 'path',
@@ -156,8 +157,32 @@ describe('음절 조합', () => {
     }
   })
 
-  it('한글이 아닌 글자는 빈 윤곽입니다', () => {
-    expect(new Composer(createPresetProject()).glyphContours('A'.codePointAt(0)!)).toEqual([])
+  it('좁은 틀의 ㅅ(쌍시옷 ㅆ)도 두 다리 사이가 메워지지 않습니다', () => {
+    // 다리 사이 각이 30°보다 좁아도 곡선 맞춤이 틈 끝을 '바늘'로 보고 지우면 안 됩니다(1.5.0까지의 결함).
+    for (const weight of [30, 76]) {
+      const project = createPresetProject()
+      project.style.weight = weight
+      const frame = bodyFrame(project.metrics, project.style)
+      const contours = new Composer(project).glyphContours('싸'.codePointAt(0)!)
+      const legs = placedStrokesFor(project, 'L10', 'A').filter(
+        (s) => s.kind === 'path' && s.points.length === 3,
+      )
+      expect(legs).toHaveLength(2)
+      for (const stroke of legs) {
+        if (stroke.kind !== 'path') continue
+        const [left, apex, right] = stroke.points as [Point, Point, Point]
+        // 꼭대기에서 두 발 가운데로 60% 내려온 점: 다리 사이의 빈 곳
+        const gap = {
+          x: apex.x + 0.6 * ((left.x + right.x) / 2 - apex.x),
+          y: apex.y + 0.6 * ((left.y + right.y) / 2 - apex.y),
+        }
+        expect(insideContours(contours, toFontUnits(frame, gap)), `굵기 ${weight}`).toBe(false)
+      }
+    }
+  })
+
+  it('한글·영문이 아닌 글자(한자 등)는 빈 윤곽입니다', () => {
+    expect(new Composer(createPresetProject()).glyphContours('一'.codePointAt(0)!)).toEqual([])
   })
 
   it('쌍자음 ㄲ은 ㄱ 획을 두 번 씁니다', () => {
@@ -205,9 +230,9 @@ describe('글꼴 파일 만들기', () => {
     expect(postScriptName('Luminous Modular', 'Regular')).toBe('LuminousModular-Regular')
   })
 
-  it('전체 글꼴에는 낱자 51자와 음절 11,172자가 들어갑니다', () => {
+  it('전체 글꼴에는 영문·숫자·문장부호 94자, 낱자 51자, 음절 11,172자가 들어갑니다', () => {
     const codes = glyphCodes()
-    expect(codes).toHaveLength(11_223)
+    expect(codes).toHaveLength(94 + 11_223)
     expect(codes.filter((c) => c >= SYLLABLE_BASE)).toHaveLength(11_172)
   })
 
@@ -218,13 +243,14 @@ describe('글꼴 파일 만들기', () => {
       { chars: '빛나는 한글 ㄱ A', woff: true },
       (p) => progress.push(p.phase),
     )
-    expect(result.glyphCount).toBe(2 + 6)
+    expect(result.glyphCount).toBe(2 + 7)
     expect(result.syllableCount).toBe(5)
     expect(progress).toContain('encode')
     expect(result.woff!.byteLength).toBeLessThan(result.otf.byteLength)
     const font = parse(result.otf)
     expect(font.charToGlyph('빛').name).toBe('uniBE5B')
     expect(font.charToGlyph('ㄱ').name).toBe('uni3131')
+    expect(font.charToGlyph('A').name).toBe('uni0041')
     expect(font.names.windows.fontFamily).toMatchObject({
       en: 'Luminous Modular',
       ko: '루미너스 모듈',
