@@ -21,7 +21,12 @@ export const TOTAL_GLYPHS = 11_223
 /** 만들지 못한 까닭과 할 일. 입력이 글꼴 규격에 담기지 않으면(RangeError) 다시 눌러도 같으므로 고칠 것만 알립니다. */
 function buildErrorText(cause: unknown): string {
   if (isAssetLoadError(cause)) {
-    return '글꼴 파일을 만들지 못했습니다. 작업 스레드를 불러오지 못했습니다(새 버전이 나왔거나 연결이 끊겼을 수 있음). 화면 아래의 새로 고침을 눌러 주세요. 작업은 자동 저장되어 있습니다.'
+    // ChunkLoadError: 작업 스레드 안에서 나중에 받는 파일(WOFF2 압축기 WASM)을 받지 못함
+    const what =
+      cause instanceof Error && cause.name === 'ChunkLoadError'
+        ? 'WOFF2 압축기를 받지 못했습니다'
+        : '작업 스레드를 불러오지 못했습니다'
+    return `글꼴 파일을 만들지 못했습니다. ${what}(새 버전이 나왔거나 연결이 끊겼을 수 있음). 화면 아래의 새로 고침을 눌러 주세요. 작업은 자동 저장되어 있습니다.`
   }
   const message = cause instanceof Error ? cause.message : String(cause)
   if (cause instanceof Error && cause.name === 'RangeError') {
@@ -61,6 +66,9 @@ export function memberProject(project: FontProject, weightClass: number): FontPr
  * (상태 신호는 다음 렌더에야 버튼을 막으므로 그 사이의 두 번째 클릭을 막지 못함)
  * 굵기를 여럿 고르면 벌마다 차례로 만들고(같은 작업 스레드), 모두 ZIP 하나로 묶습니다.
  */
+/** OTF와 함께 만들 웹 글꼴 형식 */
+type WebFormats = { woff: boolean; woff2?: boolean }
+
 export function createExporter(build = buildFontFile, zip = zipFiles) {
   const [state, setState] = createSignal<ExportState>('idle')
   const [progress, setProgress] = createSignal<BuildProgress | null>(null)
@@ -73,7 +81,7 @@ export function createExporter(build = buildFontFile, zip = zipFiles) {
 
   async function buildFamily(
     weights: readonly number[],
-    woff: boolean,
+    formats: WebFormats,
     signal: AbortSignal,
   ): Promise<void> {
     // 만드는 동안 글꼴 정보·획을 고쳐도 모든 벌이 같은 가족이 되도록, 시작할 때의 프로젝트 하나로 만듭니다.
@@ -86,7 +94,7 @@ export function createExporter(build = buildFontFile, zip = zipFiles) {
       const project = memberProject(snapshot, weightClass)
       const built = await build(
         project,
-        { woff, member: { weightClass } },
+        { ...formats, member: { weightClass } },
         { onProgress: setProgress, signal },
       )
       const fileBase = familyMemberNames(project, weightClass).postScriptName
@@ -96,6 +104,7 @@ export function createExporter(build = buildFontFile, zip = zipFiles) {
       // 결과 파일은 화면에서도 쓰므로 복사본을 넘깁니다.
       { name: `${m.fileBase}.otf`, data: m.result.otf.slice(0) },
       ...(m.result.woff ? [{ name: `${m.fileBase}.woff`, data: m.result.woff.slice(0) }] : []),
+      ...(m.result.woff2 ? [{ name: `${m.fileBase}.woff2`, data: m.result.woff2.slice(0) }] : []),
     ])
     const packed = await zip(entries, signal)
     const current = weightClassOf(snapshot.style.weight)
@@ -104,7 +113,7 @@ export function createExporter(build = buildFontFile, zip = zipFiles) {
   }
 
   /** @param weights 함께 만들 굵기 등급. 둘 이상이면 한 가족으로 만들어 ZIP으로 묶음 */
-  async function start(options: { woff: boolean; weights?: readonly number[] }): Promise<void> {
+  async function start(options: WebFormats & { weights?: readonly number[] }): Promise<void> {
     if (locked) return
     locked = true
     controller = new AbortController()
@@ -118,11 +127,12 @@ export function createExporter(build = buildFontFile, zip = zipFiles) {
     const weights = [...new Set(options.weights ?? [])].sort((a, b) => a - b)
     try {
       if (weights.length > 1) {
-        await buildFamily(weights, options.woff, signal)
+        const formats = { woff: options.woff, woff2: options.woff2 ?? false }
+        await buildFamily(weights, formats, signal)
       } else {
         const built = await build(
           fontProject,
-          { woff: options.woff },
+          { woff: options.woff, woff2: options.woff2 ?? false },
           { onProgress: setProgress, signal },
         )
         setResult(built)

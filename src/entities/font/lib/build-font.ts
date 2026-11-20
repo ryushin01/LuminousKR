@@ -1,4 +1,11 @@
-import { buildOtf, sfntToWoff, type FontNames, type GlyphSpec } from '@/shared/lib/font-file'
+import {
+  brotliCompress,
+  buildOtf,
+  sfntToWoff,
+  sfntToWoff2,
+  type FontNames,
+  type GlyphSpec,
+} from '@/shared/lib/font-file'
 import type { Contour } from '@/shared/lib/geometry'
 import {
   COMPAT_JAMO_FIRST,
@@ -17,6 +24,8 @@ export type BuildRequest = {
   /** 이 글자만 넣은 작은 글꼴(미리보기용). 없으면 전체(음절 11,172자 + 호환 자모 51자) */
   chars?: string
   woff: boolean
+  /** WOFF2(brotli)도 만들지 */
+  woff2?: boolean
   /** 굵기 여러 벌을 한 가족으로 만들 때 이 벌의 굵기 등급(100~900). 이름·스타일 연결을 가족 규칙으로 */
   member?: { weightClass: number }
 }
@@ -24,6 +33,7 @@ export type BuildRequest = {
 export type BuildResult = {
   otf: ArrayBuffer
   woff?: ArrayBuffer
+  woff2?: ArrayBuffer
   glyphCount: number
   syllableCount: number
   durationMs: number
@@ -189,6 +199,8 @@ export async function buildFont(
   request: BuildRequest,
   onProgress?: (progress: BuildProgress) => void,
   cache?: ComponentCache,
+  /** WOFF2용 brotli 압축기 (시험에서 바꿔 끼움) */
+  brotli: (data: Uint8Array) => Promise<Uint8Array> = brotliCompress,
 ): Promise<BuildResult> {
   const started = performance.now()
   const composer = new Composer(project, cache)
@@ -224,13 +236,14 @@ export async function buildFont(
   })
 
   let woff: ArrayBuffer | undefined
-  if (request.woff) {
-    onProgress?.({ phase: 'compress', done: total, total })
-    woff = await sfntToWoff(otf)
-  }
+  let woff2: ArrayBuffer | undefined
+  if (request.woff || request.woff2) onProgress?.({ phase: 'compress', done: total, total })
+  if (request.woff) woff = await sfntToWoff(otf)
+  if (request.woff2) woff2 = await sfntToWoff2(otf, brotli)
   return {
     otf,
     woff,
+    woff2,
     glyphCount: glyphs.length,
     syllableCount,
     durationMs: Math.round(performance.now() - started),

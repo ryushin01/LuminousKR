@@ -116,15 +116,18 @@ rmSync(join(dist, '.vite'), { recursive: true, force: true })
 /**
  * 배포하는 웹 폰트는 SIL OFL 1.1이라 사본마다 저작권과 사용 허락을 함께 줘야 합니다.
  * 줄인 글꼴 파일의 이름 표(저작권·라이선스 설명·주소)에 더해, 전문을 licenses/에 둡니다.
+ * WOFF2 압축에 쓰는 WASM(brotli-wasm)도 함께 배포하므로 그 사용 허락(Apache-2.0)도 둡니다
+ * (그 안의 rust-brotli 전문은 public/licenses/에 있음).
  */
 const LICENSES = [
   ['LuminousSans-OFL.txt', '../src/app/styles/fonts/luminous-sans/OFL.txt'],
   ['Syne-OFL.txt', '../node_modules/@fontsource-variable/syne/LICENSE'],
+  ['brotli-wasm-Apache-2.0.txt', '../node_modules/brotli-wasm/LICENSE'],
 ]
 mkdirSync(join(dist, 'licenses'), { recursive: true })
 for (const [name, from] of LICENSES)
   copyFileSync(fileURLToPath(new URL(from, import.meta.url)), join(dist, 'licenses', name))
 
 console.log(
-  `화면 ${ROUTES.length - 1}개의 HTML 사본과 404.html을 만들고, 화면마다 조각·첫 화면 글꼴 ${fontFiles.length}개 미리 받기를 넣었습니다. 웹 폰트 라이선스 ${LICENSES.length}개를 licenses/에 두었습니다.`,
+  `화면 ${ROUTES.length - 1}개의 HTML 사본과 404.html을 만들고, 화면마다 조각·첫 화면 글꼴 ${fontFiles.length}개 미리 받기를 넣었습니다. 웹 폰트·WASM 라이선스 ${LICENSES.length}개를 licenses/에 두었습니다.`,
 )

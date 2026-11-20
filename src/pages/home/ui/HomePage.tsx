@@ -29,7 +29,7 @@ const STEPS = [
   {
     number: '03',
     title: '글꼴 파일로 내보냅니다',
-    body: 'Web Worker가 화면을 멈추지 않고 11,172자를 조합하고, opentype.js로 OTF와 WOFF 파일을 만듭니다. 그림은 이 브라우저 밖으로 나가지 않습니다.',
+    body: 'Web Worker가 화면을 멈추지 않고 11,172자를 조합하고, opentype.js로 OTF와 WOFF·WOFF2 파일을 만듭니다. 그림은 이 브라우저 밖으로 나가지 않습니다.',
   },
 ]
 
@@ -64,7 +64,7 @@ export function HomePage() {
           </h1>
           <p class={styles.lead}>
             초성·중성·종성의 뼈대 획만 그리면 나머지는 조합기가 맞춥니다. 굵기·끝 모양·기울기를
-            바꾸면 모든 글자가 한꺼번에 바뀌고, 브라우저 안에서 바로 OTF·WOFF 글꼴 파일로
+            바꾸면 모든 글자가 한꺼번에 바뀌고, 브라우저 안에서 바로 OTF·WOFF·WOFF2 글꼴 파일로
             내보냅니다.
           </p>
           <div class={styles.actions}>

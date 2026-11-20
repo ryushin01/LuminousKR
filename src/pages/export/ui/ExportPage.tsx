@@ -26,7 +26,7 @@ import styles from './ExportPage.module.css'
 const PHASE_LABEL = {
   compose: '음절 조합',
   encode: 'OTF 파일 쓰기',
-  compress: 'WOFF 압축',
+  compress: '웹 글꼴 압축',
 } as const
 
 let resultFamilySeq = 0
@@ -36,6 +36,7 @@ export function ExportPage() {
   const exporter = createExporter()
   const [submitted, setSubmitted] = createSignal(false)
   const [woff, setWoff] = createSignal(true)
+  const [woff2, setWoff2] = createSignal(true)
   /** 지금 굵기와 함께 만들 굵기 등급 (한 가족) */
   const [extraWeights, setExtraWeights] = createSignal<ReadonlySet<number>>(new Set())
   const currentWeightClass = () => weightClassOf(fontProject.style.weight)
@@ -65,7 +66,7 @@ export function ExportPage() {
       queueMicrotask(() => form.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus())
       return
     }
-    void exporter.start({ woff: woff(), weights: weights() })
+    void exporter.start({ woff: woff(), woff2: woff2(), weights: weights() })
   }
 
   // 다 만든 글꼴 파일을 그대로 등록해 이 화면에서 써 봅니다.
@@ -120,7 +121,7 @@ export function ExportPage() {
         number="05"
         label="내보내기"
         title="11,172자를 글꼴 파일로"
-        lead="글꼴 이름을 정하고 만들기를 누르면 작업 스레드(Web Worker)가 모든 음절을 조합해 OTF와 WOFF 파일을 만듭니다. 파일은 이 브라우저 안에서만 만들어집니다."
+        lead="글꼴 이름을 정하고 만들기를 누르면 작업 스레드(Web Worker)가 모든 음절을 조합해 OTF와 웹 글꼴(WOFF·WOFF2) 파일을 만듭니다. 파일은 이 브라우저 안에서만 만들어집니다."
       />
       <div class={styles.grid}>
         <Panel title="글꼴 정보" class={styles.form}>
@@ -204,6 +205,14 @@ export function ExportPage() {
                   onChange={(e) => setWoff(e.currentTarget.checked)}
                 />
                 WOFF (웹 글꼴, zlib 압축)
+              </label>
+              <label class={styles.check}>
+                <input
+                  type="checkbox"
+                  checked={woff2()}
+                  onChange={(e) => setWoff2(e.currentTarget.checked)}
+                />
+                WOFF2 (웹 글꼴, brotli 압축으로 WOFF보다 작음)
               </label>
             </fieldset>
 
@@ -334,6 +343,18 @@ export function ExportPage() {
                         </Button>
                       )}
                     </Show>
+                    <Show when={result().woff2}>
+                      {(file) => (
+                        <Button
+                          variant="secondary"
+                          onClick={() => downloadFile(file(), `${fileBase()}.woff2`, 'font/woff2')}
+                        >
+                          <Icon name="download" size={18} />
+                          WOFF2 받기{' '}
+                          <span class={styles.size}>{formatBytes(file().byteLength)}</span>
+                        </Button>
+                      )}
+                    </Show>
                   </div>
                 </Show>
                 <Show when={resultFamily()}>
@@ -351,9 +372,9 @@ export function ExportPage() {
                   </figure>
                 </Show>
                 <p class={styles.install}>
-                  OTF 파일을 두 번 눌러 설치하면 다른 프로그램에서도 쓸 수 있습니다. 웹에서는 WOFF
-                  파일을 @font-face로 연결하세요. 영문·숫자·문장부호는 들어 있지 않아 다른 글꼴로
-                  보입니다.
+                  OTF 파일을 두 번 눌러 설치하면 다른 프로그램에서도 쓸 수 있습니다. 웹에서는
+                  WOFF2(옛 브라우저까지는 WOFF) 파일을 @font-face로 연결하세요. 영문·숫자·문장부호는
+                  들어 있지 않아 다른 글꼴로 보입니다.
                 </p>
               </div>
             )}
