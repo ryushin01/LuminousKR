@@ -4,6 +4,8 @@
   display: grid;
   grid-template-rows: auto 1fr auto;
   min-height: 100dvh;
+  /* 알림이 떠 있으면 그만큼 아래를 비워, 끝까지 내리면 본문·바닥글이 알림 위로 올라오게 함 */
+  padding-bottom: var(--notices-space, 0px);
 }
 
 .skip {

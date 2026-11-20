@@ -83,12 +83,7 @@ export function SiteHeader() {
         <span class="visually-hidden">전체 메뉴 열기</span>
       </Button>
 
-      <dialog
-        ref={dialog}
-        class={styles.menu}
-        aria-labelledby={titleId}
-        onClose={onMenuClose}
-      >
+      <dialog ref={dialog} class={styles.menu} aria-labelledby={titleId} onClose={onMenuClose}>
         <div class={styles.menuTop}>
           <Brand />
           <Button variant="orbit" onClick={closeMenu}>
