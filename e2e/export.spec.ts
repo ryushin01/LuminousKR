@@ -51,7 +51,7 @@ test('만들기 전 확인: 빈 자모를 알리고 그 자모를 연 작업실�
   await openPage(page, '/studio')
   await page.getByRole('button', { name: '빈 글꼴로 시작' }).click()
   await page
-    .getByRole('navigation', { name: '작업 단계' })
+    .getByRole('navigation', { name: '주 메뉴' })
     .getByRole('link', { name: '내보내기' })
     .click()
   await expect(page.getByText(/획이 없는 자모가 24개 있어 음절 11,172자에서/)).toBeVisible()
