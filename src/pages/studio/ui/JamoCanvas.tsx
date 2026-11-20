@@ -9,6 +9,7 @@ import {
   sampleSyllable,
 } from '@/entities/font'
 import { boxToSvg, strokeToSvgPath, toSvg, fromSvg } from '../lib/canvas-geometry.ts'
+import { type Press, isDoubleTap } from '../lib/double-tap.ts'
 import { ellipseFromCorners } from '../lib/drawing-ops.ts'
 import type { Editor } from '../model/editor.ts'
 import styles from './JamoCanvas.module.css'
@@ -30,6 +31,8 @@ export function JamoCanvas(props: { editor: Editor }) {
   const [focused, setFocused] = createSignal(false)
   const [hovering, setHovering] = createSignal(false)
   let drag: { id: string; index: number; pointer: number } | null = null
+  /** 손가락·펜으로 마지막에 누른 자리 (두 번 누르기 판정) */
+  let lastTap: Press | null = null
 
   const advance = () => fontProject.metrics.advance
   const frame = editor.frame
@@ -86,6 +89,16 @@ export function JamoCanvas(props: { editor: Editor }) {
         svg.setPointerCapture(event.pointerId)
         return
       }
+    }
+    // 손가락·펜은 두 번 누르기를 직접 알아봐, 점을 더하지 않고 획을 마칩니다(마우스는 dblclick).
+    if (event.pointerType !== 'mouse' && editor.tool() !== 'select') {
+      const press = { time: event.timeStamp, x: event.clientX, y: event.clientY }
+      if (isDoubleTap(lastTap, press)) {
+        lastTap = null
+        editor.finish()
+        return
+      }
+      lastTap = press
     }
     editor.place(p)
   }
