@@ -79,10 +79,15 @@ export function parseSaved(text: string): FontProject {
 
 /** 지금 저장되어 있는 원문 (없거나 저장소에 닿지 못하면 null) */
 export function readSavedText(storage: Storage | undefined): string | null {
+  return tryReadSavedText(storage) ?? null
+}
+
+/** 지금 저장되어 있는 원문. 없으면 null, 저장소에 닿지 못했거나 읽다 실패하면 undefined(값 없음과 구분할 때) */
+export function tryReadSavedText(storage: Storage | undefined): string | null | undefined {
   try {
-    return storage?.getItem(STORAGE_KEY) ?? null
+    return storage ? storage.getItem(STORAGE_KEY) : undefined
   } catch {
-    return null
+    return undefined
   }
 }
 

@@ -765,6 +765,31 @@ describe('다른 탭과 쓰기 차례 맞추기(Web Locks)', () => {
     expect(storage.getItem(STORAGE_KEY)).toBe(broken)
   })
 
+  it('버린 원문이 원래 자리에 남았는지 읽지 못하면(저장소 읽기 실패) 바꿔 쓰기를 미루고 쓰지 못했다고 알리며, 다시 읽히면 마저 씁니다', () => {
+    const shared = sharedLocks()
+    vi.stubGlobal('navigator', { locks: shared.locks })
+    const storage = memoryStorage()
+    const broken = '{"format":"luminous-kr","version":9}'
+    storage.setItem(STORAGE_KEY, broken)
+    const loaded = loadSaved(storage)
+    resetProjectStoreForTest(createPresetProject(), {
+      storage,
+      kept: loaded.kept,
+      seen: loaded.text,
+    })
+    shared.holdForever()
+    discardKeptUnreadable()
+    const getItem = storage.getItem
+    storage.getItem = () => {
+      throw new DOMException('저장소 읽기 실패', 'SecurityError')
+    }
+    expect(flushProjectSave()).toBe(false)
+    storage.getItem = getItem
+    expect(flushProjectSave()).toBe(true)
+    expect(storage.getItem(STORAGE_KEY)).not.toBe(broken)
+    expect(loadSaved(storage).kept).toEqual([])
+  })
+
   it('버린 원문을 기다리는 사이 다른 탭이 원래 자리를 새 작업으로 바꿨으면, 닫기 직전 저장이 그 작업을 덮지 않습니다', () => {
     const shared = sharedLocks()
     vi.stubGlobal('navigator', { locks: shared.locks })

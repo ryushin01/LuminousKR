@@ -12,6 +12,7 @@ import {
   readSavedText,
   removeKept,
   serializeProject,
+  tryReadSavedText,
   withWriteLock,
   writeSaved,
 } from './persistence.ts'
@@ -105,10 +106,12 @@ function writeNow(): boolean {
 /**
  * 버린 원문이 아직 원래 자리에 있으면 지금 작업으로 바꿔 씁니다. 원래 자리가 이미 다른 것(다른 탭의 새 작업 등)이면
  * 덮지 않고 그만둡니다(그 작업은 storage 이벤트로 받아 맞추거나, 다시 열 때 읽음).
- * 쓰지 못하면(저장 공간 초과 등) 남겨 두어, 닫기 직전 저장이 다시 써 보고 새로 고침에 쓰지 못한 것으로 알립니다.
+ * 쓰지 못하거나(저장 공간 초과 등) 원래 자리를 읽지 못하면(남았는지 모름) 남겨 두어, 닫기 직전 저장이 다시 해 보고
+ * 새로 고침에 쓰지 못한 것으로 알립니다.
  */
 function retireDiscarded(): void {
-  const current = readSavedText(storage)
+  const current = tryReadSavedText(storage)
+  if (current === undefined) return
   if (current !== null && discarded.includes(current) && !writeNow()) return
   discarded = []
 }
