@@ -5,6 +5,7 @@
  * 이름도 함께 쓰며 그 때문에 Apple 전용 ltag 표를 넣습니다. 글꼴 검사기(fontbakery)는 이를 모두 실패로 보므로,
  * 이름 표를 Windows(유니코드) 레코드만, 빈 값은 빼고 다시 쓰고 ltag를 뺍니다.
  */
+import { subroutinizeCff } from './cff-subrs.ts'
 import { readSfntTables } from './woff.ts'
 
 export type SfntTable = { tag: number; data: Uint8Array }
@@ -23,6 +24,7 @@ const tag = (text: string) =>
 const TAG_HEAD = tag('head')
 const TAG_NAME = tag('name')
 const TAG_LTAG = tag('ltag')
+const TAG_CFF = tag('CFF ')
 
 /** 표 체크섬: 4바이트 큰 끝 정수의 합 (모자란 끝은 0으로 채움) */
 export function tableChecksum(data: Uint8Array): number {
@@ -202,6 +204,9 @@ export function tidySfnt(sfnt: ArrayBuffer, patch: { macStyle?: number } = {}): 
         tag: TAG_NAME,
         data: buildNameTable(keepWindowsNames(parseNameTable(table.data))),
       })
+    } else if (table.tag === TAG_CFF) {
+      // 자모 조각처럼 되풀이되는 윤곽을 전역 서브루틴으로 옮겨 OTF를 줄입니다(cff-subrs.ts).
+      next.push({ tag: TAG_CFF, data: subroutinizeCff(table.data) })
     } else if (table.tag === TAG_HEAD && patch.macStyle !== undefined) {
       const data = table.data.slice()
       new DataView(data.buffer).setUint16(44, patch.macStyle)

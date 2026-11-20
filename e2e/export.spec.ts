@@ -21,7 +21,10 @@ test('11,172자 글꼴을 만들고 OTF·WOFF·WOFF2 파일을 받습니다 (두
   const otfBytes = readFileSync((await otf.path())!)
   expect(otf.suggestedFilename()).toBe('Luminous-Modular-Regular.otf')
   expect(otfBytes.subarray(0, 4).toString('latin1')).toBe('OTTO')
-  expect(otfBytes.length).toBeGreaterThan(2_000_000)
+  // 11,225글리프 전체(미리보기용 작은 글꼴이 아님)이면서, 되풀이되는 윤곽을 서브루틴으로 옮겨 1 MB 아래
+  // (옮기지 않으면 3.8 MB)
+  expect(otfBytes.length).toBeGreaterThan(400_000)
+  expect(otfBytes.length).toBeLessThan(1_000_000)
 
   const [woff] = await Promise.all([
     page.waitForEvent('download'),
