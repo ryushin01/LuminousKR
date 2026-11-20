@@ -713,6 +713,79 @@ describe('다른 탭과 쓰기 차례 맞추기(Web Locks)', () => {
     expect(savedWeight(storage)).toBe(90)
   })
 
+  it('보관 원문을 편집 없이 지우고 잠금을 기다리는 사이 새로 고쳐도, 닫기 직전 저장이 원래 자리를 마저 바꿔 써서 다시 보관되지 않습니다', () => {
+    const shared = sharedLocks()
+    vi.stubGlobal('navigator', { locks: shared.locks })
+    const storage = memoryStorage()
+    const broken = '{"format":"luminous-kr","version":9}'
+    storage.setItem(STORAGE_KEY, broken)
+    const loaded = loadSaved(storage)
+    resetProjectStoreForTest(createPresetProject(), {
+      storage,
+      kept: loaded.kept,
+      seen: loaded.text,
+    })
+    shared.holdForever()
+    discardKeptUnreadable()
+    expect(flushProjectSave()).toBe(true)
+    expect(storage.getItem(STORAGE_KEY)).not.toBe(broken)
+    expect(loadSaved(storage).kept).toEqual([])
+  })
+
+  it('보관하지 못한 원래 작업을 편집 없이 버리고 잠금을 기다리는 사이 새로 고쳐도, 원래 자리를 지금 작업으로 바꿔 씁니다', () => {
+    const shared = sharedLocks()
+    vi.stubGlobal('navigator', { locks: shared.locks })
+    const storage = memoryStorage()
+    storage.setItem(STORAGE_KEY, '{원래 작업')
+    resetProjectStoreForTest(createPresetProject(), { storage, inPlace: '{원래 작업' })
+    shared.holdForever()
+    discardInPlaceUnreadable()
+    expect(flushProjectSave()).toBe(true)
+    expect(storage.getItem(STORAGE_KEY)).not.toBe('{원래 작업')
+    expect(savedWeight(storage)).toBe(76)
+  })
+
+  it('버린 원문을 지금 작업으로 바꿔 쓰지 못하면(저장 공간 초과) 새로 고치기 전에 쓰지 못했다고 알립니다', () => {
+    const shared = sharedLocks()
+    vi.stubGlobal('navigator', { locks: shared.locks })
+    const storage = memoryStorage()
+    const broken = '{"format":"luminous-kr","version":9}'
+    storage.setItem(STORAGE_KEY, broken)
+    const loaded = loadSaved(storage)
+    resetProjectStoreForTest(createPresetProject(), {
+      storage,
+      kept: loaded.kept,
+      seen: loaded.text,
+    })
+    shared.holdForever()
+    discardKeptUnreadable()
+    storage.full = true
+    expect(flushProjectSave()).toBe(false)
+    expect(projectSaveFailure()).toBe('quota')
+    expect(storage.getItem(STORAGE_KEY)).toBe(broken)
+  })
+
+  it('버린 원문을 기다리는 사이 다른 탭이 원래 자리를 새 작업으로 바꿨으면, 닫기 직전 저장이 그 작업을 덮지 않습니다', () => {
+    const shared = sharedLocks()
+    vi.stubGlobal('navigator', { locks: shared.locks })
+    const storage = memoryStorage()
+    const broken = '{"format":"luminous-kr","version":9}'
+    storage.setItem(STORAGE_KEY, broken)
+    const loaded = loadSaved(storage)
+    resetProjectStoreForTest(createPresetProject(), {
+      storage,
+      kept: loaded.kept,
+      seen: loaded.text,
+    })
+    shared.holdForever()
+    discardKeptUnreadable()
+    const other = createPresetProject()
+    other.style.weight = 144
+    storage.setItem(STORAGE_KEY, JSON.stringify(other)) // 다른 탭의 쓰기(이벤트는 아직 오지 않음)
+    expect(flushProjectSave()).toBe(true)
+    expect(savedWeight(storage)).toBe(144)
+  })
+
   it('탭을 닫기 직전의 저장은 잠금을 기다리지 않고 바로 씁니다', () => {
     const shared = sharedLocks()
     vi.stubGlobal('navigator', { locks: shared.locks })

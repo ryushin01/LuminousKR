@@ -59,6 +59,12 @@ let lastSeen: string | null = loaded.text
  * 있으면 다른 탭의 저장을 받아도 이 탭의 작업을 덮어쓰지 않습니다.
  */
 let dirty = false
+/**
+ * 사용자가 버렸지만 아직 원래 자리(STORAGE_KEY)에 남아 있을 수 있는 읽지 못한 원문들(보관 원문 지우기, 원래 작업 버리기).
+ * 원래 자리에 그대로 있으면 지금 작업으로 바꿔 써야 다시 열 때 다시 보관되거나 저장이 다시 멈추지 않습니다.
+ * 바꿔 쓰기는 잠금을 기다리므로, 그사이 새로 고치거나 닫으면 닫기 직전 저장이 마저 씁니다.
+ */
+let discarded: string[] = []
 
 // 되돌리기용 복사본은 추적하지 않고 그 순간의 값을 뜹니다.
 const snapshot = (): FontProject => structuredClone(unwrap(project))
@@ -82,10 +88,10 @@ function canOverwrite(): boolean {
 
 /**
  * 지금 작업을 저장소에 바로 씁니다. 쓰기 바로 전에 저장된 값을 확인하므로, 다른 탭과 차례를 맞추려면
- * withWriteLock 안에서 부릅니다(기다릴 수 없는 닫기 직전 저장만 바로 부름).
+ * withWriteLock 안에서 부릅니다(기다릴 수 없는 닫기 직전 저장만 바로 부름). 썼으면 true
  */
-function writeNow(): void {
-  if (pause() || !canOverwrite()) return
+function writeNow(): boolean {
+  if (pause() || !canOverwrite()) return false
   const text = serializeProject(unwrap(project))
   const outcome = writeSaved(storage, text)
   if (outcome === 'ok') {
@@ -93,6 +99,18 @@ function writeNow(): void {
     dirty = false
   }
   setSaveFailure(outcome === 'ok' ? null : outcome)
+  return outcome === 'ok'
+}
+
+/**
+ * 버린 원문이 아직 원래 자리에 있으면 지금 작업으로 바꿔 씁니다. 원래 자리가 이미 다른 것(다른 탭의 새 작업 등)이면
+ * 덮지 않고 그만둡니다(그 작업은 storage 이벤트로 받아 맞추거나, 다시 열 때 읽음).
+ * 쓰지 못하면(저장 공간 초과 등) 남겨 두어, 닫기 직전 저장이 다시 써 보고 새로 고침에 쓰지 못한 것으로 알립니다.
+ */
+function retireDiscarded(): void {
+  const current = readSavedText(storage)
+  if (current !== null && discarded.includes(current) && !writeNow()) return
+  discarded = []
 }
 
 function clearSaveTimer(): void {
@@ -119,15 +137,18 @@ function scheduleSave(): void {
 
 /**
  * 기다리는 저장(또는 실패한 저장)이 있으면 바로 씁니다 (탭을 닫거나 새로 고치기 직전).
+ * 버린 원문을 바꿔 쓰는 일이 잠금을 기다리고 있으면 그것도 마저 합니다.
  * 닫히는 탭은 잠금을 기다릴 수 없으므로 잠금 없이 씁니다.
- * 이 탭의 변경이 모두 저장소에 있으면 true. 저장에 실패했거나 저장을 멈춘 동안 고친 것이 있으면 false.
+ * 이 탭의 변경이 모두 저장소에 있으면 true. 저장에 실패했거나 저장을 멈춘 동안 고친 것이 있거나,
+ * 버린 원문을 바꿔 쓰지 못했으면 false.
  */
 export function flushProjectSave(): boolean {
   if (saveTimer !== undefined || dirty) {
     clearSaveTimer()
     writeNow()
   }
-  return !dirty
+  if (discarded.length) retireDiscarded()
+  return !dirty && discarded.length === 0
 }
 
 function syncHistorySignals(): void {
@@ -204,12 +225,14 @@ function releaseInPlace(overwrite: boolean): void {
   setInPlaceText(null)
   if (pause() !== 'unreadable-here') return
   setPause(null)
+  if (overwrite) discarded.push(text)
   // 확인과 쓰기를 한 잠금 안에서 해, 그사이 다른 탭이 쓴 새 저장을 이 탭의 작업으로 덮지 않습니다.
   // eslint-disable-next-line solid/reactivity -- 잠금을 받은 그때의 값을 읽습니다(추적할 화면이 아님).
   withWriteLock(() => {
     const current = storageChangeToAdopt()
     if (current !== null) receiveOtherTabSave(current)
-    else if (overwrite || dirty) writeNow()
+    else if (dirty) writeNow()
+    retireDiscarded()
   })
 }
 
@@ -253,11 +276,8 @@ export function discardKeptUnreadable(): void {
       shown.map((entry) => entry.key),
     ),
   )
-  // eslint-disable-next-line solid/reactivity -- 잠금을 받은 그때의 값을 읽습니다(추적할 화면이 아님).
-  withWriteLock(() => {
-    const current = readSavedText(storage)
-    if (current !== null && shown.some((entry) => entry.text === current)) writeNow()
-  })
+  discarded.push(...shown.map((entry) => entry.text))
+  withWriteLock(retireDiscarded)
 }
 
 /**
@@ -434,6 +454,7 @@ export function resetProjectStoreForTest(
   storage = options.storage ?? projectStorage()
   lastSeen = options.seen ?? null
   dirty = false
+  discarded = []
   setProject(reconcile(structuredClone(next)))
   clearHistory()
   setSaveFailure(null)
