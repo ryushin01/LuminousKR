@@ -75,9 +75,12 @@ test('도구·격자 같은 입력에 초점이 있어도 Ctrl+Z로 되돌립니
   await canvas.focus()
   for (const key of ['Space', 'ArrowRight', 'Space', 'Enter']) await page.keyboard.press(key)
   await expect(page.getByText('직선, 점 2개')).toBeVisible()
-  // 도구를 고르면 초점이 라디오에 남습니다.
-  await page.getByRole('radio', { name: '곡선' }).check()
-  await expect(page.getByRole('radio', { name: '곡선' })).toBeFocused()
+  // 도구를 키보드로 고르면 초점이 라디오에 남습니다(Safari는 눌러서 고른 라디오에는 초점을 주지 않음).
+  const curve = page.getByRole('radio', { name: '곡선' })
+  await curve.focus()
+  await page.keyboard.press('Space')
+  await expect(curve).toBeChecked()
+  await expect(curve).toBeFocused()
   await page.keyboard.press('ControlOrMeta+z')
   await expect(page.getByText('직접 그린 획이 없습니다.')).toBeVisible()
   await page.getByRole('checkbox', { name: '격자에 맞추기' }).focus()

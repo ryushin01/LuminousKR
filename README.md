@@ -53,7 +53,7 @@
 | 글꼴·그래픽 | opentype.js 2, Clipper2(clipper2-ts), Web Worker, CompressionStream(WOFF), brotli-wasm(WOFF2), FontFace API, WebGL2(GLSL), SVG |
 | 이미지·PDF | pdf.js(읽기), 직접 만든 PDF 쓰기, OffscreenCanvas, 적응형 이진화·호모그래피·Zhang–Suen 세선화 |
 | 스타일 | CSS Modules, CSS 변수 토큰, 웹 폰트 Syne(영문)·IBM Plex Sans KR(한글) |
-| 품질 | ESLint(eslint-plugin-solid, jsx-a11y), Prettier, Steiger(FSD), Vitest + Solid Testing Library, Playwright E2E(axe 접근성, 화면 폭별 넘침, 키보드 그리기, 파일·인식 검증, Storybook 스토리 검사) |
+| 품질 | ESLint(eslint-plugin-solid, jsx-a11y), Prettier, Steiger(FSD), Vitest + Solid Testing Library, Playwright E2E(크로미움·WebKit, axe 접근성, 화면 폭별 넘침, 키보드·터치 그리기, 파일·인식 검증, Storybook 스토리 검사) |
 | 문서 | Storybook 10 (storybook-solidjs-vite, addon-a11y) |
 | 배포 | GitHub Pages, GitHub Actions |
 

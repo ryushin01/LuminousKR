@@ -7,8 +7,11 @@ test('11,172자 글꼴을 만들고 OTF·WOFF·WOFF2 파일을 받습니다 (두
 }) => {
   await openPage(page, '/export')
   const submit = page.getByRole('button', { name: '글꼴 파일 만들기' })
-  await submit.dblclick()
-  // 만드는 동안 버튼이 초점을 잃지 않습니다 (disabled 대신 aria-disabled).
+  // 키보드로 두 번 눌러도 한 번만 만들고, 만드는 동안 버튼이 초점을 잃지 않습니다(disabled 대신 aria-disabled).
+  // (마우스로는 Safari가 누른 버튼에 초점을 주지 않으므로 키보드로 봅니다. 두 번 눌러도 한 번만은 단위 시험에도 있음)
+  await submit.focus()
+  await page.keyboard.press('Enter')
+  await page.keyboard.press('Enter')
   await expect(page.getByRole('button', { name: '만드는 중…' })).toBeFocused()
   const otfButton = page.getByRole('button', { name: /OTF 받기/ })
   await expect(otfButton).toBeVisible({ timeout: 60_000 })

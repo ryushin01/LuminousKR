@@ -35,15 +35,29 @@ export function SiteHeader() {
 
   const openMenu = () => dialog.showModal()
   const closeMenu = () => dialog.close()
+  /**
+   * 화면을 옮겨 닫을 때는 여는 버튼으로 초점을 되돌리지 않습니다. 새 화면 제목이 초점을 받는데(AppShell),
+   * close 이벤트는 작업으로 미뤄 오므로 WebKit처럼 그 사이 그리기가 먼저 오면 제목에 간 초점을 버튼이 다시 가져갑니다.
+   */
+  let closingForNavigation = false
 
   // 메뉴에서 화면을 옮기면 닫습니다.
   createEffect(
     on(
       () => location.pathname,
-      () => dialog?.open && dialog.close(),
+      () => {
+        if (!dialog?.open) return
+        closingForNavigation = true
+        dialog.close()
+      },
       { defer: true },
     ),
   )
+
+  const onMenuClose = () => {
+    if (!closingForNavigation) toggle.focus()
+    closingForNavigation = false
+  }
 
   return (
     <header class={styles.header}>
@@ -69,12 +83,7 @@ export function SiteHeader() {
         <span class="visually-hidden">전체 메뉴 열기</span>
       </Button>
 
-      <dialog
-        ref={dialog}
-        class={styles.menu}
-        aria-labelledby={titleId}
-        onClose={() => toggle.focus()}
-      >
+      <dialog ref={dialog} class={styles.menu} aria-labelledby={titleId} onClose={onMenuClose}>
         <div class={styles.menuTop}>
           <Brand />
           <Button variant="orbit" onClick={closeMenu}>

@@ -1,5 +1,5 @@
 import { type RouteSectionProps, useLocation } from '@solidjs/router'
-import { ErrorBoundary, Suspense, createEffect, on } from 'solid-js'
+import { ErrorBoundary, Suspense, createEffect, on, onCleanup, onMount } from 'solid-js'
 import { UpdateNotice } from '@/features/app-update'
 import { AutosaveStatus } from '@/features/autosave-status'
 import { motionPaused } from '@/shared/lib/motion'
@@ -21,9 +21,41 @@ function focusPageHeading(): void {
   })
 }
 
+/**
+ * 화면 아래에 떠 있는 알림이 차지하는 높이(알림 위 끝에서 화면 아래까지)를 --notices-space로 둡니다.
+ * 좁은 화면에서 알림 여럿이 본문 버튼을 덮지 않게 페이지 아래를 그만큼 비우고, 초점이 가려지지 않게 합니다.
+ */
+function trackNoticesSpace(notices: HTMLElement): void {
+  if (typeof ResizeObserver === 'undefined') return
+  const root = document.documentElement
+  let frame = 0
+  let last = ''
+  const update = () => {
+    frame = 0
+    const rect = notices.getBoundingClientRect()
+    const space = rect.height > 0 ? `${Math.ceil(window.innerHeight - rect.top) + 8}px` : '0px'
+    if (space === last) return
+    last = space
+    root.style.setProperty('--notices-space', space)
+  }
+  // 관찰 콜백 안에서 레이아웃을 바꾸면(아래 여백 → 스크롤바 → 폭) 같은 프레임에 알림이 또 생겨 WebKit이
+  // 'ResizeObserver loop' 오류를 남기므로, 다음 프레임으로 미뤄 값이 바뀔 때만 씁니다.
+  const observer = new ResizeObserver(() => {
+    if (!frame) frame = requestAnimationFrame(update)
+  })
+  observer.observe(notices)
+  onCleanup(() => {
+    observer.disconnect()
+    cancelAnimationFrame(frame)
+    root.style.removeProperty('--notices-space')
+  })
+}
+
 export function AppShell(props: RouteSectionProps) {
   const location = useLocation()
   let resetError: (() => void) | undefined
+  let notices!: HTMLDivElement
+  onMount(() => trackNoticesSpace(notices))
   createEffect(
     on(
       () => location.pathname,
@@ -64,7 +96,7 @@ export function AppShell(props: RouteSectionProps) {
       </main>
       <SiteFooter />
       {/* 화면 아래에 떠서 내용을 밀어내지 않는 알림들 */}
-      <div class={styles.notices}>
+      <div ref={notices} class={styles.notices}>
         <UpdateNotice />
         <AutosaveStatus />
       </div>
