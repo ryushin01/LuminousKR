@@ -8,6 +8,7 @@
  * 모든 화면의 첫 화면에 쓰는 글꼴(제목 700·본문 400·머리글 600 한글, 영문 Syne)도 미리 받습니다.
  * CSS를 읽은 뒤에야 요청하면 첫 그리기 뒤에 도착해, 대체 글꼴로 그린 제목의 줄 수가 바뀌며 아래가 밀립니다(CLS).
  */
+import { createHash } from 'node:crypto'
 import { copyFileSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -128,6 +129,45 @@ mkdirSync(join(dist, 'licenses'), { recursive: true })
 for (const [name, from] of LICENSES)
   copyFileSync(fileURLToPath(new URL(from, import.meta.url)), join(dist, 'licenses', name))
 
+/**
+ * 서비스 워커(dist/sw.js): 한 번 연 뒤에는 연결이 끊겨도 열리게 합니다(원본은 scripts/sw-template.js).
+ * 설치할 때 화면별 HTML, assets/의 JS·CSS, 화면 글자 글꼴을 미리 받고, 쓸 때만 받는 것(pdf.js, WOFF2 압축기,
+ * 글자 조각)은 쓸 때 저장합니다. 판 이름은 자산 이름과 HTML에서 만들어 바뀌면 화면 캐시를 새로 씁니다.
+ */
+const OPTIONAL_ASSETS = [/^pdf[-.]/, /^index\.web-/]
+const PRECACHE_FONTS = [
+  /^luminous-sans-\d+-ui-[\w-]+\.woff2$/,
+  /^syne-latin-wght-normal-[\w-]+\.woff2$/,
+]
+const precacheAssets = assetNames.filter(
+  (name) =>
+    (/\.(js|css)$/.test(name) && !OPTIONAL_ASSETS.some((pattern) => pattern.test(name))) ||
+    PRECACHE_FONTS.some((pattern) => pattern.test(name)),
+)
+const precache = [
+  ...ROUTES.map((route) => (route.path ? `./${route.path}/` : './')),
+  ...precacheAssets.map((name) => `./assets/${name}`),
+]
+const swVersion = createHash('sha256')
+  .update(JSON.stringify([assetNames, html]))
+  .digest('hex')
+  .slice(0, 12)
+const swTemplate = readFileSync(fileURLToPath(new URL('./sw-template.js', import.meta.url)), 'utf8')
+const fills = [
+  ["'__VERSION__'", `'${swVersion}'`],
+  ['/* __PRECACHE__ */ []', JSON.stringify(precache)],
+  ['/* __KNOWN_ASSETS__ */ []', JSON.stringify(assetNames)],
+]
+let sw = swTemplate
+for (const [mark, value] of fills) {
+  if (!sw.includes(mark)) throw new Error(`서비스 워커 원본에 ${mark} 자리가 없습니다.`)
+  sw = sw.replace(mark, value)
+}
+writeFileSync(
+  join(dist, 'sw.js'),
+  `// scripts/postbuild.mjs가 만든 파일입니다. 직접 고치지 마세요.\n${sw}`,
+)
+
 console.log(
-  `화면 ${ROUTES.length - 1}개의 HTML 사본과 404.html을 만들고, 화면마다 조각·첫 화면 글꼴 ${fontFiles.length}개 미리 받기를 넣었습니다. 웹 폰트·WASM 라이선스 ${LICENSES.length}개를 licenses/에 두었습니다.`,
+  `화면 ${ROUTES.length - 1}개의 HTML 사본과 404.html을 만들고, 화면마다 조각·첫 화면 글꼴 ${fontFiles.length}개 미리 받기를 넣었습니다. 웹 폰트·WASM 라이선스 ${LICENSES.length}개를 licenses/에 두었습니다. 서비스 워커는 ${precache.length}개를 미리 받습니다(판 ${swVersion}).`,
 )

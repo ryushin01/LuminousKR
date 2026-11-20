@@ -5,6 +5,7 @@ import { reportAssetLoadFailure } from '@/shared/lib/app-update'
 import './styles/index.css'
 import { AppRouter } from './routes/AppRouter.tsx'
 import { attachRestFonts } from './lib/attachRestFonts'
+import { registerServiceWorker } from './lib/registerServiceWorker'
 import restFontsCss from './styles/fonts/luminous-sans-rest.css?url'
 
 const root = document.getElementById('root')
@@ -18,3 +19,5 @@ window.addEventListener('vite:preloadError', reportAssetLoadFailure)
 render(() => <AppRouter />, root)
 // 나머지 한글(화면 글자 파일에 없는 글자, 입력한 문장 등)은 첫 화면 뒤에 붙임
 attachRestFonts(restFontsCss)
+// 한 번 연 뒤에는 연결이 끊겨도 열리게 함(프로덕션 빌드만)
+registerServiceWorker()
