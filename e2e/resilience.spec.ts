@@ -119,75 +119,87 @@ test('자동 저장하지 못한 변경이 있으면 새로 고치지 않고 알
   expect(await page.evaluate(() => sessionStorage.getItem('full'))).toBe('1')
 })
 
-test('이 탭에만 남은 원래 작업(읽지 못하고 보관하지 못한 저장)이 있으면 새로 고치지 않고 알립니다', async ({
-  context,
-  page,
-}) => {
-  const key = 'luminous-kr:project:v1'
-  // 다른 탭이 덮어쓸, 읽을 수 있는 작업을 먼저 만듭니다.
-  const seed = await context.newPage()
-  await openPage(seed, '/preview')
-  await seed.getByRole('slider', { name: '굵기' }).fill('130')
-  await expect.poll(() => seed.evaluate((name) => localStorage.getItem(name), key)).not.toBeNull()
-  const readable = (await seed.evaluate((name) => localStorage.getItem(name), key))!
-  await seed.close()
+// 좁은 화면에서는 아래 알림 두 개가 본문 버튼을 덮기 쉬우므로(iPhone 에뮬레이션에서 발견) 두 너비에서 봅니다.
+for (const viewport of [null, { width: 393, height: 659 }]) {
+  const where = viewport ? ` (가로 ${viewport.width}px)` : ''
+  test(`이 탭에만 남은 원래 작업(읽지 못하고 보관하지 못한 저장)이 있으면 새로 고치지 않고 알립니다${where}`, async ({
+    context,
+    page,
+  }) => {
+    if (viewport) await page.setViewportSize(viewport)
+    const key = 'luminous-kr:project:v1'
+    // 다른 탭이 덮어쓸, 읽을 수 있는 작업을 먼저 만듭니다.
+    const seed = await context.newPage()
+    await openPage(seed, '/preview')
+    await seed.getByRole('slider', { name: '굵기' }).fill('130')
+    await expect.poll(() => seed.evaluate((name) => localStorage.getItem(name), key)).not.toBeNull()
+    const readable = (await seed.evaluate((name) => localStorage.getItem(name), key))!
+    await seed.close()
 
-  // 열지 못하는 저장 + 그것을 따로 보관할 공간이 없는 상황 → 원래 자리를 지키려고 자동 저장을 멈춤
-  const broken = '{"format":"luminous-kr","version":99}'
-  await page.addInitScript(
-    ({ name, text }) => {
-      if (!sessionStorage.getItem('seeded')) {
-        localStorage.setItem(name, text)
-        sessionStorage.setItem('seeded', '1')
-      }
-      const setItem = Storage.prototype.setItem
-      Storage.prototype.setItem = function (item: string, value: string) {
-        if (item.startsWith(`${name}:unreadable:`)) {
-          throw new DOMException('가득 참', 'QuotaExceededError')
+    // 열지 못하는 저장 + 그것을 따로 보관할 공간이 없는 상황 → 원래 자리를 지키려고 자동 저장을 멈춤
+    const broken = '{"format":"luminous-kr","version":99}'
+    await page.addInitScript(
+      ({ name, text }) => {
+        if (!sessionStorage.getItem('seeded')) {
+          localStorage.setItem(name, text)
+          sessionStorage.setItem('seeded', '1')
         }
-        return setItem.call(this, item, value)
-      }
-    },
-    { name: key, text: broken },
-  )
-  await openPage(page, '/preview')
-  await expect(page.getByRole('alert').filter({ hasText: '자동 저장을 멈췄습니다' })).toBeVisible()
+        const setItem = Storage.prototype.setItem
+        Storage.prototype.setItem = function (item: string, value: string) {
+          if (item.startsWith(`${name}:unreadable:`)) {
+            throw new DOMException('가득 참', 'QuotaExceededError')
+          }
+          return setItem.call(this, item, value)
+        }
+      },
+      { name: key, text: broken },
+    )
+    await openPage(page, '/preview')
+    await expect(
+      page.getByRole('alert').filter({ hasText: '자동 저장을 멈췄습니다' }),
+    ).toBeVisible()
 
-  // 다른 탭(앱을 열지 않은 같은 출처 문서)이 읽을 수 있는 작업으로 덮어써, 원래 작업은 이 탭에만 남습니다.
-  const other = await context.newPage()
-  await other.goto(new URL('favicon.svg', page.url()).href)
-  await other.evaluate(({ name, text }) => localStorage.setItem(name, text), {
-    name: key,
-    text: readable,
+    // 다른 탭(앱을 열지 않은 같은 출처 문서)이 읽을 수 있는 작업으로 덮어써, 원래 작업은 이 탭에만 남습니다.
+    const other = await context.newPage()
+    await other.goto(new URL('favicon.svg', page.url()).href)
+    await other.evaluate(({ name, text }) => localStorage.setItem(name, text), {
+      name: key,
+      text: readable,
+    })
+    await other.close()
+    await expect(
+      page.getByRole('alert').filter({ hasText: '이 탭을 닫으면 사라지니' }),
+    ).toBeVisible()
+
+    const chunk = /\/assets\/guide-[^/]+\.js$/
+    await page.route(chunk, (route) => route.fulfill({ status: 404, body: 'Not Found' }))
+    await page.getByRole('button', { name: '전체 메뉴 열기' }).click()
+    await page
+      .getByRole('dialog')
+      .getByRole('link', { name: /06 안내/ })
+      .click()
+    await expect(
+      page.getByRole('heading', { level: 1, name: '화면을 불러오지 못했습니다' }),
+    ).toBeVisible()
+    await page.getByRole('main').getByRole('button', { name: '새로 고침' }).click()
+    await expect(
+      page.getByRole('main').getByRole('alert').filter({ hasText: '이 탭에만 남은 원래 작업' }),
+    ).toBeVisible()
+
+    // 받아 둘 수 있고, 받은 뒤 버리고 새로 고칩니다.
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByRole('button', { name: '원래 작업 받기' }).click(),
+    ])
+    expect(readFileSync((await download.path())!, 'utf8')).toBe(broken)
+    await page.unroute(chunk)
+    await page
+      .getByRole('main')
+      .getByRole('button', { name: '원래 작업을 버리고 새로 고침' })
+      .click()
+    await expect(page.getByRole('heading', { level: 1, name: '조합의 원리' })).toBeVisible()
   })
-  await other.close()
-  await expect(page.getByRole('alert').filter({ hasText: '이 탭을 닫으면 사라지니' })).toBeVisible()
-
-  const chunk = /\/assets\/guide-[^/]+\.js$/
-  await page.route(chunk, (route) => route.fulfill({ status: 404, body: 'Not Found' }))
-  await page.getByRole('button', { name: '전체 메뉴 열기' }).click()
-  await page
-    .getByRole('dialog')
-    .getByRole('link', { name: /06 안내/ })
-    .click()
-  await expect(
-    page.getByRole('heading', { level: 1, name: '화면을 불러오지 못했습니다' }),
-  ).toBeVisible()
-  await page.getByRole('main').getByRole('button', { name: '새로 고침' }).click()
-  await expect(
-    page.getByRole('main').getByRole('alert').filter({ hasText: '이 탭에만 남은 원래 작업' }),
-  ).toBeVisible()
-
-  // 받아 둘 수 있고, 받은 뒤 버리고 새로 고칩니다.
-  const [download] = await Promise.all([
-    page.waitForEvent('download'),
-    page.getByRole('button', { name: '원래 작업 받기' }).click(),
-  ])
-  expect(readFileSync((await download.path())!, 'utf8')).toBe(broken)
-  await page.unroute(chunk)
-  await page.getByRole('main').getByRole('button', { name: '원래 작업을 버리고 새로 고침' }).click()
-  await expect(page.getByRole('heading', { level: 1, name: '조합의 원리' })).toBeVisible()
-})
+}
 
 test('멈춘 동안 원래 자리가 바뀐 것을 아직 모르더라도(이벤트 전), 새로 고치기 직전에 확인해 막습니다', async ({
   page,

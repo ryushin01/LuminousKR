@@ -16,7 +16,11 @@ export default defineConfig({
     reducedMotion: 'reduce',
     trace: 'retain-on-failure',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  // Safari 엔진(WebKit)에서도 돕니다. 메뉴 초점 경합·iPhone 두 번 톡처럼 WebKit에서만 드러나는 것을 잡습니다.
+  projects: [
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    { name: 'webkit', use: { ...devices['Desktop Safari'] } },
+  ],
   // 프로덕션 빌드를 띄워 검사합니다 (먼저 pnpm build:all 필요).
   webServer: {
     command: `pnpm preview --port ${PORT}`,

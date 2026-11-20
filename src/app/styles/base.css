@@ -8,6 +8,8 @@ html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
   scroll-behavior: smooth;
+  /* 화면 아래에 떠 있는 알림만큼 띄워, 키보드로 옮긴 초점이 알림 밑에 가려지지 않게 함(AppShell이 높이를 잼) */
+  scroll-padding-bottom: var(--notices-space, 0px);
   background: var(--c-void);
 }
 

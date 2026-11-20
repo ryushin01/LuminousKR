@@ -48,6 +48,17 @@ describe('SiteHeader', () => {
     expect(current.querySelector('[aria-current="page"]')).toHaveTextContent('홈')
   })
 
+  it('메뉴에서 화면을 옮겨 닫힐 때는 여는 버튼으로 초점을 되돌리지 않습니다(새 화면 제목이 받음)', async () => {
+    const user = userEvent.setup()
+    renderHeader('/')
+    const toggle = screen.getByRole('button', { name: '전체 메뉴 열기' })
+    await user.click(toggle)
+    const dialog = screen.getByRole('dialog', { name: '전체 메뉴' })
+    await user.click(within(dialog).getByRole('link', { name: /안내/ }))
+    expect(dialog).not.toHaveAttribute('open')
+    expect(toggle).not.toHaveFocus()
+  })
+
   it('전체 메뉴는 대화상자로 열리고, 닫으면 여는 버튼으로 초점이 돌아옵니다', async () => {
     const user = userEvent.setup()
     renderHeader('/')
