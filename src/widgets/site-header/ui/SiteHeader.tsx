@@ -6,9 +6,9 @@ import { Icon } from '@/shared/ui/icon'
 import { LogoMark } from '@/shared/ui/logo'
 import styles from './SiteHeader.module.css'
 
-/** 화면 위쪽에 늘 보이는 짧은 단계 링크 (넓은 화면) */
+/** 화면 위쪽에 늘 보이는 주 메뉴(넓은 화면): 01 홈과 작업 단계 02~05. 06 안내는 전체 메뉴에만 */
 const QUICK_LINKS = NAV_ITEMS.filter((item) =>
-  ['/studio', '/import', '/preview', '/export'].includes(item.path),
+  ['/', '/studio', '/import', '/preview', '/export'].includes(item.path),
 )
 
 function Brand() {
@@ -24,7 +24,7 @@ function Brand() {
 }
 
 /**
- * 머리글: 로고, 단계 링크, 전체 메뉴 버튼.
+ * 머리글: 로고, 주 메뉴, 전체 메뉴 버튼.
  * 전체 메뉴는 네이티브 <dialog>(showModal)라 초점 가두기·Esc·배경 비활성화가 따라옵니다.
  */
 export function SiteHeader() {
@@ -48,12 +48,12 @@ export function SiteHeader() {
   return (
     <header class={styles.header}>
       <Brand />
-      <nav class={styles.quick} aria-label="작업 단계">
+      <nav class={styles.quick} aria-label="주 메뉴">
         <ul class={styles.quickList}>
           <For each={QUICK_LINKS}>
             {(item) => (
               <li>
-                <A href={item.path} class={styles.quickLink}>
+                <A href={item.path} end={item.path === '/'} class={styles.quickLink}>
                   <span class={`${styles.quickNumber} numeric`} aria-hidden="true">
                     {item.number}
                   </span>

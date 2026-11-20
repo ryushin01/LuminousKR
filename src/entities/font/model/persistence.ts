@@ -9,8 +9,42 @@ export const STORAGE_KEY = 'luminous-kr:project:v1'
  */
 export const UNREADABLE_PREFIX = `${STORAGE_KEY}:unreadable:`
 
+/** 이 앱의 탭들이 저장 원문을 확인하고 쓰는 차례를 맞추는 Web Lock 이름 */
+const WRITE_LOCK = `${STORAGE_KEY}:write`
+/** 잠금을 이만큼 기다려도 받지 못하면(멈춘 탭이 받아 둔 채 실행하지 못하는 등) 잠금 없이 씁니다. */
+const WRITE_LOCK_WAIT_MS = 2000
+
 /** 저장 결과. quota: 저장 공간이 모자람, unavailable: 브라우저가 저장소를 막음 */
 export type SaveOutcome = 'ok' | 'quota' | 'unavailable'
+
+/**
+ * 다른 탭과 쓰기 차례를 맞춰(Web Locks) task를 부릅니다. localStorage에는 확인하고 쓰기를 한 번에 하는 방법이 없으므로,
+ * task가 잠금 안에서 기다리지 않고 저장된 값을 확인하고 쓰면, 같은 잠금을 쓰는 다른 탭의 쓰기가 그 사이에 끼어들지 않습니다.
+ * Web Locks가 없으면(옛 브라우저, 보안 출처가 아님) 바로 부르고, 잠금을 오래 받지 못하면 잠금 없이 부릅니다.
+ * 잠금은 비동기로 주므로 탭을 닫기 직전처럼 기다릴 수 없는 저장은 이 함수를 거치지 않고 바로 씁니다.
+ */
+export function withWriteLock(task: () => void): void {
+  const locks: LockManager | undefined = globalThis.navigator?.locks
+  if (!locks) {
+    task()
+    return
+  }
+  let ran = false
+  const run = () => {
+    ran = true
+    task()
+  }
+  const waiting = new AbortController()
+  const timer = setTimeout(() => waiting.abort(), WRITE_LOCK_WAIT_MS)
+  locks
+    .request(WRITE_LOCK, { signal: waiting.signal }, run)
+    .catch((error: unknown) => {
+      // 잠금을 받지 못한 채 그만뒀으면 잠금 없이 씁니다. task 안에서 난 오류는 그대로 드러냅니다.
+      if (ran) throw error
+      run()
+    })
+    .finally(() => clearTimeout(timer))
+}
 
 /** 보관한 읽지 못한 원문 하나 */
 export type KeptText = { key: string; text: string }
@@ -45,10 +79,15 @@ export function parseSaved(text: string): FontProject {
 
 /** 지금 저장되어 있는 원문 (없거나 저장소에 닿지 못하면 null) */
 export function readSavedText(storage: Storage | undefined): string | null {
+  return tryReadSavedText(storage) ?? null
+}
+
+/** 지금 저장되어 있는 원문. 없으면 null, 저장소에 닿지 못했거나 읽다 실패하면 undefined(값 없음과 구분할 때) */
+export function tryReadSavedText(storage: Storage | undefined): string | null | undefined {
   try {
-    return storage?.getItem(STORAGE_KEY) ?? null
+    return storage ? storage.getItem(STORAGE_KEY) : undefined
   } catch {
-    return null
+    return undefined
   }
 }
 

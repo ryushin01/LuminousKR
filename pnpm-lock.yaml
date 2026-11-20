@@ -212,6 +212,9 @@ importers:
       '@types/node':
         specifier: ^26.6.6
         version: 26.6.6
+      entities:
+        specifier: ^9.0.0
+        version: 9.0.0
       eslint:
         specifier: ^10.14.0
         version: 10.14.0

@@ -1,10 +1,10 @@
-IBM Plex Sans KR
+LuminousSans (subsets of IBM Plex Sans KR)
 Copyright © 2017 IBM Corp. with Reserved Font Name "Plex".
 Source: https://github.com/google/fonts/tree/main/ofl/ibmplexsanskr
 
-The .woff2 files here are the original TTFs (Thin, Regular, SemiBold, Bold) in WOFF2.
-Because of the Reserved Font Name, the subsets made from them for this site are renamed
-LuminousSans. The glyph designs are unchanged.
+The LuminousSans .woff2 files are subsets of IBM Plex Sans KR (Thin, Regular, SemiBold, Bold)
+made for LuminousKR (https://github.com/ryushin01/LuminousKR). Because of the Reserved Font
+Name, they are renamed LuminousSans. The glyph designs are unchanged.
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
 

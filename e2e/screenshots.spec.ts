@@ -218,7 +218,13 @@ test('내보내기: 11,172칸이 모두 켜진 진행 그림', async ({ page }) 
   await expect(page.getByRole('button', { name: /OTF 받기/ })).toBeVisible({ timeout: 120_000 })
   // 단추를 누르면 그쪽으로 내려가므로 맨 위로 올려 글꼴 정보와 진행 그림을 함께 보여 줍니다.
   await page.evaluate(() => window.scrollTo(0, 0))
-  // 만든 글꼴로 그린 견본까지 준비될 때까지 기다립니다.
+  // 만든 글꼴로 그린 견본까지 기다립니다. 화면은 FontFace를 다 읽은 뒤에 document.fonts에 더하고 견본을 그리므로,
+  // document.fonts.ready만으로는 견본이 나오기 전에 끝날 수 있습니다.
+  await expect(page.getByText('방금 만든 글꼴 파일을 이 화면에 등록해 그린 글입니다.')).toBeVisible(
+    {
+      timeout: 10_000,
+    },
+  )
   await page.evaluate(() => document.fonts.ready)
   await page.waitForTimeout(500)
   await shot(page, 'export')
