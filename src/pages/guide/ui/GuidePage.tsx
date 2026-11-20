@@ -213,6 +213,10 @@ export function GuidePage() {
               만듭니다.
             </li>
             <li>
+              WOFF2는 같은 파일을 brotli로 한꺼번에 압축한 웹 글꼴로, WOFF보다 30%쯤 작습니다.
+              압축기(WASM, 약 1MB)는 WOFF2를 만들 때만 받습니다.
+            </li>
+            <li>
               영문 이름과 한국어 이름을 함께 기록합니다(한국어 이름은 Windows 이름 레코드, 언어
               0x0412). 글꼴의 줄 높이 값(typo·hhea)을 1em에 맞추고 그 값을 쓰라는
               표시(USE_TYPO_METRICS)를 켭니다. 실제 줄 간격은 앱과 설정(웹의 line-height 등)에 따라

@@ -65,6 +65,21 @@ test('배포하는 웹 폰트(OFL)의 저작권과 사용 허락 전문을 함�
   }
 })
 
+test('WOFF2 압축에 쓰는 WASM(brotli-wasm·rust-brotli)의 사용 허락 전문을 함께 줍니다', async ({
+  request,
+}) => {
+  const licenses = [
+    ['/licenses/brotli-wasm-Apache-2.0.txt', 'Apache License'],
+    ['/licenses/rust-brotli-BSD-3-Clause.txt', 'Copyright (c) 2016 Dropbox, Inc.'],
+    ['/licenses/rust-brotli-MIT.txt', 'Copyright (c) 2009, 2010, 2013-2016 by the Brotli Authors.'],
+  ]
+  for (const [url, mark] of licenses) {
+    const response = await request.get(url!)
+    expect(response.ok(), url).toBe(true)
+    expect(await response.text(), url).toContain(mark!)
+  }
+})
+
 test('모든 화면이 콘텐츠 보안 정책(CSP) 아래에서 위반 없이 열립니다', async ({ page }) => {
   const violations: string[] = []
   await page.exposeFunction('reportViolation', (text: string) => violations.push(text))

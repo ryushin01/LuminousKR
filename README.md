@@ -4,7 +4,7 @@
 ![version](https://img.shields.io/badge/version-1.0.0-ff6a1a)
 ![Storybook](https://img.shields.io/badge/Storybook-10-FF4785?logo=storybook&logoColor=white)
 
-초·중·종성 획의 뼈대만 그리면 한글 11,172자를 조합해 OTF·WOFF 글꼴 파일로 내보내는 웹 도구입니다. 자모 24자만 그려도 겹자음·겹받침·섞임 모음과 모든 음절이 만들어지고, 손으로 쓴 양식의 사진·스캔 PDF를 올려 획을 인식해 가져올 수도 있습니다.
+초·중·종성 획의 뼈대만 그리면 한글 11,172자를 조합해 OTF·WOFF·WOFF2 글꼴 파일로 내보내는 웹 도구입니다. 자모 24자만 그려도 겹자음·겹받침·섞임 모음과 모든 음절이 만들어지고, 손으로 쓴 양식의 사진·스캔 PDF를 올려 획을 인식해 가져올 수도 있습니다.
 
 **[바로 써 보기](https://ryushin01.github.io/LuminousKR/)** · [Storybook](https://ryushin01.github.io/LuminousKR/storybook/)
 
@@ -38,7 +38,7 @@
 | 작업실 | 배치(벌)별 따로 그리기, 자동으로 만든 자모(ㄲ·ㅘ·ㄺ 등) 가져와 고치기, 굵기·가로획 대비·끝 모양·꺾임·기울기·글자 틀, 주소로 자모·배치 열기(`/studio?jamo=L5&layout=D`) |
 | 가져오기 | 인쇄용 손글씨 양식 PDF(3종), 사진·스캔·PDF 인식(표식으로 원근 바로잡기, 세선화·뼈대 추적, ㅇ 타원 판정), 펜 굵기 가져오기, 양식 없이 그림 한 장 |
 | 미리보기 | 입력한 글자만 담은 실제 글꼴 파일(FontFace)로 글 그리기, 초성별 588자 표로 11,172자 확인 |
-| 내보내기 | 만들기 전 확인(빈 자모와 획이 빠지는 음절 수, 그 자모를 연 작업실로), 영문·한국어 글꼴 이름, 사용 허락, OTF(CFF)·WOFF 만들기, 굵기 여러 벌을 한 가족으로 묶어 ZIP 하나로(Thin~Black), 11,172칸이 빛나는 진행 그림, 만든 글꼴로 써 보기 |
+| 내보내기 | 만들기 전 확인(빈 자모와 획이 빠지는 음절 수, 그 자모를 연 작업실로), 영문·한국어 글꼴 이름, 사용 허락, OTF(CFF)·WOFF·WOFF2 만들기, 굵기 여러 벌을 한 가족으로 묶어 ZIP 하나로(Thin~Black), 11,172칸이 빛나는 진행 그림, 만든 글꼴로 써 보기 |
 | 공통 | 브라우저 자동 저장(여러 탭 맞추기, 저장 실패 알림, 읽지 못한 저장 보관), 프로젝트 파일(.json) 저장·열기, 배포 뒤 새로 고침 안내, 홈 화면에 추가(웹 앱 매니페스트), WebGL 우주 배경과 움직임 멈춤, 번호 붙은 주 메뉴(01 홈~05 내보내기)와 전체 메뉴 |
 
 조합 엔진은 뼈대에 두께를 입혀(Clipper2) 겹친 획을 합치고, 둥근 부분을 베지어 곡선으로 다시 맞춘 뒤 opentype.js로 파일을 씁니다. 조합·글꼴 만들기와 이미지 인식은 모두 Web Worker에서 돌아 화면이 멈추지 않습니다(11,225글리프 약 1.2초).
@@ -50,7 +50,7 @@
 | 구분 | 사용 기술 |
 |---|---|
 | 프레임워크 | SolidJS 1.9, @solidjs/router, TypeScript, Vite 8 |
-| 글꼴·그래픽 | opentype.js 2, Clipper2(clipper2-ts), Web Worker, CompressionStream(WOFF), FontFace API, WebGL2(GLSL), SVG |
+| 글꼴·그래픽 | opentype.js 2, Clipper2(clipper2-ts), Web Worker, CompressionStream(WOFF), brotli-wasm(WOFF2), FontFace API, WebGL2(GLSL), SVG |
 | 이미지·PDF | pdf.js(읽기), 직접 만든 PDF 쓰기, OffscreenCanvas, 적응형 이진화·호모그래피·Zhang–Suen 세선화 |
 | 스타일 | CSS Modules, CSS 변수 토큰, 웹 폰트 Syne(영문)·IBM Plex Sans KR(한글) |
 | 품질 | ESLint(eslint-plugin-solid, jsx-a11y), Prettier, Steiger(FSD), Vitest + Solid Testing Library, Playwright E2E(axe 접근성, 화면 폭별 넘침, 키보드 그리기, 파일·인식 검증, Storybook 스토리 검사) |
@@ -92,7 +92,7 @@ src/
 ├─ features/   획 스타일 조절, 프로젝트 저장·열기, 자동 저장 알림
 ├─ entities/
 │  └─ font/    자모 모델·배치·파생 규칙, 조합 엔진, 조합 워커, 글리프 표시
-└─ shared/     한글 표, 기하·곡선 맞춤, OTF·WOFF·PDF 쓰기, 이미지 처리, 워커 RPC, 공용 UI
+└─ shared/     한글 표, 기하·곡선 맞춤, OTF·WOFF·WOFF2·PDF 쓰기, 이미지 처리, 워커 RPC, 공용 UI
 ```
 
 ## 문서
@@ -115,5 +115,7 @@ src/
 | Clipper2 (두께 입히기·합치기) | Angus Johnson(원작), Jeremy Tribby(TypeScript 이식) | BSL-1.0 | [clipper2-ts](https://github.com/countertype/clipper2-ts) |
 | pdf.js (PDF 읽기) | Mozilla | Apache-2.0 | [pdf.js](https://github.com/mozilla/pdf.js) |
 | SolidJS (화면) | Ryan Carniato | MIT | [solid](https://github.com/solidjs/solid) |
+| brotli-wasm (WOFF2 압축, WOFF2를 만들 때만 받음) | Tim Perry(HTTP Toolkit) | Apache-2.0 | [brotli-wasm](https://github.com/httptoolkit/brotli-wasm) |
+| rust-brotli (brotli-wasm 안의 압축기) | Dropbox, Brotli Authors | BSD-3-Clause·MIT | [rust-brotli](https://github.com/dropbox/rust-brotli) |
 
-글꼴은 모두 같은 사이트에서 제공하고(외부 CDN 없음), IBM Plex Sans KR은 화면 글자 파일과 글자 묶음별 조각으로 나눕니다([개발 가이드 · 글꼴](docs/development.md#글꼴), OFL 전문 `scripts/fonts/ibm-plex-sans-kr/OFL.txt`). 배포본에도 두 글꼴의 OFL 전문을 함께 둡니다([LuminousSans](https://ryushin01.github.io/LuminousKR/licenses/LuminousSans-OFL.txt) · [Syne](https://ryushin01.github.io/LuminousKR/licenses/Syne-OFL.txt)). 기본 프리셋(Luminous Modular), 아이콘, 우주 배경(WebGL), 공유 이미지와 화면 사진은 이 프로젝트에서 직접 만들었습니다.
+글꼴은 모두 같은 사이트에서 제공하고(외부 CDN 없음), IBM Plex Sans KR은 화면 글자 파일과 글자 묶음별 조각으로 나눕니다([개발 가이드 · 글꼴](docs/development.md#글꼴), OFL 전문 `scripts/fonts/ibm-plex-sans-kr/OFL.txt`). 배포본의 `licenses/`에 두 글꼴의 OFL 전문과 WOFF2 압축기(brotli-wasm·rust-brotli)의 사용 허락 전문을 함께 둡니다([LuminousSans](https://ryushin01.github.io/LuminousKR/licenses/LuminousSans-OFL.txt) · [Syne](https://ryushin01.github.io/LuminousKR/licenses/Syne-OFL.txt)). 기본 프리셋(Luminous Modular), 아이콘, 우주 배경(WebGL), 공유 이미지와 화면 사진은 이 프로젝트에서 직접 만들었습니다.
