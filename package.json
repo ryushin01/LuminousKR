@@ -29,6 +29,7 @@
   "dependencies": {
     "@fontsource-variable/syne": "^5.3.0",
     "@solidjs/router": "^1.0.3",
+    "brotli-wasm": "^3.0.1",
     "clipper2-ts": "2.0.1-19",
     "opentype.js": "^2.0.0",
     "pdfjs-dist": "^6.5.438",
