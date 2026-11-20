@@ -48,6 +48,23 @@ test('공유 미리보기: 운영 주소의 이미지·주소를 걸고, 화면�
   expect(notFound).not.toContain('rel="canonical"')
 })
 
+test('배포하는 웹 폰트(OFL)의 저작권과 사용 허락 전문을 함께 줍니다', async ({ request }) => {
+  const licenses = [
+    [
+      '/licenses/LuminousSans-OFL.txt',
+      'Copyright © 2017 IBM Corp. with Reserved Font Name "Plex".',
+    ],
+    ['/licenses/Syne-OFL.txt', 'Copyright 2019 The Syne Project Authors'],
+  ]
+  for (const [url, copyright] of licenses) {
+    const response = await request.get(url!)
+    expect(response.ok(), url).toBe(true)
+    const text = await response.text()
+    expect(text, url).toContain(copyright!)
+    expect(text, url).toContain('SIL OPEN FONT LICENSE Version 1.1')
+  }
+})
+
 test('모든 화면이 콘텐츠 보안 정책(CSP) 아래에서 위반 없이 열립니다', async ({ page }) => {
   const violations: string[] = []
   await page.exposeFunction('reportViolation', (text: string) => violations.push(text))

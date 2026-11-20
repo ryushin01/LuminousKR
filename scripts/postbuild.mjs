@@ -8,7 +8,7 @@
  * 모든 화면의 첫 화면에 쓰는 글꼴(제목 700·본문 400·머리글 600 한글, 영문 Syne)도 미리 받습니다.
  * CSS를 읽은 뒤에야 요청하면 첫 그리기 뒤에 도착해, 대체 글꼴로 그린 제목의 줄 수가 바뀌며 아래가 밀립니다(CLS).
  */
-import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { copyFileSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -112,6 +112,19 @@ for (const route of ROUTES) {
 }
 writeFileSync(join(dist, '404.html'), pageHtml(NOT_FOUND))
 rmSync(join(dist, '.vite'), { recursive: true, force: true })
+
+/**
+ * 배포하는 웹 폰트는 SIL OFL 1.1이라 사본마다 저작권과 사용 허락을 함께 줘야 합니다.
+ * 줄인 글꼴 파일의 이름 표(저작권·라이선스 설명·주소)에 더해, 전문을 licenses/에 둡니다.
+ */
+const LICENSES = [
+  ['LuminousSans-OFL.txt', '../src/app/styles/fonts/luminous-sans/OFL.txt'],
+  ['Syne-OFL.txt', '../node_modules/@fontsource-variable/syne/LICENSE'],
+]
+mkdirSync(join(dist, 'licenses'), { recursive: true })
+for (const [name, from] of LICENSES)
+  copyFileSync(fileURLToPath(new URL(from, import.meta.url)), join(dist, 'licenses', name))
+
 console.log(
-  `화면 ${ROUTES.length - 1}개의 HTML 사본과 404.html을 만들고, 화면마다 조각·첫 화면 글꼴 ${fontFiles.length}개 미리 받기를 넣었습니다.`,
+  `화면 ${ROUTES.length - 1}개의 HTML 사본과 404.html을 만들고, 화면마다 조각·첫 화면 글꼴 ${fontFiles.length}개 미리 받기를 넣었습니다. 웹 폰트 라이선스 ${LICENSES.length}개를 licenses/에 두었습니다.`,
 )
