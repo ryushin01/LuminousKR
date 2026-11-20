@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
-import { RpcClient, WorkerLoadError, serveRpc, type WorkerScopeLike } from './rpc.ts'
+import {
+  RpcClient,
+  WorkerLoadError,
+  markWorkerRestart,
+  serveRpc,
+  type WorkerScopeLike,
+} from './rpc.ts'
 
 type Methods = {
   double: { payload: number; result: number }
@@ -7,6 +13,7 @@ type Methods = {
   fail: { payload: null; result: never }
   tooLong: { payload: null; result: never }
   hang: { payload: null; result: never }
+  broken: { payload: null; result: never }
 }
 
 /** 메시지를 비동기로 주고받는 가짜 워커 쌍 */
@@ -43,6 +50,11 @@ function createPair() {
       throw new RangeError('너무 깁니다')
     },
     hang: () => new Promise(() => {}),
+    broken: () => {
+      const error = new Error('WASM을 받지 못함')
+      error.name = 'ChunkLoadError'
+      throw markWorkerRestart(error)
+    },
   })
   return { worker, terminated: () => terminated }
 }
@@ -98,6 +110,27 @@ describe('워커 RPC', () => {
     await expect(client.call('fail', null, { signal: controller.signal })).rejects.toThrow()
     expect(added).toHaveBeenCalledTimes(2)
     expect(removed).toHaveBeenCalledTimes(2)
+  })
+
+  it('처리기가 워커를 다시 띄워야 하는 오류를 던지면 그 요청을 실패시키고 워커를 끝내 알리며, 다음 요청은 새 워커가 받습니다', async () => {
+    const { worker, terminated } = createPair()
+    let created = 0
+    const onWorkerError = vi.fn()
+    const client = new RpcClient<Methods>(
+      () => {
+        created += 1
+        return worker
+      },
+      { onWorkerError },
+    )
+    await expect(client.call('broken', null)).rejects.toMatchObject({
+      name: 'ChunkLoadError',
+      message: 'WASM을 받지 못함',
+    })
+    expect(terminated()).toBe(1)
+    expect(onWorkerError).toHaveBeenCalledWith(expect.objectContaining({ name: 'ChunkLoadError' }))
+    await expect(client.call('double', 2)).resolves.toBe(4)
+    expect(created).toBe(2)
   })
 
   it('워커 스크립트를 받지 못하면(문구 없는 오류) WorkerLoadError로 실패하고 알립니다', async () => {

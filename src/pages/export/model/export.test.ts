@@ -108,14 +108,19 @@ describe('굵기 여러 벌을 한 가족으로', () => {
   // 시험 중 고친 저장소(기본 프리셋으로 시작)를 되돌립니다.
   afterEach(() => replaceProject(createPresetProject()))
 
-  it('고른 굵기를 차례로 만들고 OTF·WOFF를 ZIP 하나로 묶으며, 화면에는 지금 굵기의 벌을 씁니다', async () => {
+  it('고른 굵기를 차례로 만들고 OTF·WOFF·WOFF2를 ZIP 하나로 묶으며, 화면에는 지금 굵기의 벌을 씁니다', async () => {
     const results = new Map<number, BuildResult>()
     const build = vi.fn(
       async (
         project: { style: { weight: number } },
-        request: { member?: { weightClass: number } },
+        request: { woff: boolean; woff2?: boolean; member?: { weightClass: number } },
       ) => {
-        const result = { ...fakeResult, woff: new ArrayBuffer(4), durationMs: project.style.weight }
+        const result = {
+          ...fakeResult,
+          woff: request.woff ? new ArrayBuffer(4) : undefined,
+          woff2: request.woff2 ? new ArrayBuffer(3) : undefined,
+          durationMs: project.style.weight,
+        }
         results.set(request.member!.weightClass, result)
         return result
       },
@@ -124,16 +129,19 @@ describe('굵기 여러 벌을 한 가족으로', () => {
       expect(entries.map((e) => e.name)).toEqual([
         'LuminousModular-Light.otf',
         'LuminousModular-Light.woff',
+        'LuminousModular-Light.woff2',
         'LuminousModular-Regular.otf',
         'LuminousModular-Regular.woff',
+        'LuminousModular-Regular.woff2',
         'LuminousModular-Bold.otf',
         'LuminousModular-Bold.woff',
+        'LuminousModular-Bold.woff2',
       ])
       return new ArrayBuffer(16)
     })
     await createRoot(async (dispose) => {
       const exporter = createExporter(build as never, zip as never)
-      await exporter.start({ woff: true, weights: [400, 700, 300, 400] })
+      await exporter.start({ woff: true, woff2: true, weights: [400, 700, 300, 400] })
       expect(
         build.mock.calls.map(
           (call) => (call[1] as { member: { weightClass: number } }).member.weightClass,

@@ -1,4 +1,4 @@
-export { RpcAbortError, RpcClient, WorkerLoadError, serveRpc } from './rpc.ts'
+export { RpcAbortError, RpcClient, WorkerLoadError, markWorkerRestart, serveRpc } from './rpc.ts'
 export type {
   CallOptions,
   RpcClientOptions,

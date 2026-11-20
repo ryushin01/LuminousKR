@@ -12,7 +12,7 @@ export type RpcRequest = { id: number; method: string; payload: unknown }
 export type RpcResponse =
   | { id: number; kind: 'progress'; data: unknown }
   | { id: number; kind: 'result'; data: unknown }
-  | { id: number; kind: 'error'; message: string; name?: string }
+  | { id: number; kind: 'error'; message: string; name?: string; restart?: boolean }
 
 /** 워커 전역 객체 중 필요한 부분 (DOM·WebWorker 타입 정의가 겹치지 않게 직접 적음) */
 export type WorkerScopeLike = {
@@ -29,6 +29,17 @@ export type HandlerContext = {
 // 각 처리기의 payload 타입은 서로 다르므로 등록할 때만 느슨하게 받습니다.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type Handlers = Record<string, (payload: any, context: HandlerContext) => unknown>
+
+/**
+ * 처리기가 이 표시를 붙인 오류를 던지면, 받는 쪽은 그 요청을 실패시키고 워커를 끝내 다음 요청 때 새로 띄웁니다.
+ * 같은 워커에서는 다시 시도해도 소용없는 실패(한 번 실패한 WASM 초기화처럼 모듈이 실패를 기억하는 경우)에 씁니다.
+ */
+export function markWorkerRestart<E extends Error>(error: E): E & { restartWorker: true } {
+  return Object.assign(error, { restartWorker: true as const })
+}
+
+const needsRestart = (error: unknown) =>
+  error instanceof Error && (error as { restartWorker?: unknown }).restartWorker === true
 
 /** 워커 쪽: 요청을 받아 처리기를 부르고 응답합니다. */
 export function serveRpc(scope: WorkerScopeLike, handlers: Handlers): void {
@@ -55,7 +66,8 @@ export function serveRpc(scope: WorkerScopeLike, handlers: Handlers): void {
       // 오류 종류(name)도 넘겨, 받는 쪽이 입력 문제(RangeError 등)와 일시적인 실패를 가려 안내할 수 있게 합니다.
       const message = error instanceof Error ? error.message : String(error)
       const name = error instanceof Error ? error.name : undefined
-      scope.postMessage({ id, kind: 'error', message, name } satisfies RpcResponse)
+      const restart = needsRestart(error) || undefined
+      scope.postMessage({ id, kind: 'error', message, name, restart } satisfies RpcResponse)
     }
   })
 }
@@ -127,6 +139,13 @@ export class RpcClient<Methods extends Record<string, MethodSpec>> {
         const error = new Error(response.message)
         if (response.name) error.name = response.name
         entry.reject(error)
+        if (response.restart) {
+          // 이 워커는 다시 쓸 수 없으므로 끝내고 다음 요청 때 새로 띄웁니다(앱 파일을 받지 못한 경우면 알림).
+          this.worker?.terminate()
+          this.worker = null
+          this.failAll(error)
+          this.options.onWorkerError?.(error)
+        }
       }
     })
     worker.addEventListener('error', (event) => {

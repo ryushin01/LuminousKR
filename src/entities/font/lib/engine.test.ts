@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { brotliCompressSync } from 'node:zlib'
 import { parse } from 'opentype.js/dist/opentype.mjs'
 import { describe, expect, it } from 'vitest'
 import { type Contour, cubicPoint } from '@/shared/lib/geometry'
@@ -228,6 +229,21 @@ describe('글꼴 파일 만들기', () => {
       en: 'Luminous Modular',
       ko: '루미너스 모듈',
     })
+  })
+
+  it('WOFF2를 고르면 받은 brotli 압축기로 감싼 파일을 함께 만듭니다', async () => {
+    const brotli = async (data: Uint8Array) => new Uint8Array(brotliCompressSync(data))
+    const result = await buildFont(
+      createPresetProject(),
+      { chars: '빛나는 한글', woff: false, woff2: true },
+      undefined,
+      undefined,
+      brotli,
+    )
+    expect(result.woff).toBeUndefined()
+    const signature = new TextDecoder().decode(new Uint8Array(result.woff2!, 0, 4))
+    expect(signature).toBe('wOF2')
+    expect(result.woff2!.byteLength).toBeLessThan(result.otf.byteLength)
   })
 })
 
