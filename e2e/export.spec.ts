@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { expect, openPage, test } from './fixtures.ts'
 
-test('11,172자 글꼴을 만들고 OTF·WOFF 파일을 받습니다 (두 번 눌러도 한 번만)', async ({
+test('11,172자 글꼴을 만들고 OTF·WOFF·WOFF2 파일을 받습니다 (두 번 눌러도 한 번만)', async ({
   page,
   consoleErrors,
 }) => {
@@ -27,6 +27,22 @@ test('11,172자 글꼴을 만들고 OTF·WOFF 파일을 받습니다 (두 번 �
   const woffBytes = readFileSync((await woff.path())!)
   expect(woffBytes.subarray(0, 4).toString('latin1')).toBe('wOFF')
   expect(woffBytes.length).toBeLessThan(otfBytes.length)
+
+  const [woff2] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: /WOFF2 받기/ }).click(),
+  ])
+  expect(woff2.suggestedFilename()).toBe('Luminous-Modular-Regular.woff2')
+  const woff2Bytes = readFileSync((await woff2.path())!)
+  expect(woff2Bytes.subarray(0, 4).toString('latin1')).toBe('wOF2')
+  expect(woff2Bytes.length).toBeLessThan(woffBytes.length)
+  // 브라우저의 글꼴 검사기(OTS)가 받아들여야 웹에서 쓸 수 있습니다.
+  const loaded = await page.evaluate(async (base64) => {
+    const data = Uint8Array.from(atob(base64), (ch) => ch.charCodeAt(0))
+    const face = await new FontFace('woff2 check', data).load()
+    return face.status
+  }, woff2Bytes.toString('base64'))
+  expect(loaded).toBe('loaded')
 
   await expect(
     page.getByText('방금 만든 글꼴 파일을 이 화면에 등록해 그린 글입니다.'),
@@ -91,10 +107,13 @@ test('굵기를 더 고르면 한 가족(Light·Regular·Bold)을 만들어 ZIP 
   expect(names).toEqual([
     'LuminousModular-Light.otf',
     'LuminousModular-Light.woff',
+    'LuminousModular-Light.woff2',
     'LuminousModular-Regular.otf',
     'LuminousModular-Regular.woff',
+    'LuminousModular-Regular.woff2',
     'LuminousModular-Bold.otf',
     'LuminousModular-Bold.woff',
+    'LuminousModular-Bold.woff2',
   ])
   expect(consoleErrors).toEqual([])
 })

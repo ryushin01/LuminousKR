@@ -50,6 +50,7 @@ serveRpc(self as unknown as WorkerScopeLike, {
     )
     context.transfer(result.otf)
     if (result.woff) context.transfer(result.woff)
+    if (result.woff2) context.transfer(result.woff2)
     return result
   },
 
