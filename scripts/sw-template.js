@@ -21,6 +21,11 @@ const absolute = (path) => new URL(path, scope).href
 const isAsset = (url) => new URL(url).pathname.startsWith(assetsPath)
 // 서버가 Vary: Origin을 붙이면(모듈 스크립트 요청에만 Origin이 있음) 미리 받은 응답과 대조되지 않으므로 Vary는 보지 않습니다.
 const MATCH = { ignoreVary: true }
+/**
+ * 캐시에 넣기는 덤입니다. 저장 공간이 모자라 실패해도(QuotaExceededError, 운영 주소는 다른 GitHub Pages 프로젝트와
+ * 공간을 나눠 씀) 네트워크에서 받은 응답은 그대로 씁니다.
+ */
+const store = (cache, request, response) => cache.put(request, response).catch(() => {})
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -69,7 +74,7 @@ async function pageFromNetworkFirst(request) {
   try {
     const response = await fetch(request)
     // 다음에 연결이 없을 때 쓰도록 최신 화면을 남깁니다(주소 이동 응답은 브라우저가 따라가므로 담지 않음).
-    if (response.ok) await pages.put(request, response.clone())
+    if (response.ok) await store(pages, request, response.clone())
     return response
   } catch (error) {
     const cached =
@@ -86,7 +91,7 @@ async function assetFromCacheFirst(request) {
   const cached = await assets.match(request, MATCH)
   if (cached) return cached
   const response = await fetch(request)
-  if (response.ok) await assets.put(request, response.clone())
+  if (response.ok) await store(assets, request, response.clone())
   return response
 }
 

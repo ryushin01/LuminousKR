@@ -40,3 +40,30 @@ test('한 번 연 뒤에는 연결이 끊겨도 화면이 열리고, 다른 화�
   await expect(page.getByRole('button', { name: /WOFF 받기/ })).toBeVisible({ timeout: 90_000 })
   await context.setOffline(false)
 })
+
+test('저장 공간이 모자라 캐시에 넣지 못해도, 네트워크에서 받은 응답은 그대로 씁니다', async ({
+  context,
+  page,
+  browserName,
+}) => {
+  test.skip(browserName !== 'chromium', '서비스 워커 안에서 코드를 돌리는 것은 크로미움만 됨')
+  await openPage(page, '/')
+  await page.evaluate(() => navigator.serviceWorker.ready.then(() => undefined))
+  await expect
+    .poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller)))
+    .toBe(true)
+  const [worker] = context.serviceWorkers()
+  await worker!.evaluate(() => {
+    Cache.prototype.put = () => Promise.reject(new DOMException('가득 참', 'QuotaExceededError'))
+  })
+  // 아직 캐시에 없는 자산(나머지 글자 조각)을 받습니다. 조각 CSS는 페이지를 다 연 뒤 한가할 때 붙습니다.
+  await page.waitForSelector('link[href*="luminous-sans-rest"]', { state: 'attached' })
+  const status = await page.evaluate(async () => {
+    const link = document.querySelector<HTMLLinkElement>('link[href*="luminous-sans-rest"]')!
+    const css = await (await fetch(link.href)).text()
+    const slice = /url\(['"]?([^'")]+\.woff2)/.exec(css)![1]!
+    const response = await fetch(new URL(slice, link.href))
+    return response.status
+  })
+  expect(status).toBe(200)
+})
