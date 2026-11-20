@@ -27,4 +27,5 @@ Web Worker(`engine.worker`)와 글꼴·이미지는 기준 경로를 따라 상�
 - **CSP**: `vite.config.ts`의 `contentSecurityPolicy` 플러그인이 앱 프로덕션 빌드의 HTML에만 `<meta http-equiv="Content-Security-Policy">`를 넣습니다(개발 서버는 HMR, Storybook 빌드는 미리보기의 인라인 설정 스크립트 때문에 `.storybook/main.ts`의 `viteFinal`에서 뺌)(스크립트·워커 같은 출처, eval 금지, 인라인 style 속성·`blob:`·`data:` 그림 허용). GitHub Pages는 응답 헤더를 바꿀 수 없어 `frame-ancestors`·`X-Frame-Options`는 넣지 못합니다(호스팅을 옮기면 헤더로).
 - **공유 미리보기**: `index.html`에 운영 주소 기준의 `og:*`·트위터 카드·`canonical`이 있고, `postbuild`가 화면별 사본의 `og:url`·`canonical`을 그 화면 주소로 바꿉니다. `404.html`은 `noindex`.
 - **웹 앱 매니페스트**: `public/manifest.webmanifest`와 `public/icons/`(192·512·마스크). 주소는 매니페스트 기준 상대 경로라 하위 경로(`/LuminousKR/`)에서도 맞습니다.
+- **웹 폰트 사용 허락**: 배포하는 두 글꼴(LuminousSans·Syne)은 SIL OFL 1.1이라, `postbuild`가 OFL 전문을 `licenses/LuminousSans-OFL.txt`·`licenses/Syne-OFL.txt`로 함께 둡니다(줄인 글꼴 파일의 이름 표에도 저작권·라이선스 설명·주소가 있음).
 
