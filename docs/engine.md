@@ -67,12 +67,12 @@ LuminousKR이 자모 24자의 뼈대로 한글 11,172자를 만드는 과정입�
 | 항목 | 값 |
 |---|---|
 | 글리프 | `.notdef`, 빈칸(U+0020·줄바꿈 없는 빈칸 U+00A0), 호환 자모 51자(U+3131–3163), 한글 음절 11,172자(U+AC00–D7A3) |
-| 윤곽 | CFF(PostScript), opentype.js `Font.toArrayBuffer()` |
+| 윤곽 | CFF(PostScript), opentype.js `Font.toArrayBuffer()`. 음절은 자모 조각을 같은 자리에 그대로 놓아 만들어 윤곽 55,428개 가운데 서로 다른 몸체가 365개뿐이므로, 윤곽마다 시작점 이동(rmoveto) 뒤의 몸체를 잘라 두 번 이상 나오는 것을 전역 서브루틴(296개)으로 옮기고 callgsubr로 부름(`shared/lib/font-file/cff-subrs.ts`, Node에서 0.2초). OTF 3.8MB → 0.63MB, fontTools로 그린 11,225자 윤곽·너비가 옮기기 전과 같음 |
 | 세로 기준 | 1em = 1000, 위 880, 아래 −120, 글자 몸은 가운데 380 기준. 글꼴의 줄 높이 값(typo·hhea)을 1em(위 880·아래 −120, 줄 사이 0)으로 맞추고 OS/2 4판 USE_TYPO_METRICS를 켬. 실제 줄 높이는 앱과 설정(웹의 CSS `line-height` 등)에 따라 달라짐. Windows 잘림 기준(usWin)은 글자 몸과 실제 글리프 범위 가운데 큰 쪽이라, 글리프가 글자 몸을 넘으면(크게 기울이거나 아주 굵게) usWin 값을 줄 간격에 쓰는 일부 옛 Windows 앱에서는 줄 간격이 넓어질 수 있음 |
 | 이름 | Windows(유니코드) 레코드만: 영문 이름(0x0409) + 한국어 이름(0x0412), PostScript 이름, typographic family(16·17). 비운 값은 쓰지 않음. opentype.js가 넣는 유니코드·Mac 플랫폼 이름과 Apple 전용 `ltag` 표는 빼고 다시 묶음(`shared/lib/font-file/sfnt.ts`, 표 체크섬·checkSumAdjustment 다시 계산) |
 | OS/2 | 4판, 굵기 등급(획 굵기에서 환산), 한국어 완성형 코드 페이지, fsType 0(설치 가능) |
-| WOFF | 표마다 zlib(`CompressionStream('deflate')`)으로 압축, 줄지 않는 표는 그대로 (3.8MB → 약 210KB) |
-| WOFF2 | `shared/lib/font-file/woff2.ts`. CFF라 glyf·loca 변환이 없어 모든 표를 '변환 없음'으로 두고, 표를 디렉터리 차례로 이어 brotli 한 덩어리로 압축(알려진 태그는 색인, 길이는 UIntBase128). 규격대로 DSIG는 빼고 head.flags 11번 비트를 켬. 압축기는 `brotli-wasm`(품질 9)을 WOFF2를 만들 때만 워커에서 받음(내장 `CompressionStream('brotli')`은 품질을 정할 수 없고 Chromium에는 없어 쓰지 않음). 3.8MB → 약 147KB(품질 11은 127KB지만 Node에서도 13초, 100배쯤 느림) |
+| WOFF | 표마다 zlib(`CompressionStream('deflate')`)으로 압축, 줄지 않는 표는 그대로 (0.63MB → 약 164KB) |
+| WOFF2 | `shared/lib/font-file/woff2.ts`. CFF라 glyf·loca 변환이 없어 모든 표를 '변환 없음'으로 두고, 표를 디렉터리 차례로 이어 brotli 한 덩어리로 압축(알려진 태그는 색인, 길이는 UIntBase128). 규격대로 DSIG는 빼고 head.flags 11번 비트를 켬. 압축기는 `brotli-wasm`(품질 9)을 WOFF2를 만들 때만 워커에서 받음(내장 `CompressionStream('brotli')`은 품질을 정할 수 없고 Chromium에는 없어 쓰지 않음). 서브루틴을 넣은 0.63MB → 약 114KB(서브루틴 전 3.8MB에서는 품질 9가 147KB, 품질 11이 127KB지만 Node에서도 13초로 100배쯤 느림) |
 | 한 가족 | 굵기 등급(100~900)을 여럿 고르면 뼈대는 그대로 두고 그 등급의 획 굵기로 벌마다 만들어 ZIP 하나로(`shared/lib/zip`, deflate). Regular·Bold는 같은 가족 이름(ID 1)에 스타일 이름만 다르고 BOLD 비트·macStyle은 Bold에만, 그 밖의 굵기는 ID 1이 '가족 이름 굵기'이고 typographic family·subfamily(ID 16·17)로 한 가족에 묶임 |
 
 전체 빌드는 Web Worker(`api/engine.worker.ts`)에서 돌고, 진행 상황을 256글리프마다 보냅니다. 미리보기용 작은 글꼴(입력한 글자만)은 다른 워커에서 만들어 `FontFace`로 등록합니다. 취소하면 워커를 끝내고 다음 요청 때 새로 띄웁니다(`shared/lib/worker-rpc`).
