@@ -99,11 +99,27 @@ export type FontMeta = {
   description: string
 }
 
+/**
+ * 영문·숫자·문장부호(ASCII 인쇄 글자 94자) 글자 하나에서 고친 것.
+ * 고치지 않은 것은 기본 뼈대(latin-preset)를 씁니다.
+ * 좌표는 글자마다의 뼈대 틀 안에서 정규화합니다: y는 0(어센더)~1(디센더)로 아래로 커지고,
+ * x도 같은 단위(틀 높이 = 1)라 너비를 바꿔도 그림이 늘어나지 않습니다.
+ */
+export type LatinEntry = {
+  /** 직접 그린 획. 없으면 기본 뼈대 */
+  drawing?: Drawing
+  /** 뼈대 너비(틀 높이 = 1). 없으면 기본 너비 */
+  width?: number
+}
+
 export type FontProject = {
   format: 'luminous-kr'
-  version: 1
+  /** 2판: 영문·숫자·문장부호(latin) 추가. 1판 파일은 읽을 때 2판으로 바꿉니다. */
+  version: 2
   name: string
   jamo: Partial<Record<JamoKey, JamoEntry>>
+  /** 고친 영문·숫자·문장부호 (글자 → 고친 것) */
+  latin: Partial<Record<string, LatinEntry>>
   style: StrokeStyle
   layouts: LayoutSet
   metrics: Metrics

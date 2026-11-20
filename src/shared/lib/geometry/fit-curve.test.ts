@@ -79,6 +79,37 @@ describe('곡선 맞춤', () => {
     expect(contour.segments.length).toBeLessThanOrEqual(10)
   })
 
+  it('좁고 깊은 틈(M의 기둥과 사선 사이처럼)의 꼭짓점은 지우지 않습니다', () => {
+    // 위에서 아래로 400 깊이로 판 좁은 틈: 틈 끝의 꺾임이 170°를 넘지만 두 변이 길어 진짜 모양입니다.
+    const points: Point[] = [
+      { x: 0, y: 0 },
+      { x: 600, y: 0 },
+      { x: 600, y: 600 },
+      { x: 320, y: 600 },
+      { x: 300, y: 200 },
+      { x: 280, y: 600 },
+      { x: 0, y: 600 },
+    ]
+    const contour = fitClosedPolygon(points)!
+    expect(
+      sampleContour(contour).some((p) => Math.abs(p.x - 300) < 1 && Math.abs(p.y - 200) < 1),
+    ).toBe(true)
+  })
+
+  it('반올림에서 생긴 짧은 바늘(두어 단위 튀어나온 점)은 지웁니다', () => {
+    const points: Point[] = [
+      { x: 0, y: 0 },
+      { x: 100, y: 0 },
+      { x: 100, y: 50 },
+      { x: 104, y: 50.5 },
+      { x: 100, y: 51 },
+      { x: 100, y: 100 },
+      { x: 0, y: 100 },
+    ]
+    const contour = fitClosedPolygon(points)!
+    expect(sampleContour(contour).every((p) => p.x <= 100.001)).toBe(true)
+  })
+
   it('점이 셋보다 적으면 윤곽을 만들지 않습니다', () => {
     expect(
       fitClosedPolygon([

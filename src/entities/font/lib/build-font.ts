@@ -6,13 +6,14 @@ import {
   type FontNames,
   type GlyphSpec,
 } from '@/shared/lib/font-file'
-import type { Contour } from '@/shared/lib/geometry'
+import { type Contour, type Cubic, cubicPoint } from '@/shared/lib/geometry'
 import {
   COMPAT_JAMO_FIRST,
   COMPAT_JAMO_LAST,
   SYLLABLE_BASE,
   SYLLABLE_LAST,
 } from '@/shared/lib/hangul'
+import { LATIN_FIRST, LATIN_LAST, isLatinCode } from '../model/latin.ts'
 import type { FontProject } from '../model/types.ts'
 import { type ComponentCache, Composer, isComposable } from './composer.ts'
 import { ASCENDER, DESCENDER, UNITS_PER_EM } from './outline.ts'
@@ -21,8 +22,10 @@ export type BuildPhase = 'compose' | 'encode' | 'compress'
 export type BuildProgress = { phase: BuildPhase; done: number; total: number }
 
 export type BuildRequest = {
-  /** 이 글자만 넣은 작은 글꼴(미리보기용). 없으면 전체(음절 11,172자 + 호환 자모 51자) */
+  /** 이 글자만 넣은 작은 글꼴(미리보기용). 없으면 전체(영문 94자 + 호환 자모 51자 + 음절 11,172자) */
   chars?: string
+  /** 영문·숫자·문장부호(94자)도 넣을지. 기본은 넣음. 다른 영문 글꼴과 짝지어 쓸 때 끕니다. */
+  latin?: boolean
   woff: boolean
   /** WOFF2(brotli)도 만들지 */
   woff2?: boolean
@@ -128,17 +131,39 @@ function notdef(advance: number): GlyphSpec {
   }
 }
 
-/** 글꼴에 넣을 글자 번호 목록 */
-export function glyphCodes(chars?: string): number[] {
+/** 그 글자 글리프 윤곽의 위 끝 (곡선은 곡선 위의 점으로 잼, 글리프가 없으면 undefined) */
+function topOf(glyphs: readonly GlyphSpec[], code: number): number | undefined {
+  const glyph = glyphs.find((g) => g.unicode === code)
+  if (!glyph || glyph.contours.length === 0) return undefined
+  let top = -Infinity
+  for (const contour of glyph.contours) {
+    let from = contour.start
+    top = Math.max(top, from.y)
+    for (const s of contour.segments) {
+      if (s.type === 'C') {
+        const cubic: Cubic = [from, { x: s.x1, y: s.y1 }, { x: s.x2, y: s.y2 }, { x: s.x, y: s.y }]
+        for (let i = 1; i < 16; i++) top = Math.max(top, cubicPoint(cubic, i / 16).y)
+      }
+      top = Math.max(top, s.y)
+      from = { x: s.x, y: s.y }
+    }
+  }
+  return Math.round(top)
+}
+
+/** 글꼴에 넣을 글자 번호 목록 (번호 차례) */
+export function glyphCodes(chars?: string, latin = true): number[] {
+  const wanted = (code: number) => isComposable(code) && (latin || !isLatinCode(code))
   if (chars !== undefined) {
     const set = new Set<number>()
     for (const char of chars) {
       const code = char.codePointAt(0)
-      if (code !== undefined && isComposable(code)) set.add(code)
+      if (code !== undefined && wanted(code)) set.add(code)
     }
     return [...set].sort((a, b) => a - b)
   }
   const codes: number[] = []
+  if (latin) for (let c = LATIN_FIRST; c <= LATIN_LAST; c++) codes.push(c)
   for (let c = COMPAT_JAMO_FIRST; c <= COMPAT_JAMO_LAST; c++) codes.push(c)
   for (let c = SYLLABLE_BASE; c <= SYLLABLE_LAST; c++) codes.push(c)
   return codes
@@ -205,7 +230,7 @@ export async function buildFont(
   const started = performance.now()
   const composer = new Composer(project, cache)
   const { advance } = project.metrics
-  const codes = glyphCodes(request.chars)
+  const codes = glyphCodes(request.chars, request.latin ?? true)
   const total = codes.length
   const glyphs: GlyphSpec[] = [
     notdef(advance),
@@ -215,12 +240,16 @@ export async function buildFont(
   let syllableCount = 0
   codes.forEach((code, i) => {
     if (code >= SYLLABLE_BASE) syllableCount += 1
-    glyphs.push({
-      name: glyphName(code),
-      unicode: code,
-      advance,
-      contours: composer.glyphContours(code),
-    })
+    const contours = composer.glyphContours(code)
+    // 다 지운 영문 글자는 넣지 않습니다. 빈 글리프가 있으면 쓰는 곳에서 다른 글꼴로 대신 보이지 않고 비어 보입니다.
+    if (contours.length > 0 || !isLatinCode(code)) {
+      glyphs.push({
+        name: glyphName(code),
+        unicode: code,
+        advance: composer.glyphAdvance(code),
+        contours,
+      })
+    }
     if ((i + 1) % 256 === 0) onProgress?.({ phase: 'compose', done: i + 1, total })
   })
   onProgress?.({ phase: 'encode', done: total, total })
@@ -233,6 +262,9 @@ export async function buildFont(
     descender: DESCENDER,
     weightClass: member?.weightClass ?? weightClassOf(project.style.weight),
     italicAngle: -project.style.slant,
+    // OS/2 x높이·대문자 높이: 넣은 x·H 윤곽의 위 끝 (없으면 buildOtf의 기본값)
+    xHeight: topOf(glyphs, 0x78),
+    capHeight: topOf(glyphs, 0x48),
   })
 
   let woff: ArrayBuffer | undefined

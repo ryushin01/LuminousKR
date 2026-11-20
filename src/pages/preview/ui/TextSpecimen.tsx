@@ -29,7 +29,7 @@ export function TextSpecimen() {
     if (font.state() === 'error')
       return '미리보기 글꼴을 만들지 못했습니다. 글을 조금 바꾸면 다시 만듭니다.'
     const glyphs = Math.max(0, font.glyphCount() - 2)
-    return `이 글에 쓰인 한글 ${formatNumber(glyphs)}자를 담은 글꼴 파일(${formatBytes(font.bytes())})로 그렸습니다.`
+    return `이 글에 쓰인 글자 ${formatNumber(glyphs)}자(한글·영문·숫자·문장부호)를 담은 글꼴 파일(${formatBytes(font.bytes())})로 그렸습니다.`
   }
 
   return (
@@ -48,7 +48,7 @@ export function TextSpecimen() {
         value={text()}
         maxLength={2000}
         onInput={setText}
-        hint="한글 음절과 낱자(ㄱ, ㅏ …)는 만든 글꼴로, 영문·숫자·문장부호는 운영체제 글꼴로 보입니다."
+        hint="한글 음절·낱자(ㄱ, ㅏ …)와 영문·숫자·문장부호는 만든 글꼴로, 그 밖의 글자(한자, 이모지 등)는 운영체제 글꼴로 보입니다."
       />
       <div class={styles.controls}>
         <RangeField

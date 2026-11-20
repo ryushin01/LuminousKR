@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs'
+import { parse } from 'opentype.js/dist/opentype.mjs'
 import { expect, openPage, test } from './fixtures.ts'
 
 test('11,172자 글꼴을 만들고 OTF·WOFF·WOFF2 파일을 받습니다 (두 번 눌러도 한 번만)', async ({
@@ -15,16 +16,24 @@ test('11,172자 글꼴을 만들고 OTF·WOFF·WOFF2 파일을 받습니다 (두
   await expect(page.getByRole('button', { name: '만드는 중…' })).toBeFocused()
   const otfButton = page.getByRole('button', { name: /OTF 받기/ })
   await expect(otfButton).toBeVisible({ timeout: 60_000 })
-  await expect(page.getByRole('status').filter({ hasText: '글리프 11,225개' })).toBeVisible()
+  // .notdef·빈칸 2 + 영문·숫자·문장부호 94 + 낱자 51 + 음절 11,172
+  await expect(page.getByRole('status').filter({ hasText: '글리프 11,319개' })).toBeVisible()
 
   const [otf] = await Promise.all([page.waitForEvent('download'), otfButton.click()])
   const otfBytes = readFileSync((await otf.path())!)
   expect(otf.suggestedFilename()).toBe('Luminous-Modular-Regular.otf')
   expect(otfBytes.subarray(0, 4).toString('latin1')).toBe('OTTO')
-  // 11,225글리프 전체(미리보기용 작은 글꼴이 아님)이면서, 되풀이되는 윤곽을 서브루틴으로 옮겨 1 MB 아래
+  // 11,319글리프 전체(미리보기용 작은 글꼴이 아님)이면서, 되풀이되는 윤곽을 서브루틴으로 옮겨 1 MB 아래
   // (옮기지 않으면 3.8 MB)
   expect(otfBytes.length).toBeGreaterThan(400_000)
   expect(otfBytes.length).toBeLessThan(1_000_000)
+  // 영문은 글자마다 너비가 다르고, 한글은 1000입니다.
+  const font = parse(
+    otfBytes.buffer.slice(otfBytes.byteOffset, otfBytes.byteOffset + otfBytes.length),
+  )
+  expect(font.charToGlyph('A').name).toBe('uni0041')
+  expect(font.charToGlyph('i').advanceWidth).toBeLessThan(font.charToGlyph('W').advanceWidth)
+  expect(font.charToGlyph('가').advanceWidth).toBe(1000)
 
   const [woff] = await Promise.all([
     page.waitForEvent('download'),
@@ -54,6 +63,15 @@ test('11,172자 글꼴을 만들고 OTF·WOFF·WOFF2 파일을 받습니다 (두
     page.getByText('방금 만든 글꼴 파일을 이 화면에 등록해 그린 글입니다.'),
   ).toBeVisible()
   expect(consoleErrors).toEqual([])
+})
+
+test('영문·숫자·문장부호를 끄면 한글만 넣은 글꼴을 만듭니다', async ({ page }) => {
+  await openPage(page, '/export')
+  await page.getByRole('checkbox', { name: /영문·숫자·문장부호 94자/ }).uncheck()
+  await page.getByRole('button', { name: '글꼴 파일 만들기' }).click()
+  await expect(page.getByRole('status').filter({ hasText: '글리프 11,225개' })).toBeVisible({
+    timeout: 60_000,
+  })
 })
 
 test('글꼴 이름을 비우고 만들면 원인을 알리고 그 칸으로 초점을 옮깁니다', async ({ page }) => {

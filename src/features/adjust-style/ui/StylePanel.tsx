@@ -17,7 +17,7 @@ const JOINS: { value: JoinStyle; label: string; description: string }[] = [
 ]
 
 /**
- * 획 스타일: 바꾸면 11,172자 전체에 한꺼번에 적용됩니다.
+ * 획 스타일: 바꾸면 한글 11,172자와 영문·숫자·문장부호에 한꺼번에 적용됩니다.
  * 슬라이더를 끄는 동안의 변경은 되돌리기 한 번으로 묶습니다.
  */
 export function StylePanel(props: { showMetrics?: boolean }) {
@@ -69,7 +69,7 @@ export function StylePanel(props: { showMetrics?: boolean }) {
       />
       <Show when={props.showMetrics}>
         <RangeField
-          label="글자 너비"
+          label="한글 글자 너비"
           value={metrics().advance}
           min={800}
           max={1100}
@@ -80,7 +80,7 @@ export function StylePanel(props: { showMetrics?: boolean }) {
           format={(v) => `${v} 단위`}
         />
         <RangeField
-          label="글자 높이"
+          label="한글 글자 높이"
           value={metrics().height}
           min={700}
           max={960}
@@ -101,6 +101,7 @@ export function StylePanel(props: { showMetrics?: boolean }) {
             editProject((d) => void (d.metrics.sideBearing = v), { coalesce: 'metrics-side' })
           }
           format={(v) => `${v} 단위`}
+          hint="글자 양옆의 여백입니다. 한글과 영문에 함께 쓰입니다."
         />
       </Show>
     </div>

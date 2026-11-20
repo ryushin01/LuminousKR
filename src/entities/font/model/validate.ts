@@ -1,3 +1,4 @@
+import { isLatinChar } from './latin.ts'
 import { DEFAULT_LAYOUTS, LAYOUT_IDS } from './layout.ts'
 import { createPresetProject } from './preset.ts'
 import type {
@@ -6,10 +7,17 @@ import type {
   FontProject,
   JamoEntry,
   JamoKey,
+  LatinEntry,
   LayoutId,
   LayoutSet,
   Stroke,
 } from './types.ts'
+
+/** 이 앱이 쓰는 프로젝트 판. 1판(영문 없음)도 읽어 2판으로 바꿉니다. */
+export const PROJECT_VERSION = 2
+
+/** 영문 뼈대 너비의 범위 (틀 높이 = 1) */
+export const MAX_LATIN_WIDTH = 1.5
 
 /** 프로젝트 파일을 읽을 수 없을 때 */
 export class ProjectFormatError extends Error {
@@ -78,11 +86,11 @@ function readStroke(raw: unknown, fallbackId: string): Stroke | null {
   return null
 }
 
-function readDrawing(raw: unknown, key: string): Drawing | undefined {
+function readDrawing(raw: unknown, key: string, what = '자모'): Drawing | undefined {
   if (!isObject(raw) || !Array.isArray(raw.strokes)) return undefined
   if (raw.strokes.length > MAX_STROKES_PER_DRAWING) {
     throw new ProjectFormatError(
-      `획이 너무 많은 자모가 있습니다(${key}: ${MAX_STROKES_PER_DRAWING}획 넘음). 파일이 손상되지 않았는지 확인해 주세요.`,
+      `획이 너무 많은 ${what}가 있습니다(${key}: ${MAX_STROKES_PER_DRAWING}획 넘음). 파일이 손상되지 않았는지 확인해 주세요.`,
     )
   }
   const strokes = raw.strokes
@@ -121,7 +129,12 @@ export function normalizeProject(raw: unknown): FontProject {
       'LuminousKR 프로젝트 파일이 아닙니다. 내보내기에서 받은 .json 파일을 골라 주세요.',
     )
   }
-  if (raw.version !== 1) {
+  if (isNumber(raw.version) && raw.version > PROJECT_VERSION) {
+    throw new ProjectFormatError(
+      `이 LuminousKR보다 새 판(${raw.version}판)에서 만든 프로젝트입니다. 페이지를 새로 고쳐 최신 판으로 열어 주세요.`,
+    )
+  }
+  if (raw.version !== 1 && raw.version !== 2) {
     throw new ProjectFormatError(
       `지원하지 않는 프로젝트 판(${String(raw.version)})입니다. 최신 LuminousKR에서 다시 내보내 주세요.`,
     )
@@ -145,6 +158,18 @@ export function normalizeProject(raw: unknown): FontProject {
       jamo[key as JamoKey] = entry
     }
   }
+  // 1판에는 영문이 없습니다(모두 기본 뼈대).
+  const latin: Partial<Record<string, LatinEntry>> = {}
+  if (isObject(raw.latin)) {
+    for (const [char, value] of Object.entries(raw.latin)) {
+      if (!isLatinChar(char) || !isObject(value)) continue
+      const entry: LatinEntry = {}
+      const drawing = readDrawing(value.drawing, char, '글자')
+      if (drawing) entry.drawing = drawing
+      if (isNumber(value.width)) entry.width = clamp(value.width, 0, MAX_LATIN_WIDTH)
+      if (entry.drawing || entry.width !== undefined) latin[char] = entry
+    }
+  }
   const style = isObject(raw.style) ? raw.style : {}
   const metrics = isObject(raw.metrics) ? raw.metrics : {}
   const meta = isObject(raw.meta) ? raw.meta : {}
@@ -152,9 +177,10 @@ export function normalizeProject(raw: unknown): FontProject {
     typeof v === 'string' ? v.slice(0, max) : fallback
   return {
     format: 'luminous-kr',
-    version: 1,
+    version: PROJECT_VERSION,
     name: text(raw.name, '가져온 글꼴', 60),
     jamo,
+    latin,
     style: {
       weight: isNumber(style.weight) ? clamp(style.weight, 20, 200) : preset.style.weight,
       contrast: isNumber(style.contrast) ? clamp(style.contrast, 0.3, 1) : preset.style.contrast,

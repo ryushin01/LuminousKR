@@ -21,6 +21,17 @@ for (const route of ROUTES) {
   })
 }
 
+test('작업실 영문 글자 화면: axe 위반 없음', async ({ page, consoleErrors }) => {
+  await openPage(page, '/studio?char=g')
+  await expect(page.getByRole('application', { name: '소문자 g 그리기 판' })).toBeVisible()
+  await page.waitForTimeout(600)
+  const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze()
+  expect(
+    results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`),
+  ).toEqual([])
+  expect(consoleErrors).toEqual([])
+})
+
 test('본문 바로가기는 첫 Tab에 나타나고 누르면 본문으로 초점이 옮겨 갑니다', async ({
   page,
   browserName,

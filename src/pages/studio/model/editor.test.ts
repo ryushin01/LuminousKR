@@ -2,7 +2,9 @@ import { createRoot } from 'solid-js'
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
   MAX_STROKES_PER_DRAWING,
+  type PlacedStroke,
   createBlankProject,
+  createPresetProject,
   editProject,
   fontProject,
   replaceProject,
@@ -182,6 +184,89 @@ describe('그림 한도 (넘으면 자동 저장한 작업을 다시 열 수 없
       editor.adopt()
       expect(fontProject.jamo.L1).toBeUndefined()
       expect(editor.announcement()).toContain('가져오지 못했습니다')
+    })
+  })
+})
+
+describe('영문·숫자·문장부호 편집', () => {
+  beforeEach(() => replaceProject(createPresetProject()))
+
+  function withLatin(run: (editor: ReturnType<typeof createEditor>) => void) {
+    createRoot((dispose) => {
+      run(createEditor('L0', undefined, 'A'))
+      dispose()
+    })
+  }
+  /** 비교용: id를 빼고 좌표를 저장 정밀도(소수 넷째 자리)로 맞춤 */
+  const shapeOf = (stroke: PlacedStroke) =>
+    JSON.parse(
+      JSON.stringify({ ...stroke, id: undefined }, (_, v) =>
+        typeof v === 'number' ? Math.round(v * 1e4) / 1e4 : v,
+      ),
+    )
+
+  it('기본 뼈대를 보여 주고, "직접 고치기"로 가져온 뒤 고치며, 되돌리면 기본 뼈대로 돌아갑니다', () => {
+    withLatin((editor) => {
+      expect(editor.latin()).toBe('A')
+      expect(editor.source()).toBe('preset')
+      expect(editor.canDraw()).toBe(false)
+      const preset = editor.placedStrokes()
+      expect(preset).toHaveLength(2)
+      editor.adopt()
+      expect(editor.source()).toBe('own')
+      expect(fontProject.latin.A?.drawing?.strokes).toHaveLength(2)
+      // 글자 뼈대 틀 좌표를 그대로 옮겨 옵니다(늘이거나 줄이지 않음).
+      expect(editor.ownStrokes().map(shapeOf)).toEqual(preset.map(shapeOf))
+      editor.revert()
+      expect(fontProject.latin.A).toBeUndefined()
+      expect(editor.source()).toBe('preset')
+    })
+  })
+
+  it('그린 점은 글자 뼈대 틀(정사각) 좌표로 담기고, 안내선은 격자에 맞습니다', () => {
+    withLatin((editor) => {
+      editor.clearAll()
+      expect(editor.source()).toBe('own')
+      expect(editor.ownStrokes()).toEqual([])
+      editor.place({ x: 0.5, y: 0.08 })
+      editor.place({ x: 0.5, y: 0.84 })
+      editor.finish()
+      const [stroke] = fontProject.latin.A?.drawing?.strokes ?? []
+      expect(stroke).toMatchObject({
+        kind: 'path',
+        points: [
+          { x: 0.5, y: expect.closeTo(1 / 12, 4) },
+          { x: 0.5, y: expect.closeTo(5 / 6, 4) },
+        ],
+      })
+    })
+  })
+
+  it('글자 너비는 그 글자에만 담기고, 끄는 동안의 변경은 되돌리기 한 번으로 돌아갑니다', () => {
+    withLatin((editor) => {
+      const before = editor.latinWidth()
+      editor.setLatinWidth(0.7)
+      editor.setLatinWidth(0.72)
+      expect(fontProject.latin.A).toEqual({ width: 0.72 })
+      expect(editor.latinWidth()).toBe(0.72)
+      undo()
+      expect(editor.latinWidth()).toBe(before)
+      expect(fontProject.latin.A).toBeUndefined()
+      // 기본 너비로 맞추면 고친 것이 없는 것으로 봅니다.
+      editor.setLatinWidth(0.7)
+      editor.setLatinWidth(before)
+      expect(fontProject.latin.A).toBeUndefined()
+    })
+  })
+
+  it('자모를 고르면 자모 편집으로, 다른 글자를 고르면 그 글자로 바뀝니다', () => {
+    withLatin((editor) => {
+      editor.selectJamo('L2')
+      expect(editor.latin()).toBeNull()
+      expect(editor.key()).toBe('L2')
+      editor.selectLatin('g')
+      expect(editor.latin()).toBe('g')
+      expect(editor.source()).toBe('preset')
     })
   })
 })

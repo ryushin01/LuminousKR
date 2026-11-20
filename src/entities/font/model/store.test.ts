@@ -260,7 +260,7 @@ describe('자동 저장과 탭 사이 맞추기', () => {
     resetProjectStoreForTest(createPresetProject(), { storage })
     editProject((d) => void (d.style.weight = 90))
     flushProjectSave()
-    const newer = JSON.stringify({ format: 'luminous-kr', version: 2 })
+    const newer = JSON.stringify({ format: 'luminous-kr', version: 3 })
     storage.setItem(STORAGE_KEY, newer) // storage 이벤트는 아직 오지 않음
     editProject((d) => void (d.style.weight = 91))
     flushProjectSave()
@@ -301,7 +301,7 @@ describe('자동 저장과 탭 사이 맞추기', () => {
     const storage = memoryStorage()
     resetProjectStoreForTest(createPresetProject(), { storage })
     const stop = startProjectSync()
-    const unreadable = JSON.stringify({ format: 'luminous-kr', version: 2 })
+    const unreadable = JSON.stringify({ format: 'luminous-kr', version: 3 })
     const readable = JSON.stringify({ ...createPresetProject(), name: '다른 탭' })
     const send = (text: string) => {
       storage.full = false
@@ -337,7 +337,7 @@ describe('자동 저장과 탭 사이 맞추기', () => {
   it('저장이 멈춘 동안 고친 것은, 다른 탭의 읽을 수 있는 저장을 받으면 멈춤을 풀고 먼저 씁니다', () => {
     const storage = memoryStorage()
     resetProjectStoreForTest(createPresetProject(), { storage })
-    const newer = JSON.stringify({ format: 'luminous-kr', version: 2 })
+    const newer = JSON.stringify({ format: 'luminous-kr', version: 3 })
     storage.setItem(STORAGE_KEY, newer)
     adoptSavedProject(newer)
     expect(projectSavePausedByOtherTab()).toBe(true)
@@ -402,7 +402,7 @@ describe('자동 저장과 탭 사이 맞추기', () => {
     expect(adoptSavedProject(null)).toBe(false)
     expect(projectSavePausedByOtherTab()).toBe(false)
 
-    const newer = JSON.stringify({ format: 'luminous-kr', version: 2 })
+    const newer = JSON.stringify({ format: 'luminous-kr', version: 3 })
     storage.setItem(STORAGE_KEY, newer)
     expect(adoptSavedProject(newer)).toBe(false)
     expect(fontProject.style.weight).toBe(90)
@@ -446,7 +446,7 @@ describe('자동 저장과 탭 사이 맞추기', () => {
     const storage = memoryStorage()
     resetProjectStoreForTest(createPresetProject(), { storage })
     editProject((d) => void (d.style.weight = 111))
-    const newer = JSON.stringify({ format: 'luminous-kr', version: 2 })
+    const newer = JSON.stringify({ format: 'luminous-kr', version: 3 })
     storage.setItem(STORAGE_KEY, newer)
     receiveOtherTabSave(newer)
     vi.advanceTimersByTime(1000)
@@ -688,7 +688,7 @@ describe('다른 탭과 쓰기 차례 맞추기(Web Locks)', () => {
     const storage = memoryStorage()
     resetProjectStoreForTest(createPresetProject(), { storage })
     editProject((d) => void (d.style.weight = 90))
-    const newer = JSON.stringify({ format: 'luminous-kr', version: 2 })
+    const newer = JSON.stringify({ format: 'luminous-kr', version: 3 })
     afterFirstRead(storage, STORAGE_KEY, () =>
       shared.otherTab(() => storage.setItem(STORAGE_KEY, newer)),
     )

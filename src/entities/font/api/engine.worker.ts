@@ -28,13 +28,17 @@ function composerFor(project: FontProject, revision: number): Composer {
 serveRpc(self as unknown as WorkerScopeLike, {
   render(payload: EngineMethods['render']['payload']): RenderedGlyph[] {
     const composer = composerFor(payload.project, payload.revision)
-    const advance = payload.project.metrics.advance
     return payload.items.map((item) => {
-      const contours =
-        item.type === 'char'
-          ? composer.glyphContours(item.char.codePointAt(0) ?? 0)
-          : composer.jamoContours(item.key, item.layout)
-      return { d: contoursToSvgPath(contours, ASCENDER), advance }
+      if (item.type === 'char') {
+        const code = item.char.codePointAt(0) ?? 0
+        return {
+          d: contoursToSvgPath(composer.glyphContours(code), ASCENDER),
+          // 영문은 글자마다 너비가 다릅니다.
+          advance: composer.glyphAdvance(code),
+        }
+      }
+      const contours = composer.jamoContours(item.key, item.layout)
+      return { d: contoursToSvgPath(contours, ASCENDER), advance: payload.project.metrics.advance }
     })
   },
 
