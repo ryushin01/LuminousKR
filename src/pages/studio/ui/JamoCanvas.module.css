@@ -61,6 +61,23 @@
   stroke-dasharray: 10 10;
 }
 
+/* 영문 판의 가로 안내선 */
+.guide line {
+  stroke: rgb(120 200 255 / 0.35);
+  stroke-width: 2;
+}
+
+.guide text {
+  fill: rgb(170 215 255 / 0.75);
+  font-family: var(--font-body);
+  font-size: 26px;
+}
+
+.baseline line {
+  stroke: rgb(120 200 255 / 0.6);
+  stroke-width: 3;
+}
+
 .frame {
   fill: rgb(255 106 26 / 0.05);
   stroke: var(--c-accent);

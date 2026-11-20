@@ -10,11 +10,14 @@ import {
   isSyllableCode,
   vowelShape,
 } from '@/shared/lib/hangul'
+import { isLatinCode, latinDrawing, latinWidth } from '../model/latin.ts'
 import { layoutFor } from '../model/layout.ts'
 import type { Box, FontProject, JamoKey, LayoutId } from '../model/types.ts'
 import {
   bodyFrame,
   expandStrokes,
+  latinAdvance,
+  latinFrame,
   pathsBounds,
   pathsToContours,
   unionPaths,
@@ -73,6 +76,8 @@ const STANDALONE: Record<'consonant' | 'cluster' | 'vertical' | 'horizontal' | '
 export class Composer {
   readonly project: FontProject
   readonly frame: BodyFrame
+  /** 영문 글자의 뼈대 틀 */
+  readonly latinFrame: BodyFrame
   private readonly resolveOptions: ResolveOptions
   private readonly cache: ComponentCache
   /** 윤곽 모양을 정하는 획 스타일·글자 틀 (캐시 입력의 앞부분) */
@@ -84,14 +89,16 @@ export class Composer {
   constructor(project: FontProject, cache: ComponentCache = new ComponentCache()) {
     this.project = project
     this.frame = bodyFrame(project.metrics, project.style)
+    this.latinFrame = latinFrame(project.metrics, project.style)
     this.resolveOptions = resolveOptionsFor(project)
     this.cache = cache
+    // 영문 틀도 같은 입력(획 스타일·좌우 여백)으로 정해지므로 열쇠에 따로 넣지 않습니다.
     this.styleKey = JSON.stringify([project.style, this.frame])
   }
 
-  private build(strokes: PlacedStroke[]): Component {
+  private build(strokes: readonly PlacedStroke[], frame: BodyFrame): Component {
     const { style } = this.project
-    const paths = expandStrokes(strokes, style, this.frame)
+    const paths = expandStrokes(strokes, style, frame)
     const bounds: Rect[] = []
     for (const path of paths) {
       const rect = pathsBounds([path], style)
@@ -104,7 +111,11 @@ export class Composer {
    * 배치한 획이 같으면(같은 스타일·글자 틀에서) 전에 만든 윤곽을 다시 씁니다.
    * 획을 배치하는 것은 가볍고, 두께 입히기·합치기·곡선 맞춤이 무겁습니다.
    */
-  private cached(id: string, make: () => PlacedStroke[]): Component {
+  private cached(
+    id: string,
+    make: () => readonly PlacedStroke[],
+    frame: BodyFrame = this.frame,
+  ): Component {
     const known = this.local.get(id)
     if (known) return known
     const strokes = make()
@@ -114,7 +125,7 @@ export class Composer {
     if (hit && hit.input === input) {
       component = hit.component
     } else {
-      component = this.build(strokes)
+      component = this.build(strokes, frame)
       this.cache.components.set(id, { input, component })
     }
     this.local.set(id, component)
@@ -209,11 +220,29 @@ export class Composer {
     }).contours
   }
 
-  /** 글자 하나의 윤곽. 한글 음절·호환 자모가 아니면 빈 배열입니다. */
+  /** 영문·숫자·문장부호 한 글자의 윤곽 (그 글자의 뼈대 틀에서) */
+  private latinContours(code: number): Contour[] {
+    const char = String.fromCharCode(code)
+    return this.cached(
+      `latin:${char}`,
+      () => latinDrawing(this.project, char).strokes,
+      this.latinFrame,
+    ).contours
+  }
+
+  /** 글자 하나의 윤곽. 한글 음절·호환 자모·영문(ASCII 인쇄 글자)이 아니면 빈 배열입니다. */
   glyphContours(code: number): Contour[] {
     if (isSyllableCode(code)) return this.syllableContours(code)
     if (isCompatJamoCode(code)) return this.standaloneContours(code)
+    if (isLatinCode(code)) return this.latinContours(code)
     return []
+  }
+
+  /** 글자 너비. 한글은 모두 같고, 영문은 글자마다 다릅니다. */
+  glyphAdvance(code: number): number {
+    const { metrics, style } = this.project
+    if (!isLatinCode(code)) return metrics.advance
+    return latinAdvance(metrics, style, latinWidth(this.project, String.fromCharCode(code)))
   }
 }
 
@@ -234,5 +263,5 @@ export function placedStrokesFor(
 
 /** 이 조합기가 글리프를 만들 수 있는 글자인지 */
 export function isComposable(code: number): boolean {
-  return isSyllableCode(code) || isCompatJamoCode(code)
+  return isSyllableCode(code) || isCompatJamoCode(code) || isLatinCode(code)
 }

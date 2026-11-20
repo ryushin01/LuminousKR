@@ -1,18 +1,19 @@
 import { type Accessor, createEffect, createSignal, on, onCleanup } from 'solid-js'
 import { isCompatJamoCode, isSyllableCode } from '@/shared/lib/hangul'
 import { buildPreviewFont } from '../api/engine-client.ts'
+import { isLatinCode } from './latin.ts'
 import { type RenderSource, currentSource } from './rendered.ts'
 
 export type PreviewFontState = 'building' | 'ready' | 'error'
 
 let familySeq = 0
 
-/** 글에 쓰인 한글 음절·자모만 중복 없이 뽑습니다. */
+/** 글에 쓰인 한글 음절·자모와 영문·숫자·문장부호만 중복 없이 뽑습니다(빈칸은 원래 들어 있음). */
 export function composableChars(text: string): string {
   const seen = new Set<string>()
   for (const char of text) {
     const code = char.codePointAt(0) ?? 0
-    if (isSyllableCode(code) || isCompatJamoCode(code)) seen.add(char)
+    if (isSyllableCode(code) || isCompatJamoCode(code) || isLatinCode(code)) seen.add(char)
   }
   return [...seen].join('')
 }

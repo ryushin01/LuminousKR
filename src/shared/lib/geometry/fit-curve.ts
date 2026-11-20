@@ -127,8 +127,12 @@ function cubicSegment([, c1, c2, end]: Cubic): Segment {
 
 /** 이보다 가까운 점은 하나로 봅니다. 정수 격자 반올림에서 생긴 잔떨림을 없앱니다. */
 const MIN_EDGE = 1
-/** 이보다 크게 되돌아가는 점(바늘처럼 튀어나온 점)은 지웁니다. */
+/**
+ * 이보다 크게 되돌아가면서(바늘처럼 튀어나온 점) 짧은 쪽 변이 SPIKE_LENGTH보다 짧은 점은 지웁니다.
+ * 두 변이 모두 길면 반올림 잔떨림이 아니라 진짜 모양(M의 기둥과 사선 사이의 좁고 깊은 틈 등)이므로 둡니다.
+ */
 const SPIKE_ANGLE = (150 * Math.PI) / 180
+const SPIKE_LENGTH = 8
 
 function dedupe(points: readonly Point[]): Point[] {
   const out: Point[] = []
@@ -145,7 +149,8 @@ function dedupe(points: readonly Point[]): Point[] {
       const prev = out[(i - 1 + n) % n]!
       const curr = out[i]!
       const next = out[(i + 1) % n]!
-      if (turnAngle(sub(curr, prev), sub(next, curr)) > SPIKE_ANGLE) {
+      const short = Math.min(distance(prev, curr), distance(curr, next)) < SPIKE_LENGTH
+      if (short && turnAngle(sub(curr, prev), sub(next, curr)) > SPIKE_ANGLE) {
         out.splice(i, 1)
         removed = true
         break

@@ -2,6 +2,7 @@ import { For, Show, createUniqueId } from 'solid-js'
 import {
   LAYOUT_INFO,
   type LayoutId,
+  MAX_LATIN_WIDTH,
   derivationSources,
   fontProject,
   homeLayout,
@@ -11,6 +12,7 @@ import {
 } from '@/entities/font'
 import { Button } from '@/shared/ui/button'
 import { Icon } from '@/shared/ui/icon'
+import { RangeField } from '@/shared/ui/range-field'
 import { Segmented } from '@/shared/ui/segmented'
 import { SelectField } from '@/shared/ui/select-field'
 import { TOOL_LABEL, type Editor, type Tool } from '../model/editor.ts'
@@ -55,6 +57,26 @@ export function LayoutPicker(props: { editor: Editor }) {
   )
 }
 
+/**
+ * 영문 글자의 너비. 뼈대 틀의 오른쪽 경계를 옮겨 다음 글자와의 거리를 정합니다(획은 늘어나지 않음).
+ * 값은 뼈대 틀 높이를 100으로 본 너비이고, 보여 주는 값은 글꼴에 들어갈 글자 너비(글꼴 단위)입니다.
+ */
+export function LatinWidthField(props: { editor: Editor }) {
+  // eslint-disable-next-line solid/reactivity -- 편집기 객체는 화면마다 한 번 만들어지고 바뀌지 않습니다.
+  const editor = props.editor
+  return (
+    <RangeField
+      label="이 글자의 너비"
+      value={Math.round(editor.latinWidth() * 100)}
+      min={0}
+      max={Math.round(MAX_LATIN_WIDTH * 100)}
+      onInput={(v) => editor.setLatinWidth(v / 100)}
+      format={() => `${editor.latinAdvance()} 단위`}
+      hint="주황 점선 틀의 오른쪽 끝을 옮깁니다. 획은 그대로이고 다음 글자와의 거리가 바뀝니다."
+    />
+  )
+}
+
 /** 지금 보는 그림이 어디서 왔는지와, 그에 맞는 동작 */
 export function SourceNotice(props: { editor: Editor }) {
   // eslint-disable-next-line solid/reactivity -- 편집기 객체는 화면마다 한 번 만들어지고 바뀌지 않습니다.
@@ -80,6 +102,15 @@ export function SourceNotice(props: { editor: Editor }) {
           이 배치만 따로 그리기
         </Button>
       </Show>
+      <Show when={editor.source() === 'preset'}>
+        <p>
+          <strong>기본 뼈대</strong> 처음부터 들어 있는 뼈대입니다. 굵기·끝 모양 같은 획 스타일은
+          한글과 함께 바뀝니다.
+        </p>
+        <Button size="small" variant="primary" onClick={() => editor.adopt()}>
+          직접 고치기
+        </Button>
+      </Show>
       <Show when={editor.source() === 'empty'}>
         <p>
           <strong>비어 있음</strong> 아직 획이 없습니다. 판에 점을 찍어 그리세요.
@@ -88,15 +119,23 @@ export function SourceNotice(props: { editor: Editor }) {
       <Show when={editor.source() === 'own'}>
         <p>
           <strong>직접 그림</strong>
-          {editor.isHome()
-            ? ' 이 자모의 기본 그림입니다.'
-            : ` '${LAYOUT_INFO[editor.layout()].sample}' 배치에서만 쓰는 그림입니다.`}
+          {editor.isLatin()
+            ? editor.ownStrokes().length === 0
+              ? ' 획이 없는 글자는 글꼴에 넣지 않아, 쓰는 곳에서 다른 글꼴로 보입니다.'
+              : ' 이 글자는 직접 그린 뼈대를 씁니다.'
+            : editor.isHome()
+              ? ' 이 자모의 기본 그림입니다.'
+              : ` '${LAYOUT_INFO[editor.layout()].sample}' 배치에서만 쓰는 그림입니다.`}
         </p>
         <div class={styles.noticeActions}>
-          <Show when={!editor.isHome() || isDerivable(editor.key())}>
+          <Show when={editor.isLatin() || !editor.isHome() || isDerivable(editor.key())}>
             <Button size="small" variant="secondary" onClick={() => editor.revert()}>
               <Icon name="reset" size={16} />
-              {editor.isHome() ? '자동으로 되돌리기' : '따로 그린 것 지우기'}
+              {editor.isLatin()
+                ? '기본 뼈대로 되돌리기'
+                : editor.isHome()
+                  ? '자동으로 되돌리기'
+                  : '따로 그린 것 지우기'}
             </Button>
           </Show>
           <Button

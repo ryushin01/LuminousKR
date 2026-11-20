@@ -1,18 +1,33 @@
 import { For, Index, Show, createMemo, createSignal, createUniqueId } from 'solid-js'
 import {
+  ASCENDER,
+  LATIN_DESCENT,
+  LATIN_GUIDES,
   type LayoutBoxes,
   type Point,
   type RenderItem,
   createRenderedGlyphs,
   fontProject,
-  jamoLabel,
   sampleSyllable,
+  strokeWidths,
 } from '@/entities/font'
 import { boxToSvg, strokeToSvgPath, toSvg, fromSvg } from '../lib/canvas-geometry.ts'
 import { type Press, isDoubleTap } from '../lib/double-tap.ts'
 import { ellipseFromCorners } from '../lib/drawing-ops.ts'
 import type { Editor } from '../model/editor.ts'
 import styles from './JamoCanvas.module.css'
+
+/** 영문 판의 가로 안내선 (위에서부터) */
+const GUIDES = [
+  { key: 'ascender', label: '어센더' },
+  { key: 'capHeight', label: '대문자 높이' },
+  { key: 'xHeight', label: 'x높이' },
+  { key: 'baseline', label: '기준선' },
+  { key: 'descender', label: '디센더' },
+] as const
+
+/** 영문 판의 세로 범위: 디센더(획 바깥 −145) 아래까지 보이게 (SVG 단위, 위가 0) */
+const LATIN_VIEW_HEIGHT = ASCENDER - LATIN_DESCENT + 35
 
 const ARROWS: Record<string, [number, number]> = {
   ArrowUp: [0, -1],
@@ -34,16 +49,55 @@ export function JamoCanvas(props: { editor: Editor }) {
   /** 손가락·펜으로 마지막에 누른 자리 (두 번 누르기 판정) */
   let lastTap: Press | null = null
 
-  const advance = () => fontProject.metrics.advance
   const frame = editor.frame
+  /**
+   * 판의 너비 (SVG 단위): 한글은 글자 너비, 영문은 뼈대 틀 전체(너비 1)가 들어가는 너비.
+   * 영문 글자 너비를 그보다 넓게 잡으면 그 너비까지 넓힙니다.
+   */
+  const advance = () =>
+    editor.isLatin()
+      ? Math.max(
+          frame().x1 +
+            strokeWidths(fontProject.style).vertical / 2 +
+            fontProject.metrics.sideBearing,
+          editor.latinAdvance(),
+        )
+      : fontProject.metrics.advance
+  const viewHeight = () => (editor.isLatin() ? LATIN_VIEW_HEIGHT : 1000)
 
-  const items = createMemo<RenderItem[]>(() => [
-    { type: 'char', char: sampleSyllable(editor.key(), editor.layout()) },
-    { type: 'jamo', key: editor.key(), layout: editor.layout() },
-  ])
-  const glyphs = createRenderedGlyphs(items)
+  // 한글은 [흐린 음절, 고치는 자모], 영문은 [고치는 글자]
+  const items = createMemo<RenderItem[]>(() => {
+    const char = editor.latin()
+    return char !== null
+      ? [{ type: 'char', char }]
+      : [
+          { type: 'char', char: sampleSyllable(editor.key(), editor.layout()) },
+          { type: 'jamo', key: editor.key(), layout: editor.layout() },
+        ]
+  })
+  const rendered = createRenderedGlyphs(items)
+  /** 자모와 영문을 오갈 때 앞 결과(모양이 다른 목록)를 잠깐이라도 잘못 보이지 않게 합니다. */
+  const glyphs = () => {
+    const list = rendered()
+    return list && list.length === items().length ? list : undefined
+  }
+  const contextGlyph = () => (editor.isLatin() ? undefined : glyphs()?.[0])
+  const outlineGlyph = () => glyphs()?.[editor.isLatin() ? 0 : 1]
+
+  const guideLines = createMemo(() =>
+    editor.isLatin()
+      ? GUIDES.map((guide) => ({
+          ...guide,
+          y: toSvg(frame(), { x: 0, y: LATIN_GUIDES[guide.key] }).y,
+        }))
+      : [],
+  )
+  /** 주황 점선 틀: 한글은 자모 틀, 영문은 뼈대 너비만큼 */
+  const editBox = () =>
+    editor.isLatin() ? { x0: 0, y0: 0, x1: editor.latinWidth(), y1: 1 } : editor.box()
 
   const layoutBoxes = createMemo(() => {
+    if (editor.isLatin()) return []
     const boxes: LayoutBoxes = fontProject.layouts[editor.layout()]
     return (['L', 'V', 'Vh', 'Vv', 'T'] as const)
       .filter((part) => boxes[part] && !(part === 'V' && boxes.Vh))
@@ -188,7 +242,7 @@ export function JamoCanvas(props: { editor: Editor }) {
         tabindex="0"
         role="application"
         aria-roledescription="그리기 판"
-        aria-label={`${jamoLabel(editor.key())} 그리기 판`}
+        aria-label={`${editor.label()} 그리기 판`}
         aria-describedby={helpId}
         onKeyDown={onKeyDown}
         onFocus={() => setFocused(true)}
@@ -199,7 +253,7 @@ export function JamoCanvas(props: { editor: Editor }) {
         <svg
           ref={svg}
           class={styles.svg}
-          viewBox={`0 0 ${advance()} 1000`}
+          viewBox={`0 0 ${advance()} ${viewHeight()}`}
           aria-hidden="true"
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
@@ -207,7 +261,13 @@ export function JamoCanvas(props: { editor: Editor }) {
           onPointerCancel={endDrag}
           onDblClick={() => editor.finish()}
         >
-          <rect class={styles.em} x="0" y="0" width={advance()} height="1000" />
+          <rect
+            class={styles.em}
+            x="0"
+            y="0"
+            width={editor.isLatin() ? editor.latinAdvance() : advance()}
+            height={viewHeight()}
+          />
           <g class={styles.grid}>
             <For each={gridLines()}>
               {(line) => (
@@ -222,13 +282,28 @@ export function JamoCanvas(props: { editor: Editor }) {
             </For>
           </g>
           <g>
+            <For each={guideLines()}>
+              {(guide) => (
+                <g
+                  classList={{
+                    [styles.guide!]: true,
+                    [styles.baseline!]: guide.key === 'baseline',
+                  }}
+                >
+                  <line x1="0" x2={advance()} y1={guide.y} y2={guide.y} />
+                  <text x={advance() - 10} y={guide.y - 10} text-anchor="end">
+                    {guide.label}
+                  </text>
+                </g>
+              )}
+            </For>
             <For each={layoutBoxes()}>{(item) => <rect class={styles.box} {...item.rect} />}</For>
-            <rect class={styles.frame} {...boxToSvg(frame(), editor.box())} />
+            <rect class={styles.frame} {...boxToSvg(frame(), editBox())} />
           </g>
-          <Show when={glyphs()?.[0]}>
+          <Show when={contextGlyph()}>
             {(glyph) => <path class={styles.context} d={glyph().d} />}
           </Show>
-          <Show when={glyphs()?.[1]}>
+          <Show when={outlineGlyph()}>
             {(glyph) => <path class={styles.outline} d={glyph().d} />}
           </Show>
           <Show
@@ -295,6 +370,10 @@ export function JamoCanvas(props: { editor: Editor }) {
         </svg>
       </div>
       <p id={helpId} class={styles.help}>
+        <Show when={editor.isLatin()}>
+          가로 안내선은 위부터 어센더, 대문자 높이, x높이, 기준선, 디센더입니다(격자 24칸에서
+          0·2·8·20·24칸).{' '}
+        </Show>
         포인터로 점을 찍고 두 번 누르거나 Enter로 획을 마칩니다. 첫 점을 다시 누르면 닫힌 획이
         됩니다. 키보드: 화살표로 점 위치(Shift와 함께 4칸), 스페이스로 점 찍기, Enter 마치기, Esc
         취소, Delete 고른 획 지우기.
