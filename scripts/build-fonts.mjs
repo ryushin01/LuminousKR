@@ -11,12 +11,14 @@
  *
  * 화면 글자가 바뀌면 다시 실행합니다. `--check`는 1에 빠진 글자가 있으면 실패합니다(단위 테스트에서 씀).
  * 조각 파일은 글자가 바뀌어도 그대로라 없는 것만 만듭니다. 원본 글꼴을 바꿨으면 `--all`로 모두 다시 만듭니다.
+ * `--list`는 글꼴을 만들지 않고, 1에 넣을 글자(ASCII 제외)를 코드 포인트 차례로 출력합니다.
  */
 import { existsSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { decodeHTML } from 'entities'
 import fontverter from 'fontverter'
 import { Blob, Face } from 'harfbuzzjs'
 import subsetFont from 'subset-font'
@@ -99,18 +101,23 @@ async function screenText() {
       if (/\.[cm]?[jt]sx?$/.test(file)) {
         const text = await readFile(file, 'utf8')
         if (!AST) {
-          parts.push(text)
+          // 어디가 JSX인지 모르므로 엔티티를 푼 원문도 셈(더 셀 뿐 빠지지 않음)
+          parts.push(text, decodeHTML(text))
           continue
         }
         const kind = file.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS
-        const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, false, kind)
+        // 부모 연결을 켜서 문자열이 JSX 속성값인지 알아봄
+        const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, kind)
         const visit = (node) => {
-          if (
+          // JSX 글자와 속성값은 HTML처럼 이름 있는 엔티티(&lsquo; 등)가 글자로 바뀌어 화면에 나옴.
+          // 보통 JS 문자열 속 '&hearts;'는 그 글자 그대로 나오므로 풀지 않음
+          if (ts.isJsxText(node) || (ts.isStringLiteral(node) && ts.isJsxAttribute(node.parent)))
+            parts.push(decodeHTML(node.text))
+          else if (
             ts.isStringLiteralLike(node) ||
             ts.isTemplateHead(node) ||
             ts.isTemplateMiddle(node) ||
-            ts.isTemplateTail(node) ||
-            ts.isJsxText(node)
+            ts.isTemplateTail(node)
           )
             parts.push(node.text)
           ts.forEachChild(node, visit)
@@ -130,7 +137,8 @@ async function screenText() {
           parts.push(text)
         }
       } else if (new RegExp(`\\.(${config.dataExtensions.join('|')})$`).test(file)) {
-        parts.push(await readFile(file, 'utf8'))
+        const text = await readFile(file, 'utf8')
+        parts.push(file.endsWith('.html') ? decodeHTML(text) : text)
       }
     }
   }
@@ -149,11 +157,45 @@ function cmapOf(sfnt) {
   return set
 }
 
+/**
+ * OFL 글꼴은 사본마다 저작권과 사용 허락을 지녀야 하므로 줄인 파일에도 저작권(0)·라이선스 설명(13)·라이선스 주소(14)를
+ * 남깁니다. HarfBuzz는 기본으로 0~6만 남기므로 13·14를 더 남기라고 넘깁니다.
+ */
+const LICENSE_NAME_IDS = [0, 13, 14]
+const subset = (font, text) =>
+  subsetFont(font, text, { targetFormat: 'woff2', preserveNameIds: [13, 14] })
+
+/** sfnt(OTF·TTF)의 name 표에 있는 Windows 플랫폼 이름 ID들 */
+function nameIdsOf(sfnt) {
+  const view = new DataView(sfnt.buffer, sfnt.byteOffset, sfnt.byteLength)
+  const ids = new Set()
+  for (let i = 0; i < view.getUint16(4); i++) {
+    const entry = 12 + i * 16
+    if (view.getUint32(entry) !== 0x6e616d65) continue // 'name'
+    const table = view.getUint32(entry + 8)
+    for (let j = 0; j < view.getUint16(table + 2); j++) {
+      const record = table + 6 + j * 12
+      if (view.getUint16(record) === 3) ids.add(view.getUint16(record + 6))
+    }
+  }
+  return ids
+}
+
+/** 원본에 있는 저작권·라이선스 이름 항목 가운데 줄인 파일에 없는 것 */
+async function lackingLicenseNames(originalIds, file) {
+  const ids = nameIdsOf(await fontverter.convert(await readFile(file), 'sfnt'))
+  return LICENSE_NAME_IDS.filter((id) => originalIds.has(id) && !ids.has(id))
+}
+
 const fontFace = (family, weight, url, range) =>
   `@font-face{font-family:'${family}';font-style:normal;font-weight:${weight};font-display:swap;` +
   `src:url('${url}') format('woff2');unicode-range:${range}}`
 
 const screen = await screenText()
+if (process.argv.includes('--list')) {
+  console.log(String.fromCodePoint(...[...screen].sort((a, b) => a - b)))
+  process.exit(0)
+}
 const missing = []
 let checked = 0
 
@@ -173,7 +215,8 @@ for (const font of config.fonts) {
 
   for (const [weight, src] of Object.entries(font.weights)) {
     const original = await readFile(path.join(ROOT, src))
-    const cmap = cmapOf(await fontverter.convert(original, 'sfnt'))
+    const originalSfnt = await fontverter.convert(original, 'sfnt')
+    const cmap = cmapOf(originalSfnt)
     const ui = new Set([...screen].filter((cp) => cmap.has(cp)))
 
     if (CHECK) {
@@ -189,13 +232,23 @@ for (const font of config.fonts) {
       const lack = [...ui].filter((cp) => !declared.has(cp) || !inFile.has(cp))
       if (lack.length) missing.push(`${family} ${weight}: ${String.fromCodePoint(...lack)}`)
       checked = Math.max(checked, ui.size)
+      // 화면 글자 파일과 조각 파일 모두 원본의 저작권·라이선스 항목을 지녀야 함
+      const originalNames = nameIdsOf(originalSfnt)
+      const pieces = SLICES.map(
+        (_, index) => `${slug}-${weight}-${String(index).padStart(3, '0')}.woff2`,
+      ).filter((name) => existsSync(path.join(restDir, name)))
+      for (const file of [uiPath, ...pieces.map((name) => path.join(restDir, name))]) {
+        const lackNames = await lackingLicenseNames(originalNames, file)
+        if (lackNames.length)
+          missing.push(
+            `${path.relative(ROOT, file)}: 저작권·라이선스 이름 항목 없음(ID ${lackNames.join('·')})`,
+          )
+      }
       continue
     }
 
     const uiName = `${slug}-${weight}-ui.woff2`
-    const uiFont = await subsetFont(original, String.fromCodePoint(...ui), {
-      targetFormat: 'woff2',
-    })
+    const uiFont = await subset(original, String.fromCodePoint(...ui))
     await writeFile(path.join(dir, uiName), uiFont)
     written.push(path.join(dir, uiName))
     uiRules.push(fontFace(family, weight, `./${slug}/${uiName}`, toRange(ui)))
@@ -206,9 +259,7 @@ for (const font of config.fonts) {
       const name = `${slug}-${weight}-${String(index).padStart(3, '0')}.woff2`
       // 이름을 바꾸는 글꼴은 이전 실행에서 이름 바꾸기가 실패했을 수 있어 늘 다시 만듦
       if (ALL || font.rename || !existsSync(path.join(restDir, name))) {
-        const piece = await subsetFont(original, String.fromCodePoint(...inFont), {
-          targetFormat: 'woff2',
-        })
+        const piece = await subset(original, String.fromCodePoint(...inFont))
         await writeFile(path.join(restDir, name), piece)
         written.push(path.join(restDir, name))
       }
@@ -244,9 +295,11 @@ for (const font of config.fonts) {
 if (CHECK) {
   if (missing.length) {
     console.error(
-      `화면 글자 파일에 없는 글자가 있습니다. pnpm fonts로 다시 만드세요.\n${missing.join('\n')}`,
+      `화면 글자 파일에 빠진 글자가 있거나 줄인 파일에 저작권·라이선스 항목이 없습니다. pnpm fonts로 다시 만드세요.\n${missing.join('\n')}`,
     )
     process.exit(1)
   }
-  console.log(`OK: 화면 글자 ${checked}자가 모두 화면 글자 파일에 있습니다.`)
+  console.log(
+    `OK: 화면 글자 ${checked}자가 모두 화면 글자 파일에 있고, 줄인 파일마다 저작권·라이선스 항목이 있습니다.`,
+  )
 }

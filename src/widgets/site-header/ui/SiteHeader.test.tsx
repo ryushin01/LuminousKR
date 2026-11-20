@@ -1,5 +1,5 @@
 import { MemoryRouter, Route, createMemoryHistory } from '@solidjs/router'
-import { render, screen } from '@solidjs/testing-library'
+import { cleanup, render, screen, within } from '@solidjs/testing-library'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { SiteHeader } from './SiteHeader.tsx'
@@ -15,10 +15,37 @@ function renderHeader(path = '/studio') {
 }
 
 describe('SiteHeader', () => {
-  it('현재 화면의 단계 링크에 aria-current="page"를 붙입니다', () => {
+  it('주 메뉴는 01 홈부터 05 내보내기까지 번호 차례로 보여 줍니다', () => {
     renderHeader('/studio')
-    const quick = screen.getByRole('navigation', { name: '작업 단계' })
-    expect(quick.querySelector('[aria-current="page"]')).toHaveTextContent('작업실')
+    const nav = screen.getByRole('navigation', { name: '주 메뉴' })
+    const links = within(nav).getAllByRole('link')
+    expect(links.map((link) => link.textContent)).toEqual([
+      '01홈',
+      '02작업실',
+      '03가져오기',
+      '04미리보기',
+      '05내보내기',
+    ])
+    expect(links.map((link) => link.getAttribute('href'))).toEqual([
+      '/',
+      '/studio',
+      '/import',
+      '/preview',
+      '/export',
+    ])
+  })
+
+  it('현재 화면의 링크 하나에만 aria-current="page"를 붙입니다(홈은 홈에서만)', () => {
+    renderHeader('/studio')
+    let current = screen.getByRole('navigation', { name: '주 메뉴' })
+    expect(current.querySelectorAll('[aria-current="page"]')).toHaveLength(1)
+    expect(current.querySelector('[aria-current="page"]')).toHaveTextContent('작업실')
+    cleanup()
+
+    renderHeader('/')
+    current = screen.getByRole('navigation', { name: '주 메뉴' })
+    expect(current.querySelectorAll('[aria-current="page"]')).toHaveLength(1)
+    expect(current.querySelector('[aria-current="page"]')).toHaveTextContent('홈')
   })
 
   it('전체 메뉴는 대화상자로 열리고, 닫으면 여는 버튼으로 초점이 돌아옵니다', async () => {

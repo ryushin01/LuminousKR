@@ -4,14 +4,17 @@ import { expect, openPage, test } from './fixtures.ts'
 
 const PROJECT_KEY = 'luminous-kr:project:v1'
 
-/** 저장된 프로젝트의 ㄱ 초성 획 수와 굵기 */
+/**
+ * 저장된 프로젝트의 ㄱ 초성 획 수와 굵기. 프로젝트가 아닌 원문(읽지 못하는 형식 등)이면 null이라,
+ * expect.poll이 예외로 멈추지 않고 저장(잠금을 받은 뒤 비동기로 씀)을 기다립니다.
+ */
 const saved = (page: Page) =>
   page.evaluate((key) => {
     const project = JSON.parse(localStorage.getItem(key) ?? 'null') as {
-      jamo: { L0?: { base?: { strokes: unknown[] } } }
-      style: { weight: number }
+      jamo?: { L0?: { base?: { strokes: unknown[] } } }
+      style?: { weight: number }
     } | null
-    return project
+    return project?.jamo && project.style
       ? { L0: project.jamo.L0?.base?.strokes.length, weight: project.style.weight }
       : null
   }, PROJECT_KEY)
