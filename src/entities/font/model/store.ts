@@ -12,6 +12,7 @@ import {
   readSavedText,
   removeKept,
   serializeProject,
+  withWriteLock,
   writeSaved,
 } from './persistence.ts'
 import { createPresetProject } from './preset.ts'
@@ -79,9 +80,11 @@ function canOverwrite(): boolean {
   }
 }
 
-function saveNow(): void {
-  clearTimeout(saveTimer)
-  saveTimer = undefined
+/**
+ * 지금 작업을 저장소에 바로 씁니다. 쓰기 바로 전에 저장된 값을 확인하므로, 다른 탭과 차례를 맞추려면
+ * withWriteLock 안에서 부릅니다(기다릴 수 없는 닫기 직전 저장만 바로 부름).
+ */
+function writeNow(): void {
   if (pause() || !canOverwrite()) return
   const text = serializeProject(unwrap(project))
   const outcome = writeSaved(storage, text)
@@ -92,17 +95,38 @@ function saveNow(): void {
   setSaveFailure(outcome === 'ok' ? null : outcome)
 }
 
+function clearSaveTimer(): void {
+  clearTimeout(saveTimer)
+  saveTimer = undefined
+}
+
+/**
+ * 다른 탭과 쓰기 차례를 맞춰 저장합니다. onlyIfDirty면 잠금을 기다리는 사이 이미 저장했거나
+ * 다른 탭의 작업을 받아 맞춰 쓸 것이 없어졌을 때 쓰지 않습니다.
+ */
+function saveNow(onlyIfDirty = false): void {
+  clearSaveTimer()
+  // eslint-disable-next-line solid/reactivity -- 잠금을 받은 그때의 값을 읽습니다(추적할 화면이 아님).
+  withWriteLock(() => {
+    if (!onlyIfDirty || dirty) writeNow()
+  })
+}
+
 function scheduleSave(): void {
   clearTimeout(saveTimer)
-  saveTimer = setTimeout(saveNow, SAVE_DELAY_MS)
+  saveTimer = setTimeout(() => saveNow(true), SAVE_DELAY_MS)
 }
 
 /**
  * 기다리는 저장(또는 실패한 저장)이 있으면 바로 씁니다 (탭을 닫거나 새로 고치기 직전).
+ * 닫히는 탭은 잠금을 기다릴 수 없으므로 잠금 없이 씁니다.
  * 이 탭의 변경이 모두 저장소에 있으면 true. 저장에 실패했거나 저장을 멈춘 동안 고친 것이 있으면 false.
  */
 export function flushProjectSave(): boolean {
-  if (saveTimer !== undefined || dirty) saveNow()
+  if (saveTimer !== undefined || dirty) {
+    clearSaveTimer()
+    writeNow()
+  }
   return !dirty
 }
 
@@ -180,9 +204,13 @@ function releaseInPlace(overwrite: boolean): void {
   setInPlaceText(null)
   if (pause() !== 'unreadable-here') return
   setPause(null)
-  const current = storageChangeToAdopt()
-  if (current !== null) receiveOtherTabSave(current)
-  else if (overwrite || dirty) saveNow()
+  // 확인과 쓰기를 한 잠금 안에서 해, 그사이 다른 탭이 쓴 새 저장을 이 탭의 작업으로 덮지 않습니다.
+  // eslint-disable-next-line solid/reactivity -- 잠금을 받은 그때의 값을 읽습니다(추적할 화면이 아님).
+  withWriteLock(() => {
+    const current = storageChangeToAdopt()
+    if (current !== null) receiveOtherTabSave(current)
+    else if (overwrite || dirty) writeNow()
+  })
 }
 
 /**
@@ -215,6 +243,7 @@ export const inPlaceUnreadableText = inPlaceText
 /**
  * 화면에 보여 준 보관 원문을 지웁니다. 그사이 다른 탭이 더한 원문은 남겨 다시 보여 줍니다.
  * 지운 원문이 아직 원래 자리에 있으면(편집 없이 지운 경우) 지금 작업으로 바로 써서, 새로 고쳐도 다시 보관되지 않게 합니다.
+ * 확인과 쓰기를 한 잠금 안에서 해, 그사이 다른 탭이 쓴 새 저장은 덮지 않습니다(그 저장은 storage 이벤트로 받아 맞춤).
  */
 export function discardKeptUnreadable(): void {
   const shown = keptTexts()
@@ -224,8 +253,11 @@ export function discardKeptUnreadable(): void {
       shown.map((entry) => entry.key),
     ),
   )
-  const current = readSavedText(storage)
-  if (current !== null && shown.some((entry) => entry.text === current)) saveNow()
+  // eslint-disable-next-line solid/reactivity -- 잠금을 받은 그때의 값을 읽습니다(추적할 화면이 아님).
+  withWriteLock(() => {
+    const current = readSavedText(storage)
+    if (current !== null && shown.some((entry) => entry.text === current)) writeNow()
+  })
 }
 
 /**
@@ -298,15 +330,13 @@ export function adoptSavedProject(text: string | null): boolean {
   try {
     next = parseSaved(text)
   } catch {
-    clearTimeout(saveTimer)
-    saveTimer = undefined
+    clearSaveTimer()
     lastSeen = text
     setPause('unreadable-other-tab')
     return false
   }
   batch(() => {
-    clearTimeout(saveTimer)
-    saveTimer = undefined
+    clearSaveTimer()
     lastSeen = text
     dirty = false
     // 다른 탭이 이미 원래 자리를 덮어썼으므로 이 탭이 저장을 멈춰 둘 까닭이 없습니다(원문은 화면에서 계속 받을 수 있음).
@@ -355,7 +385,7 @@ export function receiveOtherTabSave(text: string | null): void {
   // 이 값을 본 것으로 적어 둡니다. 다시 써 보다 실패해도, 그 뒤 읽지 못하는 저장이 또 오면 새 변화로 알아봅니다.
   lastSeen = text
   if (dirty) {
-    saveNow()
+    saveNow(true)
     return
   }
   adoptSavedProject(text)
@@ -400,8 +430,7 @@ export function resetProjectStoreForTest(
     seen?: string | null
   } = {},
 ): void {
-  clearTimeout(saveTimer)
-  saveTimer = undefined
+  clearSaveTimer()
   storage = options.storage ?? projectStorage()
   lastSeen = options.seen ?? null
   dirty = false

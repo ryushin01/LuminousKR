@@ -556,6 +556,175 @@ describe('자동 저장과 탭 사이 맞추기', () => {
   })
 })
 
+/**
+ * 같은 출처의 탭들이 함께 쓰는 Web Locks를 흉내 냅니다. 잠금은 한 번에 하나만, 기다린 차례대로 다음 마이크로태스크에
+ * 콜백을 부릅니다(실제 API도 비동기로 줌). signal이 끊기면 기다리던 요청을 거두고 AbortError로 거부합니다.
+ */
+function sharedLocks() {
+  let held = false
+  const waiting: { run: () => void }[] = []
+  const grantNext = () => {
+    if (held) return
+    const next = waiting.shift()
+    if (!next) return
+    held = true
+    queueMicrotask(next.run)
+  }
+  const acquire = (callback: () => unknown, signal?: AbortSignal) =>
+    new Promise((resolve, reject) => {
+      const entry = {
+        run: () => {
+          try {
+            resolve(callback())
+          } catch (error) {
+            reject(error)
+          } finally {
+            held = false
+            grantNext()
+          }
+        },
+      }
+      signal?.addEventListener('abort', () => {
+        const index = waiting.indexOf(entry)
+        if (index === -1) return
+        waiting.splice(index, 1)
+        reject(new DOMException('잠금 기다리기를 그만둠', 'AbortError'))
+      })
+      waiting.push(entry)
+      grantNext()
+    })
+  return {
+    locks: {
+      request: (_name: string, options: { signal?: AbortSignal }, callback: () => unknown) =>
+        acquire(callback, options.signal),
+    },
+    /**
+     * 같은 잠금을 쓰는 다른 탭의 쓰기. 잠금이 비어 있으면 그 자리에서 쓰고(다른 프로세스에서 동시에 일어나는 쓰기),
+     * 누가 쥐고 있으면 놓을 때까지 기다립니다.
+     */
+    otherTab(write: () => void) {
+      if (held) void acquire(write)
+      else write()
+    },
+    /** 다른 탭이 잠금을 받아 놓고 놓지 않음(멈춘 탭) */
+    holdForever() {
+      held = true
+    },
+  }
+}
+
+/** 이 열쇠를 처음 읽은 바로 뒤에 effect를 부릅니다(이 탭이 저장된 값을 확인한 직후 다른 탭이 쓰는 순서). */
+function afterFirstRead(
+  storage: { getItem: (key: string) => string | null },
+  key: string,
+  effect: () => void,
+) {
+  const getItem = storage.getItem
+  let done = false
+  storage.getItem = (name: string) => {
+    const value = getItem(name)
+    if (name === key && !done) {
+      done = true
+      effect()
+    }
+    return value
+  }
+}
+
+/** 기다리던 마이크로태스크(잠금 주기·다음 차례)를 모두 돌립니다. */
+async function drain() {
+  for (let i = 0; i < 20; i++) await Promise.resolve()
+}
+
+describe('다른 탭과 쓰기 차례 맞추기(Web Locks)', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.unstubAllGlobals()
+    resetProjectStoreForTest()
+  })
+
+  it('보관한 원문을 지우고 원래 자리를 바꿔 쓸 때, 확인한 직후 다른 탭이 쓴 새 작업을 덮지 않습니다', async () => {
+    const shared = sharedLocks()
+    vi.stubGlobal('navigator', { locks: shared.locks })
+    const storage = memoryStorage()
+    const broken = '{"format":"luminous-kr","version":9}'
+    storage.setItem(STORAGE_KEY, broken)
+    const loaded = loadSaved(storage)
+    resetProjectStoreForTest(createPresetProject(), {
+      storage,
+      kept: loaded.kept,
+      seen: loaded.text,
+    })
+    const other = createPresetProject()
+    other.style.weight = 144
+    afterFirstRead(storage, STORAGE_KEY, () =>
+      shared.otherTab(() => storage.setItem(STORAGE_KEY, JSON.stringify(other))),
+    )
+    discardKeptUnreadable()
+    await drain()
+    expect(savedWeight(storage)).toBe(144)
+  })
+
+  it('보관하지 못한 원래 작업을 버리고 지금 작업을 쓸 때, 확인한 직후 다른 탭이 쓴 새 작업을 덮지 않습니다', async () => {
+    const shared = sharedLocks()
+    vi.stubGlobal('navigator', { locks: shared.locks })
+    const storage = memoryStorage()
+    storage.setItem(STORAGE_KEY, '{원래 작업')
+    resetProjectStoreForTest(createPresetProject(), { storage, inPlace: '{원래 작업' })
+    const other = createPresetProject()
+    other.style.weight = 144
+    afterFirstRead(storage, STORAGE_KEY, () =>
+      shared.otherTab(() => storage.setItem(STORAGE_KEY, JSON.stringify(other))),
+    )
+    discardInPlaceUnreadable()
+    await drain()
+    expect(savedWeight(storage)).toBe(144)
+  })
+
+  it('자동 저장이 저장된 값을 확인한 직후 다른 탭이 새 형식으로 써도, 그 저장을 덮지 않습니다', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    const shared = sharedLocks()
+    vi.stubGlobal('navigator', { locks: shared.locks })
+    const storage = memoryStorage()
+    resetProjectStoreForTest(createPresetProject(), { storage })
+    editProject((d) => void (d.style.weight = 90))
+    const newer = JSON.stringify({ format: 'luminous-kr', version: 2 })
+    afterFirstRead(storage, STORAGE_KEY, () =>
+      shared.otherTab(() => storage.setItem(STORAGE_KEY, newer)),
+    )
+    vi.advanceTimersByTime(400)
+    await drain()
+    expect(storage.getItem(STORAGE_KEY)).toBe(newer)
+  })
+
+  it('잠금을 2초 넘게 받지 못하면(멈춘 탭이 쥐고 있음) 잠금 없이 저장합니다', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    const shared = sharedLocks()
+    vi.stubGlobal('navigator', { locks: shared.locks })
+    const storage = memoryStorage()
+    resetProjectStoreForTest(createPresetProject(), { storage })
+    shared.holdForever()
+    editProject((d) => void (d.style.weight = 90))
+    vi.advanceTimersByTime(400)
+    await drain()
+    expect(storage.getItem(STORAGE_KEY)).toBeNull()
+    vi.advanceTimersByTime(2000)
+    await drain()
+    expect(savedWeight(storage)).toBe(90)
+  })
+
+  it('탭을 닫기 직전의 저장은 잠금을 기다리지 않고 바로 씁니다', () => {
+    const shared = sharedLocks()
+    vi.stubGlobal('navigator', { locks: shared.locks })
+    const storage = memoryStorage()
+    resetProjectStoreForTest(createPresetProject(), { storage })
+    shared.holdForever()
+    editProject((d) => void (d.style.weight = 90))
+    expect(flushProjectSave()).toBe(true)
+    expect(savedWeight(storage)).toBe(90)
+  })
+})
+
 describe('프로젝트 파일 검사', () => {
   it('다른 형식의 파일은 원인과 함께 거부합니다', () => {
     expect(() => parseProjectJson('{"hello":1}')).toThrow(ProjectFormatError)
