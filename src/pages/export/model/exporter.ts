@@ -21,7 +21,12 @@ export const TOTAL_GLYPHS = 11_223
 /** 만들지 못한 까닭과 할 일. 입력이 글꼴 규격에 담기지 않으면(RangeError) 다시 눌러도 같으므로 고칠 것만 알립니다. */
 function buildErrorText(cause: unknown): string {
   if (isAssetLoadError(cause)) {
-    return '글꼴 파일을 만들지 못했습니다. 작업 스레드를 불러오지 못했습니다(새 버전이 나왔거나 연결이 끊겼을 수 있음). 화면 아래의 새로 고침을 눌러 주세요. 작업은 자동 저장되어 있습니다.'
+    // ChunkLoadError: 작업 스레드 안에서 나중에 받는 파일(WOFF2 압축기 WASM)을 받지 못함
+    const what =
+      cause instanceof Error && cause.name === 'ChunkLoadError'
+        ? 'WOFF2 압축기를 받지 못했습니다'
+        : '작업 스레드를 불러오지 못했습니다'
+    return `글꼴 파일을 만들지 못했습니다. ${what}(새 버전이 나왔거나 연결이 끊겼을 수 있음). 화면 아래의 새로 고침을 눌러 주세요. 작업은 자동 저장되어 있습니다.`
   }
   const message = cause instanceof Error ? cause.message : String(cause)
   if (cause instanceof Error && cause.name === 'RangeError') {

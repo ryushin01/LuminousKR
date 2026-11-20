@@ -8,7 +8,8 @@ WOFF2 내보내기. v1.0.0 계획에서 'Chromium에 brotli 압축이 없어' �
 - 형식: CFF라 glyf·loca 변환 없이 모든 표를 '변환 없음'으로, 표를 디렉터리 차례로 이어 brotli 한 덩어리(알려진 태그는 색인, 길이는 UIntBase128). 규격대로 DSIG는 빼고 head.flags 11번 비트를 켬
 - 압축기: `brotli-wasm`(WASM 1,057 KB, gzip 575 KB)을 WOFF2를 만들 때만 워커에서 받음(첫 화면 전송량 그대로). 품질 9: 품질 11보다 15% 크지만 100배쯤 빠름(Node에서 0.1초 vs 13초). 브라우저 내장 `CompressionStream('brotli')`은 품질을 정할 수 없고 Chromium에는 없어 쓰지 않으므로 어느 브라우저에서나 같은 파일이 나옴. 실측(Chromium, M1 Max): 내보내기 1,372 → 1,406 ms
 - 배포본 `licenses/`에 brotli-wasm(Apache-2.0)과 그 안의 rust-brotli(BSD-3-Clause·MIT) 사용 허락 전문, README 출처 표에 두 줄
-- 검사: fontTools로 열어 head 말고 모든 표가 원본과 같음(head는 flags 11번 비트만). 시험: UIntBase128, 헤더·디렉터리 값과 풀어 낸 표, 알려진 태그 밖은 63 + 태그, DSIG 빼기, 글꼴 만들기·가족 ZIP의 WOFF2, E2E(내려받은 WOFF2의 `wOF2` 서명·WOFF보다 작음·`FontFace`로 불러 브라우저 글꼴 검사기 통과, 가족 ZIP 항목, 사용 허락 전문)
+- 압축기(WASM)를 받지 못하면(배포 뒤 열린 탭, 연결 끊김) 'WOFF2 압축기를 받지 못했습니다'와 새로 고침을 안내하고, 그 작업 스레드를 끝내 다시 누르면 새 작업 스레드에서 처음부터 받음. brotli-wasm은 초기화를 모듈을 처음 평가할 때 한 번만 해서, 같은 작업 스레드에서는 다시 불러도 같은 실패가 돌아오기 때문(작업 스레드 RPC에 '다시 띄움' 표시를 더함)
+- 검사: fontTools로 열어 head 말고 모든 표가 원본과 같음(head는 flags 11번 비트만). 시험: UIntBase128, 헤더·디렉터리 값과 풀어 낸 표, 알려진 태그 밖은 63 + 태그, DSIG 빼기, 글꼴 만들기·가족 ZIP의 WOFF2, E2E(내려받은 WOFF2의 `wOF2` 서명·WOFF보다 작음·`FontFace`로 불러 브라우저 글꼴 검사기 통과, 가족 ZIP 항목, 사용 허락 전문, 압축기를 받지 못하면 안내하고 다시 이어지면 새 작업 스레드에서 만듦)
 
 ## 1.1.1 - 2026-11-20
 

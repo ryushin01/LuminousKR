@@ -46,6 +46,28 @@ test('내보내기에서 작업 스레드를 받지 못하면 다시 누르라�
   await expect(page.getByRole('button', { name: '새로 고침' })).toBeVisible()
 })
 
+test('WOFF2 압축기(WASM)를 받지 못하면 새로 고침을 안내하고, 다시 이어지면 새 작업 스레드에서 받아 만듭니다', async ({
+  context,
+  page,
+}) => {
+  await openPage(page, '/export')
+  // 작업 스레드 안의 요청까지 막도록 브라우저 문맥에서 가로챕니다.
+  const wasm = /brotli_wasm_bg-[^/]+\.wasm$/
+  await context.route(wasm, (route) => route.fulfill({ status: 404, body: 'Not Found' }))
+  await page.getByRole('button', { name: /글꼴 파일 만들기/ }).click()
+  await expect(
+    page.getByRole('alert').filter({ hasText: 'WOFF2 압축기를 받지 못했습니다' }),
+  ).toBeVisible({ timeout: 60_000 })
+  await expect(
+    page.getByRole('alert').filter({ hasText: '앱 파일을 받지 못했습니다' }),
+  ).toBeVisible()
+
+  // 같은 작업 스레드에서는 실패한 초기화가 남으므로, 새 작업 스레드에서 다시 받아야 만들어집니다.
+  await context.unroute(wasm)
+  await page.getByRole('button', { name: /글꼴 파일 만들기/ }).click()
+  await expect(page.getByRole('button', { name: /WOFF2 받기/ })).toBeVisible({ timeout: 60_000 })
+})
+
 test('되돌리기 단축키는 작업실 밖(미리보기의 획 스타일)에서도 듣습니다', async ({ page }) => {
   await openPage(page, '/preview')
   const weight = page.getByRole('slider', { name: '굵기' })
