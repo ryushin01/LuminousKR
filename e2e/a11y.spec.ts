@@ -21,7 +21,12 @@ for (const route of ROUTES) {
   })
 }
 
-test('본문 바로가기는 첫 Tab에 나타나고 누르면 본문으로 초점이 옮겨 갑니다', async ({ page }) => {
+test('본문 바로가기는 첫 Tab에 나타나고 누르면 본문으로 초점이 옮겨 갑니다', async ({
+  page,
+  browserName,
+}) => {
+  // Safari(WebKit)는 설정 없이는 Tab으로 링크에 초점을 주지 않습니다(Option+Tab). 크로미움에서 봅니다.
+  test.skip(browserName === 'webkit', 'Safari는 설정 없이 Tab으로 링크에 가지 않음')
   await openPage(page, '/guide')
   await page.keyboard.press('Tab')
   const skip = page.getByRole('link', { name: '본문 바로가기' })

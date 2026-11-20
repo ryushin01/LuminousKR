@@ -22,7 +22,10 @@ for (const viewport of [
 ]) {
   test(`가로 ${viewport.width}px: 첫 로딩의 레이아웃 이동(CLS)이 0.02 미만입니다`, async ({
     page,
+    browserName,
   }) => {
+    // layout-shift 항목은 크로미움만 줍니다(WebKit에서는 늘 0이라 확인이 되지 않음).
+    test.skip(browserName !== 'chromium', 'layout-shift는 크로미움만 잼')
     await page.setViewportSize(viewport)
     await page.addInitScript(() => {
       const w = window as unknown as { __cls: number }
