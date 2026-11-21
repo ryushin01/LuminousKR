@@ -75,7 +75,8 @@ pnpm test:e2e             # 크로미움·WebKit, axe, 화면 폭별 넘침, 키
 - 흐름은 **GitHub Flow**입니다. `main`에 직접 커밋·푸시하지 않고, 최신 `main`에서 브랜치를 만들어 PR로만 병합합니다.
 - 브랜치 이름: `feat/…`, `fix/…`, `refactor/…`, `docs/…`, `test/…`, `chore/…`, `release/…`. 기능 브랜치는 `feat/2.0.0-latin`처럼 버전을 넣어 왔습니다.
 - 커밋·PR 제목은 **Conventional Commits**(`<타입>: <한국어 요약>`)입니다. 타입은 `feat`, `fix`, `refactor`, `perf`, `docs`, `test`, `style`, `chore`, `ci`, `build`입니다. 버전을 올렸으면 끝에 `(x.y.z)`를 붙입니다. 예: `feat: 영문·숫자·문장부호 94자와 좁은 틈 메움 수정 (2.0.0)`, `docs: README 작업실 화면 사진을 2.0.0 화면으로 (2.0.1)`.
-- 공동 작성자 표기: `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
+- **기여자는 ryushin01만 남깁니다.** 커밋 작성자는 항상 ryushin01(`ryushin0 <141554987+ryushin01@users.noreply.github.com>`)입니다. 이 저장소는 백엔드 코드가 없어 `Co-Authored-By` 줄을 넣지 않습니다(예전 커밋에 있던 표기는 따르지 않음).
+- GitHub Actions가 커밋하는 워크플로는 작성자를 ryushin01로 설정합니다(`github-actions[bot]` 금지). Dependabot PR은 그대로 병합하지 말고 같은 변경을 ryushin01 커밋으로 다시 만들어 병합합니다.
 - **Semantic Versioning**(주.부.수): 버전은 `package.json`의 `version`, README 버전 배지, README의 '프로젝트 상태' 줄에서 함께 맞추고 `CHANGELOG.md`에 `## x.y.z - YYYY-MM-DD` 절을 더합니다. 내용은 소제목 없이 `-` 목록입니다(표준의 추가·변경·수정·제거 소제목과 다른 점). 이 저장소는 README 화면 같은 문서 변경에도 수 버전을 올려 왔습니다(2.0.1).
 - **Keep a Changelog**를 따르되, 이 저장소는 `[Unreleased]` 절을 쓰지 않고 PR마다 바로 버전 절을 더합니다(표준과 다른 점).
 - 병합은 squash(`… (#번호)`)로 합니다. 원격 브랜치 삭제는 저장소 설정에 맡깁니다.
