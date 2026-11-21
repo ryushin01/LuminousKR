@@ -5,7 +5,7 @@
 ## 1. 프로젝트 개요
 
 - 초·중·종성 획의 뼈대만 그리면 한글 11,172자를 조합해 OTF·WOFF·WOFF2 글꼴로 내보내는 웹 도구입니다. 서버 없이 브라우저 안에서만 동작하며, 그린 획·올린 사진·만든 글꼴은 어디에도 보내지 않습니다.
-- 화면 축: 웹 앱 1개(홈, 작업실 `/studio`, 가져오기, 미리보기, 내보내기, 안내). `/studio` 그리기 판은 같은 앱의 기능입니다.
+- 화면 축: 웹 앱(홈, 작업실 `/studio`, 가져오기, 미리보기, 내보내기, 안내). `/studio` 그리기 판은 같은 앱의 기능입니다.
 - 운영: https://ryushin01.github.io/LuminousKR/ · Storybook: https://ryushin01.github.io/LuminousKR/storybook/
 
 ## 2. 기술 스택과 구조
