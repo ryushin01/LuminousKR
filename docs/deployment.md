@@ -7,10 +7,11 @@ pull request와 main push마다 실행합니다. 같은 브랜치에 새 커밋�
 모든 작업은 `pnpm check <단계>`(`scripts/check.mjs`)를 불러, 로컬에서 `pnpm check`로 같은 검사를 돌릴 수 있습니다.
 
 1. **바뀐 경로**(`dorny/paths-filter`): 마크다운·`docs/`만 바뀌었으면 아래 무거운 작업을 건너뜁니다.
-2. **정적 검사 · 단위 · 빌드**: `pnpm check static unit build perf` — 린트·FSD·형식·타입, 단위 시험과 커버리지 기준(로직 계층 80%, 전체는 2.0.5 측정값 이상), 커버리지 표와 성능 기록(11,172자 계산·OTF 만들기 시간)을 작업 요약(`$GITHUB_STEP_SUMMARY`)에 씀, `build:all`, 크기 예산(`.size-limit.json`). 만든 `dist`를 결과물로 넘깁니다(1일).
-3. **E2E (chromium / webkit)**: 두 엔진을 나눠 동시에. `dist`를 받아 `pnpm check e2e -- --project=<엔진>`. 시각 회귀(`e2e/visual.spec.ts`)는 크로미움에서만, 기준 그림이 없으면 `new-snapshots-<엔진>`으로 올리고 실패합니다.
-4. **Lighthouse**: `dist`를 받아 `pnpm check lhci`(접근성·권장 사항·검색 100점, 성능은 경고만).
-5. **결과**(`Lint · Typecheck · Test · Build · E2E`): 저장소 보호 규칙의 필수 검사 이름. 위 작업이 모두 통과하거나 건너뛰어야 통과합니다.
+2. **정적 검사 · 단위 · 성능 기록**(빌드와 동시에): `pnpm check static unit perf` — 린트·FSD·형식·타입, 단위 시험과 커버리지 기준(로직 계층 80%, 전체는 2.0.5 측정값 이상), 커버리지 표와 성능 기록(11,172자 계산·OTF 만들기 시간)을 작업 요약(`$GITHUB_STEP_SUMMARY`)에 씁니다.
+3. **빌드 · 크기 예산**: `pnpm check build` — `build:all`과 크기 예산(`.size-limit.json`). 만든 `dist`를 결과물로 넘깁니다(1일).
+4. **E2E (엔진 × 2조각)**: 크로미움·WebKit을 각각 `--shard=1/2`·`2/2`로 나눠 넷이 동시에. `dist`를 받아 `pnpm check e2e -- --project=<엔진> --shard=<n>/2`. 시각 회귀(`e2e/visual.spec.ts`)는 크로미움에서만, 기준 그림이 없으면 `new-snapshots-*`로 올리고 실패합니다.
+5. **Lighthouse**: `dist`를 받아 `pnpm check lhci`(접근성·권장 사항·검색 100점, 성능은 2.0.5 CI 최저값 0.69 아래면 경고만).
+6. **결과**(`Lint · Typecheck · Test · Build · E2E`): 저장소 보호 규칙의 필수 검사 이름. 위 작업이 모두 통과하거나 건너뛰어야 통과합니다.
 
 - 캐시: pnpm 저장소(`setup-node`), Vite·Storybook 빌드 캐시(`node_modules/.vite`, `node_modules/.cache`), Playwright 브라우저(`~/.cache/ms-playwright`, 판·엔진별. 있으면 시스템 의존성만 설치). 원격 캐시는 쓰지 않습니다.
 - 리포트는 실패할 때만 올리고 7일 보관합니다: `coverage-report`, `playwright-report-<엔진>`(보고서·추적·시각 차이 그림), `lighthouse-report`.
