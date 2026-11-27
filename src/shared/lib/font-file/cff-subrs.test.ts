@@ -112,6 +112,14 @@ describe('CFF 서브루틴', () => {
     expect([...subroutinizeCff(plain)]).toEqual([...plain])
   })
 
+  it('판 1이 아닌 CFF는 다루지 않고 그대로 돌려줍니다', () => {
+    const glyphs = [notdef, space, ...repeatingGlyphs(8)]
+    const plain = cffOf(plainOtf(glyphs))
+    const cff2 = plain.slice()
+    cff2[0] = 2
+    expect(subroutinizeCff(cff2)).toBe(cff2)
+  })
+
   it('서브루틴이 1,240개를 넘어 바이어스가 1131이 되어도 맞게 부릅니다', () => {
     // 서로 다른 윤곽 1,300개가 두 번씩 나오도록: 글리프 2,600개
     const glyphs: GlyphSpec[] = [notdef]

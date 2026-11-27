@@ -56,6 +56,11 @@ export default tseslint.config(
     languageOptions: { globals: { ...globals.node } },
   },
   {
+    // Lighthouse CI 설정(CommonJS만 읽음)
+    files: ['lighthouserc.cjs'],
+    languageOptions: { sourceType: 'commonjs', globals: { ...globals.node } },
+  },
+  {
     // 서비스 워커 원본(postbuild가 dist/sw.js로 씀)
     files: ['scripts/sw-template.js'],
     languageOptions: { globals: { ...globals.serviceworker } },

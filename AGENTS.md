@@ -38,19 +38,20 @@ pnpm preview          # http://localhost:4173
 
 ## 4. 검사·테스트 명령
 
-CI(`.github/workflows/ci.yml`)가 PR과 `main` 푸시마다 도는 순서입니다. PR 전에 로컬에서도 돌립니다.
+CI(`.github/workflows/ci.yml`)는 `pnpm check`(`scripts/check.mjs`)의 단계를 나눠 부릅니다. PR 전에 로컬에서 `pnpm check` 하나로 같은 검사를 돌립니다.
 
 ```bash
 pnpm install --frozen-lockfile
-pnpm lint
-pnpm lint:fsd
-pnpm format:check
-pnpm typecheck
-pnpm test                 # Vitest(jsdom)
-pnpm build:all
 pnpm exec playwright install --with-deps chromium webkit
-pnpm test:e2e             # 크로미움·WebKit, axe, 화면 폭별 넘침, 키보드·터치 그리기, 글꼴 파일, 스토리 axe, 오프라인
+pnpm check                # 아래 단계 전부(하나가 실패하면 멈춤)
+pnpm check static         # lint · lint:fsd · format:check · typecheck
+pnpm check unit           # test:coverage(Vitest jsdom, 로직 계층 80%·전체 기준선) + 커버리지 표
+pnpm check build perf     # build:all · size(size-limit 예산) / perf(11,172자 계산·OTF 시간 기록)
+pnpm check e2e -- --project=chromium   # 크로미움·WebKit, axe, 오프라인, 시각 회귀(Linux만) 등
+pnpm check lhci           # Lighthouse CI(--upload.target=filesystem)
 ```
+
+- 기준: 커버리지(`vitest.config.ts`), 크기(`.size-limit.json`), Lighthouse(`lighthouserc.cjs`), 시각 회귀 기준 그림(`e2e/visual.spec.ts-snapshots/*-linux.png`, Linux CI에서 만듦. macOS에서는 건너뜀)은 이미 있는 값을 스스로 낮추지 않습니다. 기준 그림이 없으면 CI가 `new-snapshots-*` 결과물로 올리고 실패하므로 받아서 커밋합니다.
 
 - 의존성을 더하면 `pnpm ignored-builds`로 확인하고 필요한 것만 `pnpm approve-builds <패키지>`로 `allowBuilds`에 넣습니다(지금은 esbuild만). 허용하지 않은 빌드 스크립트가 있으면 CI 설치가 실패합니다.
 - jsdom에는 Web Worker가 없어 실제 워커 동작은 E2E에서 확인합니다. E2E는 `reducedMotion: 'reduce'`, 서비스 워커를 막고(오프라인 시험만 켬) 돕니다. 오프라인은 세 가지입니다: `e2e/offline-network.spec.ts`는 localhost 밖 요청을 모두 막고 처음 연 모든 화면이 외부 요청·axe 위반·콘솔 오류 없이 뜨는지, `e2e/offline-states.spec.ts`는 같은 조건에서 그리기·파생 규칙·미리보기·OTF·WOFF·WOFF2·ZIP·양식 PDF·사진·PDF 인식을 끝까지 쓰고 상태마다 axe·pdf.js 경고를 보는지, `e2e/offline.spec.ts`는 설치 뒤 연결이 끊겨도 서비스 워커로 열리고 처음 쓰는 PDF 가져오기·WOFF2도 되는지 봅니다. 외부로 요청을 보내는 코드를 더하면 앞의 두 시험이 실패합니다. 로컬에서 다른 작업과 포트가 겹치면 `E2E_PORT=<빈 포트> pnpm test:e2e`.

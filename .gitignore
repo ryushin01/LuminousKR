@@ -12,3 +12,7 @@ lhci-report
 .env*
 .vercel
 .idea
+perf-results.json
+# 시각 회귀 기준 그림은 Linux CI 것만 둠
+e2e/**/*-darwin.png
+e2e/**/*-win32.png

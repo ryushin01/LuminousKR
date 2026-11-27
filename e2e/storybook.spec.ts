@@ -22,7 +22,7 @@ test('Storybook의 모든 스토리가 오류 없이 그려지고 axe 위반이 
     await page.waitForTimeout(150)
     const results = await new AxeBuilder({ page })
       .include('#storybook-root')
-      .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
       .analyze()
     for (const v of results.violations) problems.push(`${story.title} / ${story.name}: ${v.id}`)
   }

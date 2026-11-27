@@ -1,5 +1,5 @@
 import AxeBuilder from '@axe-core/playwright'
-import { ROUTES, expect, openPage, test } from './fixtures.ts'
+import { ROUTES, axeViolations, expect, openPage, test } from './fixtures.ts'
 
 const WCAG_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']
 
@@ -110,4 +110,39 @@ test('Ark UI 조작 부품(슬라이더·세그먼트·탭): 레이블, 키보�
   const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze()
   expect(results.violations.map((v) => v.id)).toEqual([])
   expect(consoleErrors).toEqual([])
+})
+
+test.describe('상태별 axe 위반 없음', () => {
+  test('전체 메뉴를 연 상태', async ({ page, consoleErrors }) => {
+    await openPage(page, '/')
+    await page.getByRole('button', { name: '전체 메뉴 열기' }).click()
+    await expect(page.getByRole('dialog')).toBeVisible()
+    expect(await axeViolations(page)).toEqual([])
+    expect(consoleErrors).toEqual([])
+  })
+
+  test('내보내기: 입력 오류(글꼴 이름 비움)와 빈 자모 안내', async ({ page, consoleErrors }) => {
+    await openPage(page, '/studio')
+    await page.getByRole('button', { name: '빈 글꼴로 시작' }).click()
+    await openPage(page, '/export')
+    await expect(page.getByText(/획이 없는 자모가 24개 있어/)).toBeVisible()
+    const family = page.getByRole('textbox', { name: /글꼴 이름 \(영문\)/ })
+    await family.fill('')
+    await page.getByRole('button', { name: '글꼴 파일 만들기' }).click()
+    await expect(family).toHaveAttribute('aria-invalid', 'true')
+    expect(await axeViolations(page)).toEqual([])
+    expect(consoleErrors).toEqual([])
+  })
+
+  test('작업실: 빈 글꼴에서 획을 그리는 중', async ({ page, consoleErrors }) => {
+    await openPage(page, '/studio')
+    await page.getByRole('button', { name: '빈 글꼴로 시작' }).click()
+    const canvas = page.getByRole('application', { name: 'ㄱ 초성 그리기 판' })
+    await canvas.focus()
+    await page.keyboard.press('Space')
+    await page.keyboard.press('ArrowRight')
+    await page.keyboard.press('Space')
+    expect(await axeViolations(page)).toEqual([])
+    expect(consoleErrors).toEqual([])
+  })
 })

@@ -40,6 +40,12 @@
 
 ## 테스트
 
+한 번에: `pnpm check`(CI와 같은 단계, [CI · 배포](deployment.md#ci-githubworkflowsciyml)). 기준은 스스로 낮추지 않습니다.
+
+- **커버리지**(`pnpm test:coverage`, `vitest.config.ts`): 로직 계층(`entities/font/lib`, `entities/font/model/{derivation,layout}`, `shared/lib/geometry`, `shared/lib/{font-file,zip}`·`pages/export/model`, `pages/import/lib/{recognize,template-*}`·`shared/lib/image`)은 줄·문장·함수·분기 80% 이상, 전체는 줄 65·문장 60·함수 47·분기 61% 이상. 화면·워커 진입점은 jsdom에 Worker가 없어 E2E에서 봅니다.
+- **시각 회귀**(`e2e/visual.spec.ts`): 모든 화면(1280×800·390×844)과 Storybook 모든 스토리. 기준 그림은 Linux CI 결과라 Linux에서만 돌고(`VISUAL=1`로 억지로 켤 수 있음, macOS 그림은 커밋하지 않음), WebGL 배경은 `e2e/visual.css`로 숨기고 판 번호는 가립니다. 화면을 일부러 바꿨으면 CI의 차이 그림을 확인한 뒤 Linux에서 `--update-snapshots`로 다시 만들거나, 지운 뒤 CI가 올린 `new-snapshots-chromium`을 커밋합니다.
+- **성능**: `pnpm size`(size-limit, brotli: 첫 화면·슬라이더 조각·조합 워커·인식 워커·전체 JS), `pnpm lhci`(Lighthouse CI, 6화면, 결과는 `.lighthouseci/`만), `pnpm perf`(`*.perf.test.ts`: 11,172자 계산·OTF·WOFF 만들기 시간을 `perf-results.json`과 CI 작업 요약에 기록).
+
 - **엔진**: 한글 조합표, 곡선 맞춤(원·사각형·둥근 끝, 좁은 틈은 두고 짧은 바늘만 지움), 스플라인, 영문 94자 뼈대·윤곽·너비·OS/2 높이, OTF 쓰기와 다시 읽기, WOFF·WOFF2 규격·압축 해제 비교(WOFF2: UIntBase128, 알려진 태그 색인, DSIG 빼기, head 11번 비트), 워커 RPC(진행·오류·취소), 배치·파생 규칙, 획 두께가 틀 크기와 무관한지, 음절 윤곽이 글자 틀 안에 드는지, 프로젝트 파일 검사·되돌리기.
 - **인식**: 합성한 양식 그림(원근·기울기·한쪽이 어두운 조명·뒤집힘)에서 양식 번호와 칸별 획 인식, 세선화·뼈대 추적(꺾임·교차·고리), 호모그래피, 적응형 이진화, PDF 교차 참조 표, 양식 비트, 가져오기 적용·되돌리기.
 - **자동 저장**: 0.4초 뒤 저장과 탭을 닫기 직전 바로 저장, 저장 공간 초과·막힌 저장소 알림, 읽지 못한 저장을 지우지 않고 보관(보관하지 못하면 받거나 버릴 때까지 저장 멈춤), 다른 탭의 저장을 받아 맞추고 되돌리기 기록 비우기, 늦게 온 지난 이벤트·읽지 못하는 다른 탭 저장은 무시, 다른 탭과 쓰기 차례 맞추기(확인한 직후 다른 탭이 쓴 새 작업을 덮지 않음, 잠금을 2초 넘게 못 받으면 잠금 없이, 닫기 직전 저장은 잠금을 기다리지 않고 버린 원문 바꿔 쓰기도 마저 함).
