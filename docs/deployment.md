@@ -29,9 +29,10 @@ Web Worker(`engine.worker`)와 글꼴·이미지는 기준 경로를 따라 상�
 - **웹 앱 매니페스트**: `public/manifest.webmanifest`와 `public/icons/`(192·512·마스크). 주소는 매니페스트 기준 상대 경로라 하위 경로(`/LuminousKR/`)에서도 맞습니다.
 - **서비스 워커**(오프라인): `postbuild`가 `scripts/sw-template.js`에 빌드 결과를 채워 `sw.js`를 씁니다. 앱은 프로덕션 빌드에서 첫 화면을 다 연 뒤 등록합니다(`app/lib/registerServiceWorker.ts`).
   - 화면(HTML)은 네트워크를 먼저 쓰고 연결이 없을 때만 저장해 둔 것을 씁니다. 그래서 온라인이면 지금처럼 새로 고치면 새 판이 열립니다(갱신 안내 없이 `skipWaiting`).
-  - 해시가 붙은 `assets/`는 캐시를 먼저 씁니다. 설치할 때 화면별 HTML, JS·CSS, 화면 글자 글꼴을 미리 받고(약 1 MB), pdf.js·WOFF2 압축기·글자 조각은 쓸 때 저장합니다.
+  - 해시가 붙은 `assets/`는 캐시를 먼저 씁니다. 설치할 때 화면별 HTML, JS·CSS, 화면 글자 글꼴을 미리 받습니다(약 1 MB). 쓸 때만 불러오는 pdf.js와 그 자료(표준 글꼴·WASM·색 프로필)·WOFF2 압축기(약 3.9 MB)는 설치를 마친 뒤 페이지가 `'warm'`을 보내면 따로 받아(`WARM` 목록, 데이터 절약 모드면 건너뜀), 한 번도 쓰지 않은 채 연결이 끊겨도 PDF 가져오기·WOFF2가 됩니다. 글자 조각과 한중일 문자표는 쓸 때 저장합니다.
+  - pdf.js 자료는 pdf.js가 '주소 + 원래 파일 이름'으로 받아서 해시 없이 `assets/pdfjs-<판>/`에 둡니다(`vite.config.ts`의 `pdfjsData`, 판 번호가 경로에 있어 캐시 먼저와 맞음). 앞 판 정리 목록(`KNOWN_ASSETS`)은 이 하위 폴더까지 셉니다.
   - 이번 판과 바로 앞 판의 자산만 남겨, 배포 전에 연 탭이 옛 화면 조각을 찾아도 캐시에서 받습니다.
   - 서버가 `Vary: Origin`을 붙여도 대조되도록 캐시를 찾을 때 Vary를 보지 않습니다(자산은 이름이 내용마다 다름).
   - E2E는 서비스 워커를 막고(`serviceWorkers: 'block'`, 요청 가로채기로 흉내 낸 실패가 캐시에 가려지지 않게) 오프라인 시험만 켭니다.
-- **웹 폰트·WASM 사용 허락**: 배포하는 두 글꼴(LuminousSans·Syne)은 SIL OFL 1.1이라, `postbuild`가 OFL 전문을 `licenses/LuminousSans-OFL.txt`·`licenses/Syne-OFL.txt`로 함께 둡니다(줄인 글꼴 파일의 이름 표에도 저작권·라이선스 설명·주소가 있음). WOFF2 압축에 쓰는 WASM도 함께 배포하므로 `brotli-wasm`의 Apache-2.0 전문(`postbuild`가 복사)과 그 안의 rust-brotli 전문(BSD-3-Clause·MIT, `public/licenses/`)을 둡니다.
+- **웹 폰트·WASM 사용 허락**: 배포하는 두 글꼴(LuminousSans·Syne)은 SIL OFL 1.1이라, `postbuild`가 OFL 전문을 `licenses/LuminousSans-OFL.txt`·`licenses/Syne-OFL.txt`로 함께 둡니다(줄인 글꼴 파일의 이름 표에도 저작권·라이선스 설명·주소가 있음). WOFF2 압축에 쓰는 WASM도 함께 배포하므로 `brotli-wasm`의 Apache-2.0 전문(`postbuild`가 복사)과 그 안의 rust-brotli 전문(BSD-3-Clause·MIT, `public/licenses/`)을 둡니다. pdf.js와 그 자료(Liberation Sans OFL·Foxit 표준 글꼴, OpenJPEG·JBIG2·qcms WASM, 색 프로필)의 사용 허락도 `licenses/pdfjs-*.txt`로 둡니다.
 

@@ -1,14 +1,14 @@
 # LuminousKR - 한글 모듈 글꼴 조합기
 
 [![CI](https://github.com/ryushin01/LuminousKR/actions/workflows/ci.yml/badge.svg)](https://github.com/ryushin01/LuminousKR/actions/workflows/ci.yml)
-![version](https://img.shields.io/badge/version-2.0.3-ff6a1a)
+![version](https://img.shields.io/badge/version-2.0.4-ff6a1a)
 ![Storybook](https://img.shields.io/badge/Storybook-10-FF4785?logo=storybook&logoColor=white)
 
 초·중·종성 획의 뼈대만 그리면 한글 11,172자를 조합해 OTF·WOFF·WOFF2 글꼴 파일로 내보내는 웹 도구입니다. 자모 24자만 그려도 겹자음·겹받침·섞임 모음과 모든 음절이 만들어지고, 영문·숫자·문장부호 94자는 같은 획 스타일을 입는 기본 뼈대로 들어 있어 고쳐 쓸 수 있습니다. 손으로 쓴 양식의 사진·스캔 PDF를 올려 획을 인식해 가져올 수도 있습니다.
 
 **[바로 써 보기](https://ryushin01.github.io/LuminousKR/)** · [Storybook](https://ryushin01.github.io/LuminousKR/storybook/)
 
-> **프로젝트 상태:** 개인 **포트폴리오 프로젝트**(v2.0.3)입니다. 서버 없이 브라우저 안에서만 동작하며, 그린 획·올린 사진·만든 글꼴 파일은 어디에도 보내지 않습니다. 화면 글꼴은 Syne(영문)과 IBM Plex Sans KR(한글)이고, 미리보기 견본은 이 조합기가 기본 프리셋으로 만든 글꼴로 그립니다.
+> **프로젝트 상태:** 개인 **포트폴리오 프로젝트**(v2.0.4)입니다. 서버 없이 브라우저 안에서만 동작하며, 그린 획·올린 사진·만든 글꼴 파일은 어디에도 보내지 않습니다. 화면 글꼴은 Syne(영문)과 IBM Plex Sans KR(한글)이고, 미리보기 견본은 이 조합기가 기본 프리셋으로 만든 글꼴로 그립니다.
 
 ## 화면
 
@@ -80,7 +80,7 @@ pnpm dev    # http://localhost:5173
 | `pnpm screenshots` | README 화면(`docs/images`) 다시 찍기 (먼저 `pnpm build` 필요) |
 | `pnpm fonts` | 제목·본문 한글 글꼴(LuminousSans)의 화면 글자 파일과 조각 다시 만들기 (fontTools 필요) |
 
-비밀값(`.env`) 없이 `pnpm install` → `pnpm dev`, `pnpm build` → `pnpm preview`가 그대로 됩니다. 글꼴·워커·WASM(brotli)·pdf.js가 모두 저장소 안에 있고 외부로 보내는 요청이 없어, 인터넷이 끊겨도 처음 연 화면까지 모두 됩니다(`e2e/offline-network.spec.ts`가 localhost 밖 요청을 막고 확인).
+비밀값(`.env`) 없이 `pnpm install` → `pnpm dev`, `pnpm build` → `pnpm preview`가 그대로 됩니다. 글꼴·워커·WASM(brotli)·pdf.js가 모두 저장소 안에 있고 외부로 보내는 요청이 없어, 인터넷이 끊겨도 처음 연 화면까지 모두 됩니다. pdf.js가 PDF를 그릴 때 따로 받는 표준 글꼴·WASM 해독기·색 프로필도 사이트 안(`assets/pdfjs-<판>/`)에 있고, 한 번 연 뒤에는 서비스 워커가 pdf.js·WOFF2 압축기까지 받아 두어 쓰기 전에 연결이 끊겨도 PDF 가져오기·WOFF2가 됩니다. E2E가 localhost 밖 요청을 막고 모든 화면(`e2e/offline-network.spec.ts`)과 그리기·파생 규칙·미리보기·OTF·WOFF·WOFF2·ZIP·양식 PDF·사진·PDF 인식(`e2e/offline-states.spec.ts`)을, 연결을 끊고 서비스 워커로 다시 연 경우(`e2e/offline.spec.ts`)를 확인합니다.
 
 전체 명령과 규칙은 [개발 가이드](docs/development.md)를 참고하세요.
 

@@ -1,5 +1,11 @@
 # 변경 기록
 
+## 2.0.4 - 2026-11-27
+
+- **pdf.js 자료를 사이트 안에 둠**: PDF를 그릴 때 pdf.js가 따로 받는 넣지 않은 표준 글꼴(ZapfDingbats·Symbol, Liberation Sans·Foxit 대체 글꼴), JPEG 2000·JBIG2 그림과 ICC 색 변환 WASM, CMYK 색 프로필, 한중일 문자표를 빌드가 `assets/pdfjs-<판>/`에 원래 이름으로 두고(`vite.config.ts`의 `pdfjsData`, 개발 서버도 같은 주소) pdf.js에 그 주소를 줌. 전에는 주소가 없어 pdf.js가 경고(`standardFontDataUrl API parameter`)만 남기고 그 글자·그림·색 변환을 빼고 그렸음(인터넷과 무관). 사용 허락 전문은 `licenses/pdfjs-*.txt`
+- **설치 뒤 쓸 때만 불러오는 자산도 받아 둠**: 서비스 워커가 설치를 마치면 페이지 부탁으로 pdf.js·그 워커·위 자료·WOFF2 압축기(JS·WASM, 약 3.9 MB)를 따로 받음(첫 화면과 다투지 않게 설치와 분리, 데이터 절약 모드면 건너뜀). 이제 한 번도 쓰지 않은 채 연결이 끊겨도 PDF 가져오기와 WOFF2 만들기가 됨(1.5.0에서는 '한 번 쓴 뒤부터'). 앞 판 자산 정리 목록은 `assets/` 하위 폴더까지 셈
+- 시험: E2E `offline-states.spec.ts`(localhost 밖 요청을 모두 끊고 작업실 그리기·파생 규칙(ㄲ 자동 → 직접 그리기)·영문 탭, 미리보기 글·588자 표, OTF·WOFF·WOFF2와 두 굵기 ZIP, 양식 PDF 받아 다시 올리기·채운 양식 사진 인식·적용, ZapfDingbats와 CMYK 색을 쓰는 PDF를 끝까지 쓰고 상태마다 외부 요청 0건·axe 위반·콘솔 오류·pdf.js 경고 없음), `offline.spec.ts`에 설치 뒤 쓰지 않은 기능 두 가지(양식 PDF·pdf.js 자료가 필요한 PDF·사진 인식 / 작업실·미리보기·WOFF2)를 연결을 끊고 확인, 단위(pdf.js 자료 주소). 양식 사진·견본 PDF 만들기는 `e2e/samples.ts`로 모음. 로컬 E2E 포트를 `E2E_PORT`로 바꿀 수 있음
+
 ## 2.0.3 - 2026-11-27
 
 - 공용 조작 부품을 **Ark UI**(`@ark-ui/solid` 5, Zag.js)로 옮김: 굵기·가로획 대비·기울기·글자 너비·높이·여백·이 글자의 너비 **슬라이더**(Slider), 획 끝·꺾임 모양·그리기 도구·배치(벌)·미리보기 견본 **하나 고르기 묶음**(SegmentGroup, 숨긴 네이티브 라디오), 자모·글자 갈래 **탭**(Tabs). 부품의 속성은 그대로라 쓰는 화면 코드는 바뀌지 않음. 겉모양은 Ark의 `data-part`·`data-state`·`data-selected`·`data-focus-visible`·`data-disabled` 속성에 기존 CSS Modules를 연결해 같게 둠
