@@ -2,14 +2,17 @@
  * LuminousKR 서비스 워커 원본. scripts/postbuild.mjs가 아래 세 값을 빌드 결과로 채워 dist/sw.js로 씁니다.
  *
  * - 화면(HTML): 네트워크를 먼저 쓰고, 연결이 없을 때만 저장해 둔 것을 씁니다. 온라인이면 지금처럼 새로 고치면 새 판이 열립니다.
- * - 해시가 붙은 자산(assets/): 캐시를 먼저 씁니다(이름이 내용마다 달라 바뀌지 않음). 화면 조각·CSS·화면 글자 글꼴은
- *   설치할 때 미리 받고, 나머지(글자 조각, WOFF2 압축기, pdf.js)는 쓸 때 저장합니다.
+ * - 해시가 붙은 자산(assets/): 캐시를 먼저 씁니다(이름이 내용마다 달라 바뀌지 않음, pdf.js 자료는 판 번호 폴더).
+ *   화면 조각·CSS·화면 글자 글꼴은 설치할 때 미리 받고, 쓸 때만 불러오는 pdf.js와 그 자료·WOFF2 압축기는 설치 뒤
+ *   페이지가 'warm'을 보내면 따로 받습니다(처음 쓰기 전에 연결이 끊겨도 되게). 글자 조각은 쓸 때 저장합니다.
  * - 이번 판과 바로 앞 판의 자산을 남겨, 배포 전에 연 탭이 옛 화면 조각을 찾아도 캐시에서 받게 합니다.
  */
 const VERSION = '__VERSION__'
 /** 설치할 때 미리 받을 주소(서비스 워커 범위 기준 상대 경로) */
 const PRECACHE = /* __PRECACHE__ */ []
-/** 이번 판의 assets/ 안 파일 이름 전부(앞 판 자산을 정리할 때 씀) */
+/** 설치 뒤 페이지가 부탁하면 따로 받을 주소: 쓸 때만 불러오는 pdf.js와 그 자료, WOFF2 압축기 */
+const WARM = /* __WARM__ */ []
+/** 이번 판의 assets/ 안 파일 경로 전부(하위 폴더 포함, 앞 판 자산을 정리할 때 씀) */
 const KNOWN_ASSETS = /* __KNOWN_ASSETS__ */ []
 
 const PAGES = `lkr-pages-${VERSION}`
@@ -94,6 +97,26 @@ async function assetFromCacheFirst(request) {
   if (response.ok) await store(assets, request, response.clone())
   return response
 }
+
+/**
+ * 쓸 때만 불러오는 자산을 미리 받아 둡니다. 하나가 실패해도 나머지는 받고, 다음 방문에 다시 시도합니다
+ * (이미 받은 것은 건너뜀). 첫 화면과 다투지 않게 설치에 묶지 않고 페이지가 다 열린 뒤 부탁합니다.
+ */
+async function warmOptionalAssets() {
+  const assets = await caches.open(ASSETS)
+  await Promise.allSettled(
+    WARM.map(async (path) => {
+      const url = absolute(path)
+      if (await assets.match(url, MATCH)) return
+      const response = await fetch(url)
+      if (response.ok) await store(assets, url, response)
+    }),
+  )
+}
+
+self.addEventListener('message', (event) => {
+  if (event.data === 'warm') event.waitUntil(warmOptionalAssets())
+})
 
 self.addEventListener('fetch', (event) => {
   const { request } = event

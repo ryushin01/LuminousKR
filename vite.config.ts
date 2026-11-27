@@ -1,4 +1,6 @@
-import { readFileSync } from 'node:fs'
+import { createReadStream, readFileSync, readdirSync } from 'node:fs'
+import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { type Plugin, defineConfig } from 'vite'
 import solid from 'vite-plugin-solid'
 
@@ -36,6 +38,64 @@ function contentSecurityPolicy(): Plugin {
   }
 }
 
+/**
+ * pdf.js가 PDF를 그릴 때 따로 받는 자료(넣지 않은 표준 글꼴, JPEG 2000·JBIG2·ICC 색 변환 WASM, CMYK 색 프로필,
+ * 한중일 문자표)를 사이트 안 `assets/pdfjs-<판>/`에 원래 이름 그대로 둡니다. pdf.js는 '주소 + 파일 이름'으로 받으므로
+ * 해시를 붙이지 않고, 판 번호를 경로에 넣어 서비스 워커의 캐시 먼저 규칙과 어긋나지 않게 합니다.
+ * 이 자료가 없으면 pdf.js는 경고만 남기고 해당 글자·그림을 빼고 그립니다(인터넷 연결과 무관하게).
+ * 스크립트 실행용 QuickJS는 쓰지 않으므로(enableScripting 꺼짐) 뺍니다.
+ */
+const PDFJS_DIR = fileURLToPath(new URL('./node_modules/pdfjs-dist/', import.meta.url))
+const PDFJS_DATA_DIRS = ['cmaps', 'iccs', 'standard_fonts', 'wasm'] as const
+const { version: pdfjsVersion } = JSON.parse(
+  readFileSync(join(PDFJS_DIR, 'package.json'), 'utf8'),
+) as {
+  version: string
+}
+const PDFJS_DATA_PATH = `assets/pdfjs-${pdfjsVersion}/`
+
+function pdfjsDataFiles(): string[] {
+  return PDFJS_DATA_DIRS.flatMap((dir) =>
+    readdirSync(join(PDFJS_DIR, dir))
+      .filter((name) => !/quickjs/i.test(name))
+      .map((name) => `${dir}/${name}`),
+  )
+}
+
+function pdfjsData(): Plugin {
+  let base = '/'
+  return {
+    name: 'luminous-pdfjs-data',
+    configResolved(config) {
+      base = config.base
+    },
+    // 개발 서버도 같은 주소로 줍니다.
+    configureServer(server) {
+      const files = new Set(pdfjsDataFiles())
+      server.middlewares.use((request, response, next) => {
+        const path = (request.url ?? '').split('?')[0]!
+        const prefix = `${base}${PDFJS_DATA_PATH}`
+        const file = path.startsWith(prefix) ? path.slice(prefix.length) : ''
+        if (!files.has(file)) return next()
+        response.setHeader(
+          'Content-Type',
+          file.endsWith('.wasm') ? 'application/wasm' : 'application/octet-stream',
+        )
+        createReadStream(join(PDFJS_DIR, file)).pipe(response)
+      })
+    },
+    generateBundle() {
+      for (const file of pdfjsDataFiles()) {
+        this.emitFile({
+          type: 'asset',
+          fileName: `${PDFJS_DATA_PATH}${file}`,
+          source: readFileSync(join(PDFJS_DIR, file)),
+        })
+      }
+    },
+  }
+}
+
 const { version } = JSON.parse(
   readFileSync(new URL('./package.json', import.meta.url), 'utf8'),
 ) as { version: string }
@@ -45,7 +105,7 @@ const base = process.env.BASE_PATH ?? '/'
 
 export default defineConfig({
   base,
-  plugins: [solid(), contentSecurityPolicy()],
+  plugins: [solid(), contentSecurityPolicy(), pdfjsData()],
   define: { __APP_VERSION__: JSON.stringify(version) },
   resolve: { tsconfigPaths: true },
   worker: { format: 'es' },

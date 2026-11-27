@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test'
 
-const PORT = 4281
+// 다른 작업과 겹치지 않게 E2E_PORT로 바꿀 수 있습니다.
+const PORT = Number(process.env.E2E_PORT ?? 4281)
 
 export default defineConfig({
   testDir: './e2e',

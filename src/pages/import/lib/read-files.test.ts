@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
-import { MAX_PAGE_PIXELS, pageCanvasSize } from './read-files.ts'
+import { MAX_PAGE_PIXELS, pageCanvasSize, pdfjsDataUrls } from './read-files.ts'
 
 describe('PDF 쪽 캔버스 크기', () => {
   it('보통 판형(A4)은 2.5배(약 180dpi)로 그립니다', () => {
@@ -22,5 +22,17 @@ describe('PDF 쪽 캔버스 크기', () => {
       // 줄이더라도 상한 가까이까지는 씁니다 (지나치게 작게 그리지 않음)
       expect(size.width * size.height).toBeGreaterThan(MAX_PAGE_PIXELS * 0.99)
     }
+  })
+})
+
+describe('pdf.js 자료 주소', () => {
+  it('사이트 안 판 번호 폴더의 절대 주소를 주어, pdf.js 워커가 인터넷 없이 직접 받습니다', () => {
+    expect(pdfjsDataUrls('6.5.438', 'https://example.test/LuminousKR/import/')).toEqual({
+      cMapUrl: 'https://example.test/assets/pdfjs-6.5.438/cmaps/',
+      cMapPacked: true,
+      iccUrl: 'https://example.test/assets/pdfjs-6.5.438/iccs/',
+      standardFontDataUrl: 'https://example.test/assets/pdfjs-6.5.438/standard_fonts/',
+      wasmUrl: 'https://example.test/assets/pdfjs-6.5.438/wasm/',
+    })
   })
 })

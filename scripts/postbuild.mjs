@@ -10,7 +10,7 @@
  */
 import { createHash } from 'node:crypto'
 import { copyFileSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, relative, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const dist = fileURLToPath(new URL('../dist', import.meta.url))
@@ -60,7 +60,15 @@ const FIRST_VIEW_FONTS = [
   /^luminous-sans-700-ui-[\w-]+\.woff2$/,
   /^syne-latin-wght-normal-[\w-]+\.woff2$/,
 ]
-const assetNames = readdirSync(join(dist, 'assets'))
+const assetNames = readdirSync(join(dist, 'assets'), { withFileTypes: true })
+  .filter((entry) => entry.isFile())
+  .map((entry) => entry.name)
+/** assets/ 아래 모든 파일(하위 폴더 pdfjs-<판>/ 포함)의 상대 경로 */
+const allAssets = readdirSync(join(dist, 'assets'), { recursive: true, withFileTypes: true })
+  .filter((entry) => entry.isFile())
+  .map((entry) =>
+    relative(join(dist, 'assets'), join(entry.parentPath, entry.name)).split(sep).join('/'),
+  )
 const fontFiles = FIRST_VIEW_FONTS.map((pattern) => {
   const name = assetNames.find((file) => pattern.test(file))
   if (!name) throw new Error(`첫 화면 글꼴(${pattern})을 빌드 결과에서 찾지 못했습니다.`)
@@ -117,13 +125,22 @@ rmSync(join(dist, '.vite'), { recursive: true, force: true })
 /**
  * 배포하는 웹 폰트는 SIL OFL 1.1이라 사본마다 저작권과 사용 허락을 함께 줘야 합니다.
  * 줄인 글꼴 파일의 이름 표(저작권·라이선스 설명·주소)에 더해, 전문을 licenses/에 둡니다.
- * WOFF2 압축에 쓰는 WASM(brotli-wasm)도 함께 배포하므로 그 사용 허락(Apache-2.0)도 둡니다
+ * WOFF2 압축에 쓰는 WASM(brotli-wasm)과 pdf.js 자료도 함께 배포하므로 그 사용 허락도 둡니다
  * (그 안의 rust-brotli 전문은 public/licenses/에 있음).
  */
 const LICENSES = [
   ['LuminousSans-OFL.txt', '../src/app/styles/fonts/luminous-sans/OFL.txt'],
   ['Syne-OFL.txt', '../node_modules/@fontsource-variable/syne/LICENSE'],
   ['brotli-wasm-Apache-2.0.txt', '../node_modules/brotli-wasm/LICENSE'],
+  // pdf.js와 함께 배포하는 자료(assets/pdfjs-<판>/): 표준 글꼴(Liberation OFL, Foxit), WASM 해독기, 색 프로필
+  ['pdfjs-Apache-2.0.txt', '../node_modules/pdfjs-dist/LICENSE'],
+  ['pdfjs-LiberationSans-OFL.txt', '../node_modules/pdfjs-dist/standard_fonts/LICENSE_LIBERATION'],
+  ['pdfjs-Foxit.txt', '../node_modules/pdfjs-dist/standard_fonts/LICENSE_FOXIT'],
+  ['pdfjs-icc-profile.txt', '../node_modules/pdfjs-dist/iccs/LICENSE'],
+  ...['JBIG2', 'OPENJPEG', 'QCMS', 'PDFJS_JBIG2', 'PDFJS_OPENJPEG', 'PDFJS_QCMS'].map((name) => [
+    `pdfjs-wasm-${name}.txt`,
+    `../node_modules/pdfjs-dist/wasm/LICENSE_${name}`,
+  ]),
 ]
 mkdirSync(join(dist, 'licenses'), { recursive: true })
 for (const [name, from] of LICENSES)
@@ -131,10 +148,22 @@ for (const [name, from] of LICENSES)
 
 /**
  * 서비스 워커(dist/sw.js): 한 번 연 뒤에는 연결이 끊겨도 열리게 합니다(원본은 scripts/sw-template.js).
- * 설치할 때 화면별 HTML, assets/의 JS·CSS, 화면 글자 글꼴을 미리 받고, 쓸 때만 받는 것(pdf.js, WOFF2 압축기,
- * 글자 조각)은 쓸 때 저장합니다. 판 이름은 자산 이름과 HTML에서 만들어 바뀌면 화면 캐시를 새로 씁니다.
+ * 설치할 때 화면별 HTML, assets/의 JS·CSS, 화면 글자 글꼴을 미리 받습니다. 쓸 때만 불러오는 것(pdf.js와 그 자료,
+ * WOFF2 압축기)은 첫 화면과 다투지 않게 설치를 마친 뒤 페이지가 부탁하면 따로 받아(WARM) 처음 쓰기 전에
+ * 연결이 끊겨도 PDF 가져오기·WOFF2가 되게 합니다. 글자 조각은 쓸 때 저장합니다.
+ * 판 이름은 자산 이름과 HTML에서 만들어 바뀌면 화면 캐시를 새로 씁니다.
  */
 const OPTIONAL_ASSETS = [/^pdf[-.]/, /^index\.web-/]
+/** 설치 뒤 따로 받을 자산: pdf.js와 워커, WOFF2 압축기(JS·WASM), pdf.js 자료(문자표·대체용 스크립트는 빼고 쓸 때 저장) */
+const WARM_ASSETS = [
+  /^pdf[-.][\w.-]*\.m?js$/,
+  /^index\.web-[\w-]+\.js$/,
+  /^brotli_wasm_bg-[\w-]+\.wasm$/,
+  /^pdfjs-[^/]+\/(standard_fonts\/[^/]+\.(pfb|ttf)|wasm\/[^/]+\.wasm|iccs\/[^/]+\.icc)$/,
+]
+const warm = allAssets
+  .filter((name) => WARM_ASSETS.some((pattern) => pattern.test(name)))
+  .map((name) => `./assets/${name}`)
 const PRECACHE_FONTS = [
   /^luminous-sans-\d+-ui-[\w-]+\.woff2$/,
   /^syne-latin-wght-normal-[\w-]+\.woff2$/,
@@ -149,14 +178,15 @@ const precache = [
   ...precacheAssets.map((name) => `./assets/${name}`),
 ]
 const swVersion = createHash('sha256')
-  .update(JSON.stringify([assetNames, html]))
+  .update(JSON.stringify([allAssets, html]))
   .digest('hex')
   .slice(0, 12)
 const swTemplate = readFileSync(fileURLToPath(new URL('./sw-template.js', import.meta.url)), 'utf8')
 const fills = [
   ["'__VERSION__'", `'${swVersion}'`],
   ['/* __PRECACHE__ */ []', JSON.stringify(precache)],
-  ['/* __KNOWN_ASSETS__ */ []', JSON.stringify(assetNames)],
+  ['/* __WARM__ */ []', JSON.stringify(warm)],
+  ['/* __KNOWN_ASSETS__ */ []', JSON.stringify(allAssets)],
 ]
 let sw = swTemplate
 for (const [mark, value] of fills) {
@@ -169,5 +199,5 @@ writeFileSync(
 )
 
 console.log(
-  `화면 ${ROUTES.length - 1}개의 HTML 사본과 404.html을 만들고, 화면마다 조각·첫 화면 글꼴 ${fontFiles.length}개 미리 받기를 넣었습니다. 웹 폰트·WASM 라이선스 ${LICENSES.length}개를 licenses/에 두었습니다. 서비스 워커는 ${precache.length}개를 미리 받습니다(판 ${swVersion}).`,
+  `화면 ${ROUTES.length - 1}개의 HTML 사본과 404.html을 만들고, 화면마다 조각·첫 화면 글꼴 ${fontFiles.length}개 미리 받기를 넣었습니다. 웹 폰트·WASM 라이선스 ${LICENSES.length}개를 licenses/에 두었습니다. 서비스 워커는 ${precache.length}개를 미리 받고 ${warm.length}개를 설치 뒤 따로 받습니다(판 ${swVersion}).`,
 )

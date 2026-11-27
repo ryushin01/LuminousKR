@@ -38,6 +38,22 @@ export function isPdf(file: File): boolean {
   return file.type === 'application/pdf' || /\.pdf$/i.test(file.name)
 }
 
+/**
+ * pdf.js가 따로 받는 자료(표준 글꼴·WASM·색 프로필·문자표)의 주소. 빌드가 사이트 안 `assets/pdfjs-<판>/`에
+ * 두므로(vite.config.ts) 인터넷 없이도 받고, 한 번 받으면 서비스 워커가 저장합니다.
+ * pdf.js 워커가 직접 받도록 절대 주소로 줍니다(네 가지를 모두 주어야 워커가 직접 받음).
+ */
+export function pdfjsDataUrls(pdfjsVersion: string, baseUri = document.baseURI) {
+  const root = new URL(`${import.meta.env.BASE_URL}assets/pdfjs-${pdfjsVersion}/`, baseUri).href
+  return {
+    cMapUrl: `${root}cmaps/`,
+    cMapPacked: true,
+    iccUrl: `${root}iccs/`,
+    standardFontDataUrl: `${root}standard_fonts/`,
+    wasmUrl: `${root}wasm/`,
+  }
+}
+
 async function renderPdf(file: File): Promise<ReadResult> {
   // pdf.js는 PDF를 올렸을 때만 받습니다 (큰 라이브러리와 워커).
   const [pdfjs, { default: workerUrl }] = await Promise.all([
@@ -46,7 +62,10 @@ async function renderPdf(file: File): Promise<ReadResult> {
   ])
   pdfjs.GlobalWorkerOptions.workerSrc = workerUrl
   // pdf.js 6은 글꼴 해석에 eval을 쓰지 않습니다(앱의 CSP도 eval을 막음).
-  const task = pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) })
+  const task = pdfjs.getDocument({
+    data: new Uint8Array(await file.arrayBuffer()),
+    ...pdfjsDataUrls(pdfjs.version),
+  })
   const document_ = await task.promise
   try {
     const pages: PageSource[] = []
