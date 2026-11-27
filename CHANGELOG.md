@@ -1,5 +1,14 @@
 # 변경 기록
 
+## 2.0.5 - 2026-11-27
+
+- **CI와 같은 검사를 한 명령으로**: `pnpm check`(`scripts/check.mjs`) — 정적 검사 → 단위·커버리지 → 빌드·크기 예산 → 성능 기록 → E2E → Lighthouse. `pnpm check static unit`처럼 단계만 고르고, `--` 뒤는 Playwright에 넘김. CI가 같은 단계를 나눠 부름
+- **커버리지**(`@vitest/coverage-v8`, `pnpm test:coverage`): 로직 계층(조합 엔진, 파생 규칙(배치·파생), 획 두께·곡선 맞춤, 내보내기, 인식 파이프라인)은 줄·문장·함수·분기 80% 이상, 전체는 지금 값(줄 65·문장 60·함수 47·분기 61%) 아래로 못 내려가게. 모자라던 기하 계산(벡터·경로 자료), 배치·자모 키, 글꼴 정보 검사, CFF 판 검사 단위 시험을 더함. 표는 CI 작업 요약에 씀
+- **시각 회귀**(`e2e/visual.spec.ts`): 모든 화면(넓은 1280×800·좁은 390×844)과 Storybook 모든 스토리를 기준 그림과 비교(`toHaveScreenshot`, 크로미움). WebGL 배경은 숨기고 판 번호는 가림. 기준 그림은 Linux CI 결과물(`*-linux.png`)이라 macOS에서는 건너뜀. 없으면 CI가 `new-snapshots-*`로 올리고 실패
+- **성능 예산**: size-limit(brotli) 첫 화면 48.5 kB(잰 값 47.2), 슬라이더 지연 조각 15 kB(14.4), 조합 워커 84.5 kB(82.1), 인식 워커 5.6 kB(5.4), 전체 JS(pdf.js 빼고) 203 kB(197.4). Lighthouse CI(`lighthouserc.cjs`, 6화면, 결과는 파일로만) 접근성·권장 사항·검색 100점 유지, 성능은 경고만. 성능 기록(`pnpm perf`): 11,172자 처음·다시 계산, 전체 글꼴 OTF·WOFF 만들기 시간을 작업 요약에 씀(실패는 60초를 넘을 때만)
+- **접근성**: 상태별 axe 시험(전체 메뉴 연 상태, 내보내기 입력 오류·빈 자모 안내, 작업실 그리는 중)을 더함. 스토리 axe에 `wcag21a` 태그 추가(Storybook `a11y.test: 'error'`는 그대로)
+- **CI 시간 줄이기**: 작업을 정적 검사·단위·빌드 / E2E 크로미움 / E2E WebKit / Lighthouse로 나눠 동시에, 빌드한 `dist`를 E2E·Lighthouse가 다시 씀, Vite·Storybook·Playwright 브라우저 캐시, 문서만 바뀌면 건너뜀(필수 검사 이름은 결과 작업이 이어받음). 실패할 때만 리포트·차이 그림을 7일 보관. CI_TIMES
+
 ## 2.0.4 - 2026-11-27
 
 - **pdf.js 자료를 사이트 안에 둠**: PDF를 그릴 때 pdf.js가 따로 받는 넣지 않은 표준 글꼴(ZapfDingbats·Symbol, Liberation Sans·Foxit 대체 글꼴), JPEG 2000·JBIG2 그림과 ICC 색 변환 WASM, CMYK 색 프로필, 한중일 문자표를 빌드가 `assets/pdfjs-<판>/`에 원래 이름으로 두고(`vite.config.ts`의 `pdfjsData`, 개발 서버도 같은 주소) pdf.js에 그 주소를 줌. 전에는 주소가 없어 pdf.js가 경고(`standardFontDataUrl API parameter`)만 남기고 그 글자·그림·색 변환을 빼고 그렸음(인터넷과 무관). 사용 허락 전문은 `licenses/pdfjs-*.txt`

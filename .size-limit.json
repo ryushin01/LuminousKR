@@ -1,0 +1,36 @@
+[
+  {
+    "name": "첫 화면(홈): 진입 JS·CSS와 홈 조각",
+    "path": [
+      "dist/assets/index-*.js",
+      "dist/assets/config-*.js",
+      "dist/assets/index-*.css",
+      "dist/assets/home-*.js",
+      "dist/assets/home-*.css",
+      "dist/assets/GlyphView-*.js",
+      "dist/assets/GlyphView-*.css",
+      "dist/assets/page-*.js"
+    ],
+    "limit": "48.5 kB"
+  },
+  {
+    "name": "슬라이더 지연 조각(Ark UI Slider)",
+    "path": ["dist/assets/RangeField-*.js", "dist/assets/RangeField-*.css"],
+    "limit": "15 kB"
+  },
+  {
+    "name": "조합 워커",
+    "path": "dist/assets/engine.worker-*.js",
+    "limit": "84.5 kB"
+  },
+  {
+    "name": "인식 워커",
+    "path": "dist/assets/recognize.worker-*.js",
+    "limit": "5.6 kB"
+  },
+  {
+    "name": "전체 JS(지연 조각 포함, pdf.js 빼고)",
+    "path": ["dist/assets/*.js", "!dist/assets/pdf*"],
+    "limit": "203 kB"
+  }
+]

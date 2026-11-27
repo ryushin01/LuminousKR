@@ -9,6 +9,10 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
+  // 시각 회귀(visual.spec.ts): 글꼴 가장자리 흔들림만 넘기는 작은 허용치
+  expect: { toHaveScreenshot: { maxDiffPixelRatio: 0.002, animations: 'disabled' } },
+  // 기준 그림이 없으면 실제 그림을 써 두고 실패(CI는 그것을 new-snapshots로 올림)
+  updateSnapshots: 'missing',
   use: {
     baseURL: `http://localhost:${PORT}`,
     locale: 'ko-KR',

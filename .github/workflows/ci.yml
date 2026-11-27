@@ -10,37 +10,156 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
-  check:
-    name: Lint · Typecheck · Test · Build · E2E
+  # 문서(*.md, docs/)만 바뀌면 무거운 검사를 건너뜀(필수 검사는 아래 결과 작업이 대신 통과)
+  changes:
+    name: 바뀐 경로
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          predicate-quantifier: every
+          filters: |
+            code:
+              - '!**/*.md'
+              - '!docs/**'
+
+  # 정적 검사·단위 시험(커버리지)·빌드·크기 예산·성능 기록: pnpm check static unit build perf
+  build:
+    name: 정적 검사 · 단위 · 빌드
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-
       # pnpm 버전은 package.json의 packageManager를 따름
       - uses: pnpm/action-setup@v6.1.0
-
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
-
+      # Vite·Storybook 빌드 캐시(원격 캐시는 쓰지 않음)
+      - uses: actions/cache@v6
+        with:
+          path: |
+            node_modules/.vite
+            node_modules/.cache
+          key: build-cache-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+          restore-keys: build-cache-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
       - run: pnpm install --frozen-lockfile
-      - run: pnpm lint
-      - run: pnpm lint:fsd
-      - run: pnpm format:check
-      - run: pnpm typecheck
-      - run: pnpm test
-      # 앱과 Storybook(dist/storybook)을 함께 빌드
-      - run: pnpm build:all
-      # 프로덕션 빌드를 띄워 접근성(axe)·화면 폭별 넘침·키보드 그리기·글꼴 파일 내보내기·스토리를 검사
-      - run: pnpm exec playwright install --with-deps chromium webkit
-      - run: pnpm test:e2e
+      - run: pnpm check static unit build perf
+      # 만든 dist(앱 + Storybook)를 E2E·Lighthouse가 다시 씀
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist/
+          retention-days: 1
       - uses: actions/upload-artifact@v7
         if: failure()
         with:
-          name: playwright-report
+          name: coverage-report
+          path: coverage/
+          retention-days: 7
+
+  # 크로미움·WebKit을 나눠 동시에(시각 회귀는 크로미움만)
+  e2e:
+    name: E2E (${{ matrix.project }})
+    needs: [changes, build]
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [chromium, webkit]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6.1.0
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist/
+      - id: playwright
+        run: echo "version=$(pnpm exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+      - id: browsers
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-${{ matrix.project }}
+      - if: steps.browsers.outputs.cache-hit != 'true'
+        run: pnpm exec playwright install --with-deps ${{ matrix.project }}
+      - if: steps.browsers.outputs.cache-hit == 'true'
+        run: pnpm exec playwright install-deps ${{ matrix.project }}
+      - run: pnpm check e2e -- --project=${{ matrix.project }}
+      # 시각 회귀 기준 그림이 없으면 Playwright가 실제 그림을 써 둠 → 올리고 실패(받아서 커밋)
+      - name: 새 기준 그림 확인
+        if: always()
+        run: |
+          new=$(git status --porcelain --untracked-files=all -- 'e2e/*-snapshots/' | wc -l)
+          echo "new=$new" >> "$GITHUB_ENV"
+          if [ "$new" -gt 0 ]; then
+            echo "::error::시각 회귀 기준 그림 ${new}개가 없어 새로 만들었습니다. new-snapshots 결과물을 받아 커밋해 주세요."
+          fi
+      - uses: actions/upload-artifact@v7
+        if: always() && env.new != '0'
+        with:
+          name: new-snapshots-${{ matrix.project }}
+          path: e2e/*-snapshots/
+          retention-days: 7
+      - if: always() && env.new != '0'
+        run: exit 1
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-report-${{ matrix.project }}
           path: |
             playwright-report/
             test-results/
           retention-days: 7
+
+  lighthouse:
+    name: Lighthouse
+    needs: [changes, build]
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6.1.0
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist/
+      - run: pnpm check lhci
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: lighthouse-report
+          path: .lighthouseci/
+          retention-days: 7
+
+  # 저장소 보호 규칙의 필수 검사 이름. 위 작업이 모두 통과(또는 문서만 바뀌어 건너뜀)해야 통과
+  result:
+    name: Lint · Typecheck · Test · Build · E2E
+    needs: [changes, build, e2e, lighthouse]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "changes=${{ needs.changes.result }} build=${{ needs.build.result }} e2e=${{ needs.e2e.result }} lighthouse=${{ needs.lighthouse.result }}"
+          if [ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" = "true" ]; then exit 1; fi

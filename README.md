@@ -1,14 +1,14 @@
 # LuminousKR - 한글 모듈 글꼴 조합기
 
 [![CI](https://github.com/ryushin01/LuminousKR/actions/workflows/ci.yml/badge.svg)](https://github.com/ryushin01/LuminousKR/actions/workflows/ci.yml)
-![version](https://img.shields.io/badge/version-2.0.4-ff6a1a)
+![version](https://img.shields.io/badge/version-2.0.5-ff6a1a)
 ![Storybook](https://img.shields.io/badge/Storybook-10-FF4785?logo=storybook&logoColor=white)
 
 초·중·종성 획의 뼈대만 그리면 한글 11,172자를 조합해 OTF·WOFF·WOFF2 글꼴 파일로 내보내는 웹 도구입니다. 자모 24자만 그려도 겹자음·겹받침·섞임 모음과 모든 음절이 만들어지고, 영문·숫자·문장부호 94자는 같은 획 스타일을 입는 기본 뼈대로 들어 있어 고쳐 쓸 수 있습니다. 손으로 쓴 양식의 사진·스캔 PDF를 올려 획을 인식해 가져올 수도 있습니다.
 
 **[바로 써 보기](https://ryushin01.github.io/LuminousKR/)** · [Storybook](https://ryushin01.github.io/LuminousKR/storybook/)
 
-> **프로젝트 상태:** 개인 **포트폴리오 프로젝트**(v2.0.4)입니다. 서버 없이 브라우저 안에서만 동작하며, 그린 획·올린 사진·만든 글꼴 파일은 어디에도 보내지 않습니다. 화면 글꼴은 Syne(영문)과 IBM Plex Sans KR(한글)이고, 미리보기 견본은 이 조합기가 기본 프리셋으로 만든 글꼴로 그립니다.
+> **프로젝트 상태:** 개인 **포트폴리오 프로젝트**(v2.0.5)입니다. 서버 없이 브라우저 안에서만 동작하며, 그린 획·올린 사진·만든 글꼴 파일은 어디에도 보내지 않습니다. 화면 글꼴은 Syne(영문)과 IBM Plex Sans KR(한글)이고, 미리보기 견본은 이 조합기가 기본 프리셋으로 만든 글꼴로 그립니다.
 
 ## 화면
 
@@ -75,8 +75,10 @@ pnpm dev    # http://localhost:5173
 | `pnpm build` / `build:all` | 프로덕션 빌드 / Storybook까지 함께 빌드 |
 | `pnpm storybook` | Storybook 개발 서버 (`http://localhost:6006`) |
 | `pnpm lint` / `lint:fsd` / `typecheck` | ESLint / FSD 구조 검사 / 타입 검사 |
-| `pnpm test` | 엔진·인식·화면 단위 테스트 |
-| `pnpm test:e2e` | 프로덕션 빌드의 실제 화면 검사 (먼저 `build:all` 필요) |
+| `pnpm check` | CI와 같은 검사 전부(정적 검사 → 단위·커버리지 → 빌드·크기 예산 → 성능 기록 → E2E → Lighthouse). `pnpm check static unit`처럼 단계만 고를 수 있음 |
+| `pnpm test` / `test:coverage` | 엔진·인식·화면 단위 테스트 / 커버리지 기준(로직 계층 80%)까지 |
+| `pnpm test:e2e` | 프로덕션 빌드의 실제 화면 검사(axe·오프라인·시각 회귀 포함, 먼저 `build:all` 필요) |
+| `pnpm size` / `lhci` / `perf` | 번들 크기 예산(size-limit) / Lighthouse(결과는 `.lighthouseci/`) / 11,172자 계산·OTF 만들기 시간 기록 |
 | `pnpm screenshots` | README 화면(`docs/images`) 다시 찍기 (먼저 `pnpm build` 필요) |
 | `pnpm fonts` | 제목·본문 한글 글꼴(LuminousSans)의 화면 글자 파일과 조각 다시 만들기 (fontTools 필요) |
 
