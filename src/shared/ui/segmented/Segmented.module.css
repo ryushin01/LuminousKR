@@ -1,13 +1,14 @@
+/*
+ * Ark UI SegmentGroup의 부품(data-part="root|label|item|item-text")에 기존 겉모양을 입힙니다.
+ * 상태는 Ark가 항목에 붙이는 data-state·data-focus-visible·data-hover·data-disabled로 고릅니다.
+ */
 .group {
   min-width: 0;
-  margin: 0;
-  padding: 0;
-  border: 0;
 }
 
 .legend {
+  display: block;
   margin-bottom: var(--space-2);
-  padding: 0;
   font-size: 14px;
   font-weight: 600;
 }
@@ -26,22 +27,19 @@
   position: relative;
   flex: 1 1 auto;
   display: flex;
-}
-
-.input {
-  position: absolute;
-  inset: 0;
-  margin: 0;
-  opacity: 0;
   cursor: pointer;
 }
 
-.face {
+.face,
+.faceInner {
   display: flex;
   flex: 1;
   align-items: center;
   justify-content: center;
   gap: 6px;
+}
+
+.face {
   min-height: 36px;
   padding: 0 var(--space-3);
   border-radius: var(--radius-full);
@@ -60,20 +58,24 @@
   font-size: 13px;
 }
 
-.option:hover .face {
+.option[data-hover] .face {
   color: var(--c-text);
 }
 
-.input:checked + .face {
+.option[data-state='checked'] .face {
   background: var(--c-text);
   color: var(--c-void);
 }
 
-.input:focus-visible + .face {
+.option[data-focus-visible] .face {
   outline: 2px solid var(--c-focus);
   outline-offset: 2px;
 }
 
-.group:disabled .face {
+.option[data-disabled] {
+  cursor: not-allowed;
+}
+
+.option[data-disabled] .face {
   opacity: 0.5;
 }

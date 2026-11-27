@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { expect, test } from '@playwright/test'
-import { openPage } from './fixtures.ts'
+import { openPage, setSlider } from './fixtures.ts'
 
 // 이 파일의 시험은 일부러 파일 받기를 실패시키므로 콘솔 오류 검사(fixtures의 consoleErrors)를 쓰지 않습니다.
 
@@ -75,11 +75,11 @@ test('WOFF2 압축기(WASM)를 받지 못하면 새로 고침을 안내하고, �
 test('되돌리기 단축키는 작업실 밖(미리보기의 획 스타일)에서도 듣습니다', async ({ page }) => {
   await openPage(page, '/preview')
   const weight = page.getByRole('slider', { name: '굵기' })
-  await expect(weight).toHaveValue('76')
-  await weight.fill('140')
-  await expect(weight).toHaveValue('140')
+  await expect(weight).toHaveAttribute('aria-valuenow', '76')
+  await setSlider(weight, 140)
+  await expect(weight).toHaveAttribute('aria-valuenow', '140')
   await page.keyboard.press('ControlOrMeta+z')
-  await expect(weight).toHaveValue('76')
+  await expect(weight).toHaveAttribute('aria-valuenow', '76')
 })
 
 test('자동 저장하지 못한 변경이 있으면 새로 고치지 않고 알리며, 버리고 새로 고칠 수 있습니다', async ({
@@ -96,7 +96,7 @@ test('자동 저장하지 못한 변경이 있으면 새로 고치지 않고 알
   })
   await openPage(page, '/preview')
   await page.evaluate(() => sessionStorage.setItem('full', '1'))
-  await page.getByRole('slider', { name: '굵기' }).fill('140')
+  await setSlider(page.getByRole('slider', { name: '굵기' }), 140)
   const chunk = /\/assets\/guide-[^/]+\.js$/
   await page.route(chunk, (route) => route.fulfill({ status: 404, body: 'Not Found' }))
   await page.getByRole('button', { name: '전체 메뉴 열기' }).click()
@@ -135,7 +135,7 @@ for (const viewport of [null, { width: 393, height: 659 }]) {
     // 다른 탭이 덮어쓸, 읽을 수 있는 작업을 먼저 만듭니다.
     const seed = await context.newPage()
     await openPage(seed, '/preview')
-    await seed.getByRole('slider', { name: '굵기' }).fill('130')
+    await setSlider(seed.getByRole('slider', { name: '굵기' }), 130)
     await expect.poll(() => seed.evaluate((name) => localStorage.getItem(name), key)).not.toBeNull()
     const readable = (await seed.evaluate((name) => localStorage.getItem(name), key))!
     await seed.close()

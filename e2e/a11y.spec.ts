@@ -55,3 +55,59 @@ test('배경 움직임 멈추기·재생 버튼 (동작 줄이기 설정이면 �
   await expect(page.getByRole('button', { name: '배경 움직임 멈추기' })).toBeVisible()
   expect(await page.evaluate(() => localStorage.getItem('luminous-kr:motion-paused'))).toBe('false')
 })
+
+test('Ark UI 조작 부품(슬라이더·세그먼트·탭): 레이블, 키보드, 초점 표시, 24px 이상 조작 크기', async ({
+  page,
+  consoleErrors,
+}) => {
+  await openPage(page, '/studio')
+  // 슬라이더: 레이블로 찾고, Tab으로 손잡이에 가면 초점 외곽선이 보이며 화살표로 값이 바뀝니다.
+  const weight = page.getByRole('slider', { name: '굵기' })
+  await expect(weight).toHaveAttribute('aria-valuetext', '76 단위')
+  await weight.focus()
+  await page.keyboard.press('ArrowRight')
+  await expect(weight).toHaveAttribute('aria-valuenow', '77')
+  await expect(weight).toHaveAttribute('aria-valuetext', '77 단위')
+  await page.keyboard.press('ArrowLeft')
+  await expect(weight).toHaveAttribute('aria-valuenow', '76')
+  expect(await weight.evaluate((el) => getComputedStyle(el).outlineStyle)).toBe('solid')
+  // 손잡이의 누르는 자리(::before)는 24×24px 이상입니다.
+  const hit = await weight.evaluate((el) => {
+    const style = getComputedStyle(el, '::before')
+    const box = el.getBoundingClientRect()
+    const inset = -parseFloat(style.top)
+    return { width: box.width + inset * 2, height: box.height + inset * 2 }
+  })
+  expect(hit.width).toBeGreaterThanOrEqual(24)
+  expect(hit.height).toBeGreaterThanOrEqual(24)
+
+  // 세그먼트: 이름 붙은 라디오 묶음이고 화살표로 고르며, 초점이 간 항목에 외곽선이 보입니다.
+  const caps = page.getByRole('radiogroup', { name: '획 끝 모양' })
+  await caps.getByRole('radio', { name: '둥근 끝' }).focus()
+  await page.keyboard.press('ArrowRight')
+  await expect(caps.getByRole('radio', { name: '각진 끝' })).toBeChecked()
+  await expect(caps.getByRole('radio', { name: '각진 끝' })).toBeFocused()
+  const face = caps.locator('[data-part="item"][data-state="checked"] [data-part="item-text"]')
+  expect(await face.evaluate((el) => getComputedStyle(el).outlineStyle)).toBe('solid')
+  const size = await face.boundingBox()
+  expect(size!.height).toBeGreaterThanOrEqual(24)
+
+  // 탭: 화살표로 옮기면 바로 골라지고 그 패널이 보입니다(자동 활성화).
+  const role = page.getByRole('tablist', { name: '자모·글자 갈래' })
+  await role.getByRole('tab', { name: /초성/ }).focus()
+  await page.keyboard.press('ArrowRight')
+  await expect(role.getByRole('tab', { name: /중성/ })).toBeFocused()
+  await expect(role.getByRole('tab', { name: /중성/ })).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByRole('tabpanel', { name: /중성/ })).toBeVisible()
+  await page.keyboard.press('End')
+  await expect(role.getByRole('tab', { name: /숫자·기호/ })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  )
+  await page.keyboard.press('Home')
+  await expect(role.getByRole('tab', { name: /초성/ })).toHaveAttribute('aria-selected', 'true')
+
+  const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze()
+  expect(results.violations.map((v) => v.id)).toEqual([])
+  expect(consoleErrors).toEqual([])
+})

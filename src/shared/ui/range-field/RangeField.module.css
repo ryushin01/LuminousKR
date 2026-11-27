@@ -1,3 +1,7 @@
+/*
+ * Ark UI 슬라이더의 부품(data-part="root|label|value-text|control|track|range|thumb")에
+ * 기존 겉모양을 입힙니다. 상태는 Ark가 붙이는 data-disabled·data-dragging으로 고릅니다.
+ */
 .field {
   display: grid;
   gap: var(--space-2);
@@ -27,66 +31,69 @@
   color: var(--c-text-faint);
 }
 
-.range {
-  --fill: 50%;
-  width: 100%;
+/*
+ * 손잡이 가운데가 양 끝 값에 오므로, 손잡이 반지름만큼 좌우를 비워 칸 밖으로 나가지 않게 합니다.
+ * 막대(track)는 그만큼 다시 펴서 칸 너비 전체에 그립니다(네이티브 range와 같은 모양). 채운 부분의 끝은
+ * 늘 손잡이 아래에 들어갑니다.
+ */
+.control {
+  display: flex;
+  align-items: center;
   height: 28px;
-  margin: 0;
-  background: transparent;
-  appearance: none;
+  margin-inline: 10px;
   cursor: pointer;
 }
 
-.range:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
-}
-
-.range::-webkit-slider-runnable-track {
+.track {
+  position: relative;
+  flex: 1;
   height: 4px;
-  border-radius: var(--radius-full);
-  background: linear-gradient(
-    to right,
-    var(--c-accent) var(--fill),
-    var(--c-control-line) var(--fill)
-  );
-}
-
-.range::-moz-range-track {
-  height: 4px;
+  margin-inline: -10px;
   border-radius: var(--radius-full);
   background: var(--c-control-line);
 }
 
-.range::-moz-range-progress {
-  height: 4px;
+.range {
+  height: 100%;
   border-radius: var(--radius-full);
   background: var(--c-accent);
 }
 
-.range::-webkit-slider-thumb {
+.thumb {
+  box-sizing: border-box;
   width: 20px;
   height: 20px;
-  margin-top: -8px;
   border: 3px solid var(--c-void);
   border-radius: 50%;
   background: var(--c-glow);
   box-shadow:
     0 0 0 1px var(--c-accent),
     0 0 16px rgb(255 140 70 / 0.5);
-  appearance: none;
+  cursor: grab;
 }
 
-.range::-moz-range-thumb {
-  width: 16px;
-  height: 16px;
-  border: 3px solid var(--c-void);
+/* 보이는 손잡이는 20px이지만 누르는 자리는 28×28px(WCAG 2.5.8 24px 이상)로 넓힙니다. */
+.thumb::before {
+  content: '';
+  position: absolute;
+  inset: -7px;
   border-radius: 50%;
-  background: var(--c-glow);
-  box-shadow: 0 0 0 1px var(--c-accent);
 }
 
-.range:focus-visible {
-  outline-offset: 2px;
-  border-radius: var(--radius-s);
+.thumb[data-dragging] {
+  cursor: grabbing;
+}
+
+.thumb:focus-visible {
+  outline: 2px solid var(--c-focus);
+  outline-offset: 3px;
+}
+
+.field[data-disabled] .control,
+.field[data-disabled] .thumb {
+  cursor: not-allowed;
+}
+
+.field[data-disabled] .control {
+  opacity: 0.5;
 }

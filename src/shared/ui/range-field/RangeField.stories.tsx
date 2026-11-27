@@ -29,3 +29,20 @@ export const Weight: Story = {
     )
   },
 }
+
+/** 꺼진 슬라이더: Ark의 data-disabled로 흐리게 그리고 Tab 순서에서 뺍니다. */
+export const Disabled: Story = {
+  render: () => (
+    <div style={{ 'max-width': '360px' }}>
+      <RangeField
+        label="기울기"
+        value={6}
+        min={0}
+        max={15}
+        onInput={() => {}}
+        format={(v) => `${v}도`}
+        disabled
+      />
+    </div>
+  ),
+}

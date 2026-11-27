@@ -13,6 +13,14 @@
 | entities | font | 자모 모델·배치·파생 규칙, 조합 엔진, 조합 워커, 글리프 표시 |
 | shared | lib(hangul, geometry, font-file, pdf, image, worker-rpc …), ui, config | 업무와 무관한 도구와 공용 UI |
 
+### 공용 조작 부품과 Ark UI
+
+`shared/ui`의 슬라이더(`RangeField`), 하나 고르기 묶음(`Segmented`), 탭(`Tabs`)은 [Ark UI](https://ark-ui.com)(`@ark-ui/solid`)의 Slider·SegmentGroup·Tabs로 만듭니다. 바깥에 보이는 속성(props)은 그대로이고, 키보드·ARIA 동작은 Ark(Zag.js)가 맡습니다. 겉모양은 부품마다 CSS Modules 클래스를 붙이고, 상태는 Ark가 붙이는 `data-state`·`data-selected`·`data-focus-visible`·`data-disabled`·`data-dragging`으로 고릅니다(`data-scope`·`data-part`로 어떤 부품인지 알 수 있음).
+
+- 슬라이더 손잡이는 `role="slider"`라 E2E에서 `fill()`을 쓸 수 없습니다. `e2e/fixtures.ts`의 `setSlider()`(Home → PageUp → 화살표)로 값을 맞추고 `aria-valuenow`로 확인합니다.
+- 탭은 Ark의 수동 활성화에 두고, 탭의 `onFocus`에서 직접 골라 자동 활성화로 씁니다(Ark의 자동 활성화는 초점과 선택을 다른 화면 그리기 때 처리해 이전 탭을 고르는 경우가 있었음).
+- 그대로 둔 것: 셀렉트(`SelectField`, 네이티브 `<select>`가 휴대폰의 OS 고르기 화면·키보드·폼을 그대로 주고 Ark Select는 떠 있는 목록 위치 계산이 더 듦), 전체 메뉴(네이티브 `<dialog>`의 `showModal()`이 초점 가두기·Esc·배경 비활성화를 줌), 진행 표시(네이티브 `<progress>`), 툴팁(`title`로 덧붙인 설명뿐이라 따로 띄울 툴팁이 없음), 자모·글자 판(`JamoPalette`, 수십 개 타일의 네이티브 라디오 묶음으로 주소 열기와 묶여 있음), 체크박스.
+
 경로 별칭은 `@/` → `src/`입니다. 같은 슬라이스 안에서는 확장자를 붙인 상대 경로(`./layout.ts`)로 가져옵니다.
 
 ## 명령
