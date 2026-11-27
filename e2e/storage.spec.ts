@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import type { Page } from '@playwright/test'
-import { expect, openPage, test } from './fixtures.ts'
+import { expect, openPage, test, setSlider } from './fixtures.ts'
 
 const PROJECT_KEY = 'luminous-kr:project:v1'
 
@@ -53,12 +53,12 @@ test('여러 탭: 한 탭에서 그린 획을 다른 탭이 받아 맞추고, �
   ).toBeVisible()
 
   // 미리보기 탭에서 굵기를 바꿔도 작업실 탭에서 그린 획이 남습니다.
-  await other.getByRole('slider', { name: '굵기' }).fill('120')
+  await setSlider(other.getByRole('slider', { name: '굵기' }), 120)
   await expect.poll(() => saved(other)).toEqual({ L0: 2, weight: 120 })
   // 작업실 탭도 바뀐 굵기를 받습니다.
-  await expect(page.getByRole('slider', { name: '굵기' })).toHaveValue('120')
+  await expect(page.getByRole('slider', { name: '굵기' })).toHaveAttribute('aria-valuenow', '120')
   await page.reload()
-  await expect(page.getByRole('slider', { name: '굵기' })).toHaveValue('120')
+  await expect(page.getByRole('slider', { name: '굵기' })).toHaveAttribute('aria-valuenow', '120')
   expect(await saved(page)).toEqual({ L0: 2, weight: 120 })
   await other.close()
   expect(consoleErrors).toEqual([])
@@ -73,7 +73,7 @@ test('자동 저장에 실패하면 원인과 할 일을 알립니다', async ({
     }
   }, PROJECT_KEY)
   await openPage(page, '/studio')
-  await page.getByRole('slider', { name: '굵기' }).fill('120')
+  await setSlider(page.getByRole('slider', { name: '굵기' }), 120)
   const alert = page.getByRole('alert').filter({ hasText: '자동 저장하지 못했습니다' })
   // 0.4초 뒤 저장을 시도해야 나타나므로, 바쁜 기기에서도 넉넉히 기다립니다.
   await expect(alert).toBeVisible({ timeout: 15_000 })
@@ -109,11 +109,11 @@ test('읽지 못한 저장은 지우지 않고 보관해, 받거나 지울 수 �
 
 test('바꾸고 바로 탭을 닫아도 마지막 변경이 저장됩니다', async ({ context, page }) => {
   await openPage(page, '/studio')
-  await page.getByRole('slider', { name: '굵기' }).fill('133')
+  await setSlider(page.getByRole('slider', { name: '굵기' }), 133)
   await page.close({ runBeforeUnload: true })
   const next = await context.newPage()
   await openPage(next, '/studio')
-  await expect(next.getByRole('slider', { name: '굵기' })).toHaveValue('133')
+  await expect(next.getByRole('slider', { name: '굵기' })).toHaveAttribute('aria-valuenow', '133')
 })
 
 test('읽지 못한 저장을 보관할 공간이 없으면, 받아 두고 버리기 전까지 자동 저장이 덮어쓰지 않습니다', async ({
@@ -139,7 +139,7 @@ test('읽지 못한 저장을 보관할 공간이 없으면, 받아 두고 버�
   )
   await openPage(page, '/studio')
   await expect(page.getByRole('alert').filter({ hasText: '자동 저장을 멈췄습니다' })).toBeVisible()
-  await page.getByRole('slider', { name: '굵기' }).fill('120')
+  await setSlider(page.getByRole('slider', { name: '굵기' }), 120)
   await page.waitForTimeout(700)
   expect(await page.evaluate((key) => localStorage.getItem(key), PROJECT_KEY)).toBe(broken)
 
@@ -182,7 +182,7 @@ test('다른 탭이 읽지 못하는 형식(더 새 버전)으로 저장하면, 
   await expect(
     page.getByRole('alert').filter({ hasText: '이 탭의 자동 저장을 멈췄습니다' }),
   ).toBeVisible()
-  await page.getByRole('slider', { name: '굵기' }).fill('120')
+  await setSlider(page.getByRole('slider', { name: '굵기' }), 120)
   await page.waitForTimeout(700)
   expect(await page.evaluate((key) => localStorage.getItem(key), PROJECT_KEY)).toBe(newer)
   await other.close()

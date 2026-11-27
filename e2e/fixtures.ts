@@ -1,4 +1,4 @@
-import { type Page, expect, test as base } from '@playwright/test'
+import { type Locator, type Page, expect, test as base } from '@playwright/test'
 
 /** 화면 낭독기·키보드 검사에 무관한 소프트웨어 WebGL 성능 경고 */
 const IGNORED_CONSOLE = [/GPU stall due to ReadPixels/, /GL Driver Message/]
@@ -35,3 +35,19 @@ export const ROUTES = [
   { path: '/guide', title: '안내' },
   { path: '/no-such-page', title: '없는 화면' },
 ] as const
+
+/**
+ * 슬라이더(Ark UI, role="slider")를 키보드로 값에 맞춥니다. 네이티브 range가 아니라 fill()을 쓸 수 없어
+ * Home으로 가장 작은 값에 간 뒤 PageUp(한 칸의 10배)과 오른쪽 화살표로 올립니다.
+ */
+export async function setSlider(slider: Locator, value: number, step = 1): Promise<void> {
+  const min = Number(await slider.getAttribute('aria-valuemin'))
+  await slider.focus()
+  await slider.press('Home')
+  const large = step * 10
+  const pages = Math.floor((value - min) / large)
+  for (let i = 0; i < pages; i++) await slider.press('PageUp')
+  const rest = Math.round((value - min - pages * large) / step)
+  for (let i = 0; i < rest; i++) await slider.press('ArrowRight')
+  await expect(slider).toHaveAttribute('aria-valuenow', String(value))
+}

@@ -1,3 +1,4 @@
+/* Ark UI Tabs의 부품(data-part="list|trigger|content")에 기존 겉모양을 입힙니다. */
 /* 좁은 곳에서는 탭을 여러 줄로 놓습니다(가로로 밀려 보이지 않는 탭이 없게). */
 .list {
   display: flex;
@@ -22,11 +23,11 @@
   color: var(--c-text);
 }
 
-.tab[aria-selected='true'] {
+.tab[data-selected] {
   color: var(--c-text);
 }
 
-.tab[aria-selected='true']::after {
+.tab[data-selected]::after {
   content: '';
   position: absolute;
   inset: auto var(--space-2) -1px;

@@ -1,6 +1,6 @@
 {
   "name": "luminous-kr",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "private": true,
   "description": "초·중·종성 획만 그리면 한글 11,172자를 조합해 글꼴 파일로 내보내는 웹 도구",
   "type": "module",
@@ -27,6 +27,7 @@
     "fonts": "node scripts/build-fonts.mjs"
   },
   "dependencies": {
+    "@ark-ui/solid": "^5.40.1",
     "@fontsource-variable/syne": "^5.3.0",
     "@solidjs/router": "^1.0.3",
     "brotli-wasm": "^3.0.1",

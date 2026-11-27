@@ -1,4 +1,4 @@
-import { render, screen } from '@solidjs/testing-library'
+import { render, screen, waitFor } from '@solidjs/testing-library'
 import userEvent from '@testing-library/user-event'
 import { createSignal } from 'solid-js'
 import { describe, expect, it } from 'vitest'
@@ -31,20 +31,24 @@ describe('Tabs (APG 탭)', () => {
     expect(screen.getByText('중성 목록').closest('[role="tabpanel"]')).not.toBeVisible()
   })
 
+  // Ark(zag)는 다음 화면 그리기 때 초점·선택을 옮기므로 waitFor로 기다립니다.
   it('화살표·Home·End로 탭을 옮기고, 선택된 탭만 Tab 순서에 남깁니다', async () => {
     const user = userEvent.setup()
     render(() => <Example />)
     await user.tab()
     expect(screen.getByRole('tab', { name: '초성' })).toHaveFocus()
     await user.keyboard('{ArrowRight}')
-    expect(screen.getByRole('tab', { name: '중성' })).toHaveFocus()
-    expect(screen.getByRole('tab', { name: '중성' })).toHaveAttribute('aria-selected', 'true')
+    await waitFor(() => expect(screen.getByRole('tab', { name: '중성' })).toHaveFocus())
+    await waitFor(() =>
+      expect(screen.getByRole('tab', { name: '중성' })).toHaveAttribute('aria-selected', 'true'),
+    )
     expect(screen.getByRole('tab', { name: '초성' })).toHaveAttribute('tabindex', '-1')
+    expect(screen.getByRole('tabpanel', { name: '중성' })).toBeVisible()
     await user.keyboard('{End}')
-    expect(screen.getByRole('tab', { name: '종성' })).toHaveFocus()
+    await waitFor(() => expect(screen.getByRole('tab', { name: '종성' })).toHaveFocus())
     await user.keyboard('{ArrowRight}')
-    expect(screen.getByRole('tab', { name: '초성' })).toHaveFocus()
+    await waitFor(() => expect(screen.getByRole('tab', { name: '초성' })).toHaveFocus())
     await user.keyboard('{Home}{ArrowLeft}')
-    expect(screen.getByRole('tab', { name: '종성' })).toHaveFocus()
+    await waitFor(() => expect(screen.getByRole('tab', { name: '종성' })).toHaveFocus())
   })
 })

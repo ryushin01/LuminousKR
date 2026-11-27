@@ -120,11 +120,11 @@ test('영문·숫자·기호 탭에서 글자를 골라 기본 뼈대를 고치�
   await expect(list.getByText(/^직선, 점 /)).toHaveCount(2)
   // 너비: 키보드로 한 칸 넓히면 그 글자의 너비(글꼴 단위)가 커집니다.
   const width = page.getByRole('slider', { name: '이 글자의 너비' })
-  await expect(width).toHaveValue('64')
+  await expect(width).toHaveAttribute('aria-valuenow', '64')
   const before = Number((await width.getAttribute('aria-valuetext'))!.replace(/\D/g, ''))
   await width.focus()
   await page.keyboard.press('ArrowRight')
-  await expect(width).toHaveValue('65')
+  await expect(width).toHaveAttribute('aria-valuenow', '65')
   const after = Number((await width.getAttribute('aria-valuetext'))!.replace(/\D/g, ''))
   expect(after).toBeGreaterThan(before)
   await page.getByRole('button', { name: '기본 뼈대로 되돌리기' }).click()

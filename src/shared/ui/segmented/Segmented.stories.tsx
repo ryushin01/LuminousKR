@@ -70,3 +70,20 @@ export const Tools: Story = {
     )
   },
 }
+
+/** 배치(벌)처럼 보이는 글자와 접근 이름이 다른 항목, 꺼진 묶음 */
+export const AccessibleLabelsDisabled: Story = {
+  render: () => (
+    <Segmented
+      legend="배치 (벌)"
+      size="small"
+      value="a"
+      onChange={() => {}}
+      disabled
+      options={[
+        { value: 'a', label: '가', accessibleLabel: '가 모양 (세로 모음 옆), 기본 그림' },
+        { value: 'b', label: '고', accessibleLabel: '고 모양 (가로 모음 위)' },
+      ]}
+    />
+  ),
+}

@@ -48,6 +48,7 @@ const TECH = [
   { name: 'Clipper2 (clipper2-ts)', use: '뼈대에 두께 입히기, 겹친 획 합치기' },
   { name: 'pdf.js (pdfjs-dist)', use: '올린 PDF를 그림으로 바꾸기' },
   { name: 'SolidJS', use: '화면 구성' },
+  { name: 'Ark UI (@ark-ui/solid)', use: '값 조절 막대·탭·세그먼트의 키보드 조작과 접근성' },
 ]
 
 const SOURCES_URL = 'https://github.com/ryushin01/LuminousKR#출처'
